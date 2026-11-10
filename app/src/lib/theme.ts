@@ -16,19 +16,19 @@ export type Theme = {
 };
 
 export const DEFAULT_THEME: Theme = {
-  primary: "#7042A0", background: "#FAFAF8", surface: "#ffffff", text: "#172033", line: "#E5E5E0",
-  sidebar: "#7042A0", font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 8, logo: "", dark: false,
+  primary: "#ea580c", background: "#fff7ed", surface: "#ffffff", text: "#172033", line: "#E5E5E0",
+  sidebar: "#ea580c", font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 8, logo: "", dark: false,
 };
 
 /** First matching role wins, independently of the order saved on the account. */
 export const ROLE_COLORS: Record<Role, string> = {
-  ADMIN: "#7042A0",
-  PRINCIPAL: "#2D5078",
-  VICE_PRINCIPAL: "#2C719E",
+  ADMIN: "#ea580c",
+  PRINCIPAL: "#ea580c",
+  VICE_PRINCIPAL: "#ea580c",
   HOMEROOM_TEACHER: "#30794B",
   SUBJECT_TEACHER: "#1D7973",
   LIBRARIAN: "#8C602D",
-  STUDENT: "#B75B30",
+  STUDENT: "#ea580c",
 };
 
 export function themeForRoles(roles: readonly Role[]): Theme {
@@ -97,7 +97,7 @@ function lum(hex: string) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-const LIGHT_COLORS = { background: "#FAFAF8", surface: "#ffffff", text: "#172033", line: "#E5E5E0", sidebar: "#7042A0" };
+const LIGHT_COLORS = { background: "#fff7ed", surface: "#ffffff", text: "#172033", line: "#E5E5E0", sidebar: "#ea580c" };
 const DARK_COLORS = { background: "#0f172a", surface: "#1e293b", text: "#e2e8f0", line: "#334155", sidebar: "#020617" };
 
 function block(t: Theme, dark: boolean) {

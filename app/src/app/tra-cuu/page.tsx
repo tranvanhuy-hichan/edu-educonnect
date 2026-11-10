@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { fmtDate, fmtTime } from "@/lib/format";
 import { PrintButton } from "./print-btn";
+import { ModeToggle } from "@/components/layout/mode-toggle";
 import {
   Award,
   BookOpen,
@@ -161,12 +162,15 @@ export default async function PublicStudentLookup({
               <div className="text-xs text-orange-600 font-semibold tracking-wide">CỔNG THÔNG TIN SỔ LIÊN LẠC ĐIỆN TỬ</div>
             </div>
           </div>
-          <Link
-            href="/login"
-            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
-          >
-            Đăng nhập giáo viên / học sinh
-          </Link>
+          <div className="flex items-center gap-2">
+            <ModeToggle />
+            <Link
+              href="/login"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+            >
+              Đăng nhập giáo viên / học sinh
+            </Link>
+          </div>
         </div>
       </header>
 
