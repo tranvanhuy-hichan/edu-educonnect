@@ -1,4 +1,7 @@
 "use server";
+import { contextFor } from "@/infrastructure/database/unit-of-work";
+
+import { moveStudent } from "@/modules/academic/transfers";
 import { createClassWithSubjects, setClassSubjects } from "@/modules/curriculum/service";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -71,7 +74,7 @@ export const updateClass = wrap(async (fd) => {
         await tx.timetableSlot.deleteMany({ where: { schoolClassId: id, periodNo: { lte: 5 } } });
       }
     }
-    await setClassSubjects(tx, id, fd.getAll("subjectIds").map(String));
+    await setClassSubjects(contextFor(tx), id, fd.getAll("subjectIds").map(String));
     await tx.schoolClass.update({ where: { id }, data: d });
   });
   if (d.homeroomTeacherId) await ensureTeacherRole(d.homeroomTeacherId, "HOMEROOM_TEACHER");
@@ -87,6 +90,7 @@ export const deleteClass = wrap(async (fd) => {
   if (a || s || l) throw new Error("Lớp đã có phân công / thời khoá biểu / sổ đầu bài, hãy chuyển học sinh sang lớp khác thay vì xoá");
   await db.classEmulationScore.deleteMany({ where: { schoolClassId: id } });
   await db.studentClassEnrollment.deleteMany({ where: { schoolClassId: id } });
+  if (await db.classTransfer.count({ where: { OR: [{ fromClassId: id }, { toClassId: id }] } })) throw new Error("Lớp có quyết định chuyển học sinh, không thể xóa lịch sử");
   await db.schoolClass.delete({ where: { id } });
   await audit(me.email, "delete_class", "SchoolClass", id);
   revalidatePath("/lop-hoc");
@@ -108,7 +112,9 @@ export const enrollStudent = wrap(async (fd) => {
 
 export const removeEnrollment = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
-  const e = await db.studentClassEnrollment.delete({ where: { id: str(fd, "id") } });
+  const e = await db.studentClassEnrollment.findUniqueOrThrow({ where: { id: str(fd, "id") } });
+  if (await db.classTransfer.count({ where: { studentId: e.studentId, academicYearId: e.academicYearId } }) || await db.scoreEntry.count({ where: { studentId: e.studentId, academicTerm: { academicYearId: e.academicYearId } } }) || await db.studentAssessment.count({ where: { studentId: e.studentId, assignment: { academicTerm: { academicYearId: e.academicYearId } } } })) throw new Error("Học sinh có lịch sử học tập/chuyển lớp; không xóa ghi danh, hãy dùng chuyển lớp");
+  await db.studentClassEnrollment.delete({ where: { id: e.id } });
   await db.schoolClass.updateMany({ where: { id: e.schoolClassId, monitorStudentId: e.studentId }, data: { monitorStudentId: null } });
   await audit(me.email, "remove_enrollment", "StudentClassEnrollment", e.studentId);
   revalidatePath(`/lop-hoc/${e.schoolClassId}`); revalidatePath(`/hoc-sinh/${e.studentId}`);
@@ -118,13 +124,9 @@ export const transferStudent = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
   const e = await db.studentClassEnrollment.findUniqueOrThrow({ where: { id: str(fd, "id") } });
   const toClassId = str(fd, "toClassId");
-  if (!toClassId || toClassId === e.schoolClassId) throw new Error("Chọn lớp khác");
   const target = await db.schoolClass.findUniqueOrThrow({ where: { id: toClassId } });
-  if (target.academicYearId !== e.academicYearId) throw new Error("Chỉ chuyển được sang lớp cùng năm học");
-  if ((await db.studentClassEnrollment.count({ where: { schoolClassId: toClassId } })) >= CLASS_CAPACITY) throw new Error(`Lớp ${target.className} đã đủ sĩ số`);
-  await db.studentClassEnrollment.update({ where: { id: e.id }, data: { schoolClassId: toClassId } });
-  await db.schoolClass.updateMany({ where: { id: e.schoolClassId, monitorStudentId: e.studentId }, data: { monitorStudentId: null } });
-  await audit(me.email, "transfer_student", "StudentClassEnrollment", e.studentId);
+  if (target.academicYearId !== e.academicYearId) throw new Error("Chỉ chuyển sang lớp cùng năm học");
+  await moveStudent(me, { studentId: e.studentId, targetClassId: toClassId, effectiveDate: str(fd, "effectiveDate"), reason: str(fd, "reason"), decisionReference: str(fd, "decisionReference") });
   revalidatePath(`/lop-hoc/${e.schoolClassId}`); revalidatePath(`/lop-hoc/${toClassId}`); revalidatePath(`/hoc-sinh/${e.studentId}`);
   return `Đã chuyển sang lớp ${target.className}`;
 });

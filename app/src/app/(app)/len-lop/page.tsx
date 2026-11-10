@@ -1,28 +1,22 @@
+import { YearResults } from "@/components/academic/year-results";
 import Link from "next/link";
-import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { AutoForm } from "@/components/auto-form";
-import { MobileCollapse } from "@/components/mobile-collapse";
 import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
-import { Pagination } from "@/components/pagination";
-import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
-import { resolveReExamResult, runPromotion, saveClassResults } from "./actions";
+import { resolveReExamResult, runPromotion } from "./actions";
 
 type SP = { tab?: string; yearId?: string; toYearId?: string; classId?: string; q?: string; result?: string; page?: string; size?: string };
-const RESULT_LABEL = { LEN_LOP: "Lên lớp", O_LAI: "Ở lại", THI_LAI: "Thi lại" } as const;
-const RESULT_TONE = { LEN_LOP: "bg-green-100 text-green-800", O_LAI: "bg-red-100 text-red-800", THI_LAI: "bg-yellow-100 text-yellow-800" } as const;
-const CONDUCTS = ["Tốt", "Khá", "Trung bình"];
+const RESULT_TONE = { CHUA_DU_DIEU_KIEN: "bg-slate-100 text-slate-600", LEN_LOP: "bg-green-100 text-green-800", O_LAI: "bg-red-100 text-red-800", THI_LAI: "bg-yellow-100 text-yellow-800" } as const;
 const JOB_LABEL: Record<string, string> = { PENDING: "Chờ chạy", RUNNING: "Đang chạy", DONE: "Hoàn tất", FAILED: "Thất bại" };
 
 export default async function Promotion({ searchParams }: { searchParams: Promise<SP> }) {
   await requireRole(...MANAGER_ROLES);
   const sp = await searchParams;
   const tab = sp.tab === "run" ? "run" : sp.tab === "re-exam" ? "re-exam" : "results";
-  const pg = getPaging(sp, 20);
   const years = await db.academicYear.findMany({ orderBy: { startDate: "desc" } });
   const yearId = sp.yearId && years.some((y) => y.id === sp.yearId) ? sp.yearId : years[0]?.id;
   const yearIdx = years.findIndex((y) => y.id === yearId);
@@ -100,45 +94,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
       })()}
 
       {/* Một lớp: danh sách học sinh, bấm tên để ghi kết quả + hạnh kiểm một lần */}
-      {tab === "results" && classes.some((c) => c.id === sp.classId) && await (async () => {
-        const cls = classes.find((c) => c.id === sp.classId)!;
-        const where: Prisma.StudentClassEnrollmentWhereInput = {
-          academicYearId: yearId, schoolClassId: cls.id,
-          ...(sp.q ? { student: { OR: [{ fullName: { contains: sp.q, mode: "insensitive" } }, { code: { contains: sp.q, mode: "insensitive" } }] } } : {}),
-          ...(sp.result === "none" ? { student: { yearEndResults: { none: { academicYearId: yearId } } } } : sp.result && sp.result in RESULT_LABEL ? { student: { yearEndResults: { some: { academicYearId: yearId, result: sp.result as keyof typeof RESULT_LABEL } } } } : {}),
-        };
-        const rows = await db.studentClassEnrollment.findMany({ where, orderBy: { student: { fullName: "asc" } }, include: { student: { include: { yearEndResults: { where: { academicYearId: yearId } } } } } });
-        const avgs = await db.subjectTermAverage.groupBy({ by: ["studentId"], where: { studentId: { in: rows.map((r) => r.studentId) }, academicTerm: { academicYearId: yearId } }, _avg: { averageValue: true } });
-        const avgOf = new Map(avgs.map((a) => [a.studentId, a._avg.averageValue]));
-        return (
-          <div className="space-y-3">
-            <AutoForm className="flex flex-wrap items-center gap-2">
-              <input type="hidden" name="tab" value="results" /><input type="hidden" name="yearId" value={yearId} /><input type="hidden" name="classId" value={cls.id} />
-              <input name="q" defaultValue={sp.q} placeholder="Tìm theo tên, mã học sinh..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
-              <select name="result" defaultValue={sp.result ?? ""} className={inputCls}><option value="">Tất cả kết quả</option><option value="none">Chưa có kết quả</option>{Object.entries(RESULT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-            </AutoForm>
-            <ActionForm action={saveClassResults} submit="Lưu kết quả cả lớp" reset={false} className="flex flex-col gap-3 [&>button]:self-end">
-              <input type="hidden" name="academicYearId" value={yearId} />
-              <input type="hidden" name="ids" value={rows.map((e) => e.studentId).join(",")} />
-              <Table head={["Học sinh", "Điểm TB cả năm", "Kết quả", "Hạnh kiểm"]}>
-                {rows.map((e) => {
-                  const r = e.student.yearEndResults[0];
-                  const avg = avgOf.get(e.studentId);
-                  return (
-                    <tr key={e.id} className="align-middle [&>td]:!py-2.5">
-                      <td><Link data-row href={`/hoc-sinh/${e.studentId}`} className="font-semibold hover:text-orange-700">{e.student.fullName}</Link><div className="text-xs text-slate-500">{e.student.code}</div></td>
-                      <td>{avg != null ? avg.toFixed(2) : <span className="text-slate-400">—</span>}<input type="hidden" name={`avg_${e.studentId}`} value={(r?.overallAverage ?? avg ?? 0).toFixed(2)} /></td>
-                      <td><select name={`result_${e.studentId}`} defaultValue={r?.result ?? "LEN_LOP"} className={inputCls + " w-40"}>{Object.entries(RESULT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td>
-                      <td><select name={`conduct_${e.studentId}`} defaultValue={r?.conductRank ?? "Tốt"} className={inputCls + " w-44"}>{[...CONDUCTS, ...(r?.conductRank && !CONDUCTS.includes(r.conductRank) ? [r.conductRank] : [])].map((c) => <option key={c} value={c}>{c}</option>)}</select></td>
-                    </tr>
-                  );
-                })}
-                {!rows.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Không có học sinh nào phù hợp.</td></tr>}
-              </Table>
-            </ActionForm>
-          </div>
-        );
-      })()}
+      {tab === "results" && classes.some((c) => c.id === sp.classId) && <YearResults classId={sp.classId!} academicYearId={yearId} manager />}
 
       {/* ===================== XỬ LÝ THI LẠI ===================== */}
       {tab === "re-exam" && await (async () => {
@@ -195,7 +151,8 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
                                 <input name="score" type="text" inputMode="decimal" defaultValue={String(r.overallAverage)} required className={inputCls + " w-full"} />
                               </Field>
                               <Field label="Quyết định công nhận">
-                                <select name="result" className={inputCls + " w-full"} required defaultValue="LEN_LOP">
+                                <select name="result" className={inputCls + " w-full"} required defaultValue="">
+                                  <option value="">Chọn đề xuất</option>
                                   <option value="LEN_LOP">Lên lớp</option>
                                   <option value="O_LAI">Ở lại lớp</option>
                                 </select>
@@ -224,7 +181,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
       {tab === "run" && await (async () => {
         const [toClasses, results, jobs] = await Promise.all([
           toYearId ? db.schoolClass.findMany({ where: { academicYearId: toYearId }, orderBy: { className: "asc" }, include: { gradeLevel: true } }) : Promise.resolve([]),
-          db.yearEndResult.findMany({ where: { academicYearId: yearId }, select: { result: true, student: { select: { enrollments: { where: { academicYearId: yearId }, select: { schoolClassId: true } } } } } }),
+          db.yearEndResult.findMany({ where: { academicYearId: yearId, reviewStatus: "APPROVED" }, select: { result: true, student: { select: { enrollments: { where: { academicYearId: yearId }, select: { schoolClassId: true } } } } } }),
           db.classPromotionJob.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
         ]);
         const stat = new Map<string, { up: number; stay: number; retake: number; resulted: number }>();
@@ -267,7 +224,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
                     })}
                     {!classes.length && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Năm học nguồn chưa có lớp.</td></tr>}
                   </Table>
-                  <p className="text-xs text-slate-500">Chỉ học sinh đã có kết quả cuối năm mới được chuyển. Học sinh &ldquo;Thi lại&rdquo; và chưa có kết quả được giữ nguyên để xử lý sau.</p>
+                  <p className="text-xs text-slate-500">Chỉ học sinh đã có kết quả cuối năm được phê duyệt mới được chuyển. Học sinh &ldquo;Thi lại&rdquo; và chưa có kết quả được giữ nguyên để xử lý sau.</p>
                 </ActionForm>
               )}
             <Card className="p-0">

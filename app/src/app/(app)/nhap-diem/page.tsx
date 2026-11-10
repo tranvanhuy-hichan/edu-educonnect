@@ -1,12 +1,13 @@
+import { termIsLocked } from "@/modules/scoring/locking";
 import Link from "next/link";
 import { AutoForm } from "@/components/auto-form";
 import { ActionForm } from "@/components/action-form";
 import { DialogButton } from "@/components/dialog";
 import { MobileCollapse } from "@/components/mobile-collapse";
-import { BarChart3, ChevronRight, ClipboardCheck, Lock, Percent, Unlock, Users } from "lucide-react";
+import { BarChart3, ChevronRight, ClipboardCheck, Percent, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
-import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
+import { Card, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { ViewToggle } from "@/components/view-toggle";
 import { Pagination } from "@/components/pagination";
 import { BarList, ColumnChart, Donut } from "@/components/charts";
@@ -42,7 +43,7 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
         </p>
         <div className="divide-y rounded-lg border bg-white">
           {terms.map((t) => {
-            const isPast15 = t.endDate && (Date.now() - new Date(t.endDate).getTime() > 15 * 24 * 60 * 60 * 1000);
+            const isPast15 = termIsLocked({ ...t, isLocked: false });
             return (
               <div key={t.id} className="flex items-center justify-between p-3 text-sm">
                 <div>
@@ -57,9 +58,9 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
                     )}
                   </div>
                 </div>
-                <ActionForm action={toggleLockTerm} submit={t.isLocked ? "Mở khóa" : "Khóa sổ"} className="inline" reset={false}>
+                <ActionForm action={toggleLockTerm} submit="Khóa sổ / thu hồi quyền sửa" className="inline" reset={false}>
                   <input type="hidden" name="termId" value={t.id} />
-                  <input type="hidden" name="lock" value={t.isLocked ? "false" : "true"} />
+                  <input type="hidden" name="lock" value="true" />
                 </ActionForm>
               </div>
             );
@@ -109,7 +110,7 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
                         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full" style={{ width: `${pct}%`, background: pct >= 100 ? "#22c55e" : "var(--color-orange-500)" }} /></div>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-xs text-slate-500">Điểm TB (thang 10)</div>
+                        <div className="text-xs text-slate-500">{c.assessmentType === "COMMENT" ? "Đánh giá bằng nhận xét" : "Điểm TB (thang 10)"}</div>
                         {band ? <div className="mt-0.5 font-semibold" style={{ color: band.color }}>{fmt(c.avgNorm, 2)} <span className="text-xs font-normal text-slate-500">· {band.label}</span></div> : <div className="mt-0.5 text-slate-400">—</div>}
                       </div>
                     </div>

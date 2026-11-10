@@ -24,7 +24,25 @@ enum ScoreType {
   CUOI_KY
 }
 
+enum AssessmentType {
+  SCORE
+  COMMENT
+}
+
+enum AssessmentOutcome {
+  DAT
+  CHUA_DAT
+}
+
+enum ReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
 enum PromotionResult {
+  CHUA_DU_DIEU_KIEN
   LEN_LOP
   O_LAI
   THI_LAI
@@ -76,6 +94,9 @@ model ActivityLog {
   actorEmail String
   action     String
   targetType String
+  beforeData Json?
+  afterData  Json?
+  reason     String?
   targetId   String?
   createdAt  DateTime @default(now())
 }
@@ -132,6 +153,8 @@ model Room {
 }
 
 model Subject {
+  assessmentType AssessmentType @default(SCORE)
+  annualPeriods Int @default(70)
   classes ClassSubject[]
   examPapers ExamPaper[]
   id                    String                    @id @default(cuid())
@@ -154,6 +177,8 @@ model Teacher {
 
 model Student {
   examSeats ExamSeat[]
+  assessments StudentAssessment[]
+  transfers ClassTransfer[]
   id              String                   @id @default(cuid())
   code            String?                  @unique
   userId          String                   @unique
@@ -199,6 +224,7 @@ model SchoolClass {
 }
 
 model StudentClassEnrollment {
+  currentClassSince DateTime? @default(now())
   id             String       @id @default(cuid())
   studentId      String
   student        Student      @relation(fields: [studentId], references: [id])
@@ -221,6 +247,7 @@ model ClassSubject {
 }
 
 model ClassSubjectAssignment {
+  assessments StudentAssessment[]
   curriculum ClassSubject @relation(fields: [schoolClassId, subjectId], references: [schoolClassId, subjectId])
   id              String       @id @default(cuid())
   schoolClassId   String
@@ -304,6 +331,7 @@ model AssignmentSubmission {
   exercise         Exercise        @relation(fields: [exerciseId], references: [id])
   studentId        String
   student          Student         @relation(fields: [studentId], references: [id])
+  attachments      Json?
   content          String? // tự luận: text/file url
   submittedAt      DateTime        @default(now())
   isLate           Boolean         @default(false)
@@ -522,7 +550,13 @@ model YearEndResult {
   student        Student         @relation(fields: [studentId], references: [id])
   academicYearId String
   academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id])
-  overallAverage Float
+  overallAverage Float?
+  reviewStatus ReviewStatus @default(DRAFT)
+  submittedBy String?
+  approvedBy String?
+  approvedAt DateTime?
+  absenceDays Int?
+  evaluation Json?
   conductRank    String?
   result         PromotionResult
 
@@ -668,4 +702,74 @@ model ParentAccount {
   updatedAt    DateTime @updatedAt
 
   @@index([phone])
+}
+
+// Kết quả nhận xét và các quyết định miễn/điều chỉnh theo môn, học kỳ.
+model StudentAssessment {
+  id String @id @default(cuid())
+  studentId String
+  student Student @relation(fields: [studentId], references: [id])
+  assignmentId String
+  assignment ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  outcome AssessmentOutcome?
+  isExempt Boolean @default(false)
+  comment String?
+  adjustmentReason String?
+  decisionReference String?
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  @@unique([studentId, assignmentId])
+}
+
+// Lưu vết chuyển lớp; enrollment hiện tại vẫn là con trỏ lớp đang theo học.
+model ClassTransfer {
+  id String @id @default(cuid())
+  studentId String
+  student Student @relation(fields: [studentId], references: [id])
+  academicYearId String
+  fromClassId String
+  toClassId String
+  fromDate DateTime?
+  effectiveAt DateTime
+  reason String
+  decisionReference String
+  actorEmail String
+  createdAt DateTime @default(now())
+  @@index([studentId, academicYearId, effectiveAt])
+}
+
+// Mở quyền sửa có thời hạn cho đúng người yêu cầu và đúng lớp-môn.
+model ScoreUnlockRequest {
+  id String @id @default(cuid())
+  assignmentId String
+  academicTermId String
+  requestedBy String
+  requesterEmail String
+  reason String
+  durationHours Int
+  status ReviewStatus @default(SUBMITTED)
+  reviewedBy String?
+  reviewReason String?
+  approvedAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([assignmentId, requestedBy, status, expiresAt])
+}
+
+// Đường dẫn nội bộ ổn định; backend lưu trữ được ghi theo từng tệp.
+model StoredFile {
+  id String @id @default(cuid())
+  provider String
+  storageKey String @unique
+  bucket String?
+  fileName String
+  mimeType String
+  size Int
+  uploadedBy String
+  assignmentId String
+  purpose String
+  exerciseId String?
+  createdAt DateTime @default(now())
+  @@index([assignmentId, purpose])
+  @@index([uploadedBy, createdAt])
 }

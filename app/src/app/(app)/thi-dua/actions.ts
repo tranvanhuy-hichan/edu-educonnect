@@ -5,7 +5,7 @@ import { assertRole, ADMIN_ROLES, MANAGER_ROLES } from "@/lib/guard";
 import { wrap, str } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { parseDate } from "@/lib/format";
-import { ConflictError } from "@/modules/academic/academic.service";
+import { ConflictError } from "@/shared/errors";
 import { createCriteria as createCriteriaSvc, recalculateEmulationForTerm } from "@/modules/emulation/emulation.service";
 
 const optDate = (fd: FormData, k: string) => (/^\d{4}-\d{2}-\d{2}$/.test(str(fd, k)) ? parseDate(str(fd, k)) : undefined);

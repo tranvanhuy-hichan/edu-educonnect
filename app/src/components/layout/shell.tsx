@@ -30,7 +30,7 @@ const isActive = (path: string, href: string, tab: string | null = null) => {
   return path === href || path.startsWith(href + "/");
 };
 
-function Brand({ name, logo, sub = "Quản lý trường học" }: { name: string; logo: string; sub?: string }) {
+function Brand({ name, logo, sub = "Hệ thống quản lý giáo dục" }: { name: string; logo: string; sub?: string }) {
   return (
     <div className="flex items-center gap-3 px-4 py-4 border-b sb-line">
       {/* eslint-disable-next-line @next/next/no-img-element */}

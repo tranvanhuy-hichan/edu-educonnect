@@ -1,3 +1,4 @@
+import { AttachmentUpload } from "@/components/attachment-upload";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -74,8 +75,8 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
         <ActionForm action={createPost} submit="Đăng bài" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Lớp · môn"><select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls + " w-full"} required><option value="">-- chọn lớp · môn --</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select></Field>
           <Field label="Tiêu đề"><input name="title" className={inputCls + " w-full"} required /></Field>
-          <Field label="Nội dung"><textarea name="content" rows={5} className={inputCls + " h-auto w-full py-2"} required /></Field>
-          <Field label="Link đính kèm (mỗi dòng một link)"><textarea name="attachments" rows={2} className={inputCls + " h-auto w-full py-2"} placeholder="https://" /></Field>
+          <Field label="Nội dung"><textarea name="content" rows={5} className={inputCls + " h-auto w-full py-2"} /></Field>
+          <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="LESSON_POST" /></div>
           <p className="text-xs text-slate-500">Sau khi đăng, mở bài học và vào tab &ldquo;Bài tập&rdquo; để thêm bài tập cho bài này.</p>
         </ActionForm>
       </DialogButton>) : null);

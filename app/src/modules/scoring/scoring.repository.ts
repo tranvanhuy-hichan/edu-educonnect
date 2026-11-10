@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
 import { prisma } from "@/lib/prisma";
 import type {
   CreateScoreEntryInput,
@@ -77,4 +79,31 @@ export function listSubjectTermAveragesByClass(
     },
     orderBy: [{ student: { fullName: "asc" } }],
   });
+}
+
+export function gradingRepository(context?: DatabaseContext) {
+  const db = databaseFor(context);
+  return {
+    assignment: (id: string) => db.classSubjectAssignment.findUniqueOrThrow({ where: { id }, include: { academicTerm: true, subject: true, schoolClass: true } }),
+    term: (id: string) => db.academicTerm.findUniqueOrThrow({ where: { id } }),
+    lockTermRow: (id: string) => db.$queryRaw`SELECT "id" FROM "AcademicTerm" WHERE "id" = ${id} FOR UPDATE`,
+    activeUnlock: (requestedBy: string, assignmentId: string, now: Date) => db.scoreUnlockRequest.findFirst({ where: { requestedBy, assignmentId, status: "APPROVED", expiresAt: { gt: now } }, orderBy: { expiresAt: "desc" } }),
+    pendingUnlock: (requestedBy: string, assignmentId: string) => db.scoreUnlockRequest.findFirst({ where: { requestedBy, assignmentId, status: "SUBMITTED" } }),
+    lockUnlockRequest: (id: string) => db.$queryRaw`SELECT "id" FROM "ScoreUnlockRequest" WHERE "id" = ${id} FOR UPDATE`,
+    unlockRequest: (id: string) => db.scoreUnlockRequest.findUniqueOrThrow({ where: { id } }),
+    createUnlock: (data: Prisma.ScoreUnlockRequestUncheckedCreateInput) => db.scoreUnlockRequest.create({ data }),
+    reviewUnlock: (id: string, data: Prisma.ScoreUnlockRequestUncheckedUpdateInput) => db.scoreUnlockRequest.update({ where: { id }, data }),
+    lockTerm: (id: string, actor: string, now: Date) => db.academicTerm.update({ where: { id }, data: { isLocked: true, lockedAt: now, lockedBy: actor } }),
+    expireUnlocks: (academicTermId: string, now: Date) => db.scoreUnlockRequest.updateMany({ where: { academicTermId, status: "APPROVED" }, data: { expiresAt: now } }),
+    assessment: (studentId: string, assignmentId: string) => db.studentAssessment.findUnique({ where: { studentId_assignmentId: { studentId, assignmentId } } }),
+    saveAssessment: (studentId: string, assignmentId: string, data: Omit<Prisma.StudentAssessmentUncheckedCreateInput, "studentId" | "assignmentId">) => db.studentAssessment.upsert({ where: { studentId_assignmentId: { studentId, assignmentId } }, create: { studentId, assignmentId, ...data }, update: data }),
+    entries: (studentId: string, assignmentId: string, academicTermId: string) => db.scoreEntry.findMany({ where: { studentId, assignmentId, academicTermId }, orderBy: { createdAt: "asc" } }),
+    removeEntries: (studentId: string, assignmentId: string, academicTermId: string) => db.scoreEntry.deleteMany({ where: { studentId, assignmentId, academicTermId } }),
+    insertEntries: (data: Prisma.ScoreEntryCreateManyInput[]) => db.scoreEntry.createMany({ data }),
+    insertEntry: (data: Prisma.ScoreEntryUncheckedCreateInput) => db.scoreEntry.create({ data }),
+    average: (studentId: string, assignmentId: string, academicTermId: string, averageValue: number) => db.subjectTermAverage.upsert({ where: { studentId_assignmentId_academicTermId: { studentId, assignmentId, academicTermId } }, create: { studentId, assignmentId, academicTermId, averageValue }, update: { averageValue } }),
+    removeAverage: (studentId: string, assignmentId: string, academicTermId: string) => db.subjectTermAverage.deleteMany({ where: { studentId, assignmentId, academicTermId } }),
+    enrollmentCurriculum: (studentId: string, academicYearId: string) => db.studentClassEnrollment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId } }, include: { schoolClass: { include: { subjects: { include: { subject: true }, orderBy: { subjectId: "asc" } } } } } }),
+    annualAssignments: (studentId: string, academicYearId: string, schoolClassId: string) => db.classSubjectAssignment.findMany({ where: { schoolClassId, academicTerm: { academicYearId } }, include: { academicTerm: true, scoreEntries: { where: { studentId } }, assessments: { where: { studentId } } } }),
+  };
 }

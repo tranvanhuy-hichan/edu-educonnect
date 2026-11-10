@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Phone, ShieldCheck, ArrowLeft } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Phone, ArrowLeft } from "lucide-react";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { parentLogin } from "../actions";
 
@@ -35,7 +35,7 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden theme-bg p-4 sm:p-6 text-[var(--fg)]">
+    <main className="auth-background relative flex min-h-screen items-center justify-center p-4 py-12 sm:p-6 sm:py-12 text-[var(--fg)]">
       <div className="absolute top-4 right-4 z-20">
         <ModeToggle />
       </div>
@@ -82,20 +82,8 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
             onSubmit={handleSubmit}
             className="space-y-5 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 sm:p-8 shadow-xl backdrop-blur-md"
           >
-            <div>
-              <h2 className="text-xl font-bold text-[var(--fg)]">Đăng nhập Phụ huynh</h2>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Theo dõi kết quả học tập, rèn luyện & thời khóa biểu của con.
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/80 dark:bg-blue-950/40 p-3.5 text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-              <div className="flex items-start gap-2.5">
-                <ShieldCheck className="size-4 shrink-0 text-blue-600 dark:text-blue-400 mt-0.5" />
-                <span>
-                  Đăng nhập bằng <strong>Số điện thoại người giám hộ</strong> hoặc <strong>Mã học sinh</strong>. Mật khẩu mặc định khởi tạo là <strong>123456</strong>.
-                </span>
-              </div>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-[var(--fg)]">Đăng nhập dành cho phụ huynh</h2>
             </div>
 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -178,6 +166,9 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
           </div>
         </div>
       </div>
+      <footer className="absolute inset-x-0 bottom-4 text-center text-[11px] text-slate-500 dark:text-slate-400">
+        v1.0.0
+      </footer>
     </main>
   );
 }

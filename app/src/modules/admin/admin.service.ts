@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { isSystemAdmin, type SessionUser } from "@/lib/auth/session";
 import { genPassword } from "@/lib/password";
-import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
+import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as adminRepository from "@/modules/admin/admin.repository";
 import type {
   CreateUserInput,

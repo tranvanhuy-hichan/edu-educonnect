@@ -19,6 +19,7 @@ export const CATS = [
 ] as const;
 
 export type AssignmentStat = {
+  assessmentType: "SCORE" | "COMMENT";
   id: string; className: string; schoolClassId: string; subjectId: string; subjectName: string;
   termId: string; termName: string; finished: boolean; teacher: string | null;
   students: number; filled: number; expected: number; avgNorm: number | null; graded: number;
@@ -47,24 +48,30 @@ export async function gradeStats(opts: { where?: Prisma.ClassSubjectAssignmentWh
     },
   });
   const ids = assignments.map((a) => a.id);
-  const [entries, averages] = await Promise.all([
+  const [entries, averages, reviews] = await Promise.all([
     db.scoreEntry.findMany({ where: { assignmentId: { in: ids } } }),
     db.subjectTermAverage.findMany({ where: { assignmentId: { in: ids } } }),
+    db.studentAssessment.findMany({ where: { assignmentId: { in: ids } } }),
   ]);
   const today = todayUTC();
 
   return assignments.map((a) => {
     const seen = new Set<string>();
     const studs = a.schoolClass.enrollments.map((e) => e.student).filter((s) => !seen.has(s.id) && seen.add(s.id));
-    const es = entries.filter((e) => e.assignmentId === a.id);
+    const assessmentOf = new Map(reviews.filter((review) => review.assignmentId === a.id).map((review) => [review.studentId, review]));
+    const numericStudents = studs.filter((student) => !assessmentOf.get(student.id)?.isExempt);
+    const es = entries.filter((e) => e.assignmentId === a.id && !assessmentOf.get(e.studentId)?.isExempt);
     const avgOf = new Map(averages.filter((x) => x.assignmentId === a.id).map((x) => [x.studentId, x.averageValue]));
-    const rows = studs.map((s) => ({ studentId: s.id, name: s.fullName, code: s.code ?? "", norm: avgOf.has(s.id) && es.some((e) => e.studentId === s.id) ? avgOf.get(s.id)! : null }));
+    const rows = studs.map((s) => ({ studentId: s.id, name: s.fullName, code: s.code ?? "", norm: a.subject.assessmentType === "SCORE" && !assessmentOf.get(s.id)?.isExempt && avgOf.has(s.id) && es.some((e) => e.studentId === s.id) ? avgOf.get(s.id)! : null }));
     const graded = rows.filter((r) => r.norm != null);
-    const filled = studs.reduce((n, s) => n + CATS.filter((c) => es.some((e) => e.studentId === s.id && e.scoreType === c.key)).length, 0);
+    const filled = a.subject.assessmentType === "COMMENT"
+      ? numericStudents.filter((student) => assessmentOf.get(student.id)?.outcome != null).length
+      : numericStudents.reduce((n, s) => n + CATS.filter((c) => es.some((e) => e.studentId === s.id && e.scoreType === c.key)).length, 0);
     return {
+      assessmentType: a.subject.assessmentType,
       id: a.id, className: a.schoolClass.className, schoolClassId: a.schoolClassId, subjectId: a.subjectId, subjectName: a.subject.subjectName,
       termId: a.academicTermId, termName: a.academicTerm.termName, finished: a.academicTerm.endDate < today, teacher: a.teacher.fullName,
-      students: studs.length, filled, expected: studs.length * CATS.length,
+      students: studs.length, filled, expected: numericStudents.length * (a.subject.assessmentType === "COMMENT" ? 1 : CATS.length),
       avgNorm: graded.length ? Math.round((graded.reduce((x, r) => x + r.norm!, 0) / graded.length) * 100) / 100 : null, graded: graded.length,
       cats: CATS.map((c) => {
         const cv = es.filter((e) => e.scoreType === c.key);

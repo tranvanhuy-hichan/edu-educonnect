@@ -63,7 +63,7 @@ export default async function Subjects({ searchParams }: { searchParams: Promise
           <ActionForm action={createSubject} submit="Tạo môn học" className="flex flex-col gap-3 [&>button]:self-start">
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Tên môn học *"><input name="name" className={ic} required placeholder="vd: Toán" /></Field>
-              <Field label="Số tiết mỗi tuần (mặc định)"><input name="periods" defaultValue={2} className={ic} /></Field>
+              <Field label="Số tiết mỗi tuần (mặc định)"><input name="periods" defaultValue={2} className={ic} /></Field><Field label="Hình thức đánh giá"><select name="assessmentType" defaultValue={"SCORE"} className={ic}><option value="SCORE">Nhận xét kết hợp điểm số</option><option value="COMMENT">Nhận xét: Đạt / Chưa đạt</option></select></Field><Field label="Số tiết cả năm (xác định số điểm TX)"><input required type="number" min={1} max={700} name="annualPeriods" defaultValue={70} className={ic} /></Field>
             </div>
           </ActionForm>
         </DialogButton>

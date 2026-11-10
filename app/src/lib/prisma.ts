@@ -6,7 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 
 function getClient(): PrismaClient {
   const existing = globalForPrisma.prisma;
-  if (existing && "parentAccount" in existing && (existing as unknown as Record<string, unknown>).parentAccount != null) {
+  if (existing && "studentAssessment" in existing && "classTransfer" in existing && "scoreUnlockRequest" in existing && "storedFile" in existing) {
     return existing;
   }
   const client = new PrismaClient();

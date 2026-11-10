@@ -129,7 +129,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           <DialogButton variant="secondary" size="sm" label="Đổi lớp" title={`Đổi lớp · ${e.student.fullName}`}>
             <ActionForm action={transferStudent} submit="Chuyển lớp" className="flex flex-col gap-3 [&>button]:self-start">
               <input type="hidden" name="id" value={e.id} />
-              <Field label="Chuyển sang lớp"><select name="toClassId" className={inputCls + " w-full"}><option value="">-- chọn lớp --</option>{others.map((o) => <option key={o.id} value={o.id}>{o.className}</option>)}</select></Field>
+              <Field label="Chuyển sang lớp"><select name="toClassId" className={inputCls + " w-full"}><option value="">-- chọn lớp --</option>{others.map((o) => <option key={o.id} value={o.id}>{o.className}</option>)}</select></Field><Field label="Ngày hiệu lực"><input required type="date" name="effectiveDate" defaultValue={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })} className={inputCls + " w-full"} /></Field><Field label="Lý do"><input required minLength={5} name="reason" className={inputCls + " w-full"} /></Field><Field label="Số quyết định / căn cứ"><input required minLength={3} name="decisionReference" className={inputCls + " w-full"} /></Field>
             </ActionForm>
           </DialogButton>
         );

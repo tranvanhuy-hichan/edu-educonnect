@@ -1,3 +1,4 @@
+import { AttachmentUpload } from "@/components/attachment-upload";
 import { FileText } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -40,8 +41,8 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
         <ActionForm action={createPlan} submit="Đăng giáo án" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Lớp · môn"><select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls + " w-full"} required><option value="">-- chọn lớp · môn --</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select></Field>
           <Field label="Tiêu đề"><input name="title" className={inputCls + " w-full"} required /></Field>
-          <Field label="Nội dung giáo án"><textarea name="content" rows={10} className={inputCls + " h-auto w-full py-2"} required /></Field>
-          <Field label="Link tài liệu đính kèm (Google Drive...)"><input name="attachment" className={inputCls + " w-full"} placeholder="https://" /></Field>
+          <Field label="Nội dung giáo án"><textarea name="content" rows={10} className={inputCls + " h-auto w-full py-2"} /></Field>
+          <div className="space-y-1 text-xs font-semibold"><p>Tài liệu giáo án</p><AttachmentUpload purpose="LESSON_PLAN" name="attachment" multiple={false} /></div>
         </ActionForm>
       </DialogButton>}>Giáo án ({total})</Title>
 
@@ -69,8 +70,8 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
                   <ActionForm action={updatePlan} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
                     <input type="hidden" name="id" value={p.id} />
                     <Field label="Tiêu đề"><input name="title" defaultValue={p.title} className={inputCls + " w-full"} required /></Field>
-                    <Field label="Nội dung giáo án"><textarea name="content" rows={10} defaultValue={p.content} className={inputCls + " h-auto w-full py-2"} required /></Field>
-                    <Field label="Link tài liệu đính kèm"><input name="attachment" defaultValue={p.attachment ?? ""} className={inputCls + " w-full"} placeholder="https://" /></Field>
+                    <Field label="Nội dung giáo án"><textarea name="content" rows={10} defaultValue={p.content} className={inputCls + " h-auto w-full py-2"} /></Field>
+                    <div className="space-y-1 text-xs font-semibold"><p>Tài liệu giáo án</p><AttachmentUpload purpose="LESSON_PLAN" name="attachment" multiple={false} assignmentId={p.assignmentId} initialUrls={p.attachment ? [p.attachment] : []} /></div>
                   </ActionForm>
                 </DialogButton>
                 <ActionForm action={deletePlan} submit="Xoá" compact danger confirmText="Xoá giáo án?" className="inline-flex"><input type="hidden" name="id" value={p.id} /></ActionForm>

@@ -1,10 +1,11 @@
+import { validAttachment } from "@/lib/storage/validation";
 import { z } from "zod";
 
 export const createLessonPostSchema = z.object({
   assignmentId: z.string().min(1),
   title: z.string().min(1),
-  content: z.string().min(1),
-  attachments: z.array(z.string().url()).optional(),
+  content: z.string().default(""),
+  attachments: z.array(z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ")).max(10).optional(),
 });
 export type CreateLessonPostInput = z.infer<typeof createLessonPostSchema>;
 
@@ -12,8 +13,8 @@ export type CreateLessonPostInput = z.infer<typeof createLessonPostSchema>;
 export const createExerciseSchema = z.object({
   lessonPostId: z.string().min(1),
   title: z.string().min(1),
-  content: z.string().min(1),
-  attachments: z.array(z.string().url()).optional(),
+  content: z.string().default(""),
+  attachments: z.array(z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ")).max(10).optional(),
   dueDate: z.coerce.date().optional(),
   quizMode: z.boolean().default(false),
 });
@@ -22,14 +23,15 @@ export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
 export const createLessonPlanSchema = z.object({
   assignmentId: z.string().min(1),
   title: z.string().min(1),
-  content: z.string().min(1),
-  attachment: z.string().url().optional(),
+  content: z.string().default(""),
+  attachment: z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ").optional(),
 });
 export type CreateLessonPlanInput = z.infer<typeof createLessonPlanSchema>;
 
 export const createSubmissionSchema = z.object({
-  content: z.string().min(1),
-});
+  content: z.string().default(""),
+  attachments: z.array(z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ")).max(10).default([]),
+}).refine((data) => data.content.trim().length > 0 || data.attachments.length > 0, "Nhập bài làm hoặc tải tệp");
 export type CreateSubmissionInput = z.infer<typeof createSubmissionSchema>;
 
 export const gradeSubmissionSchema = z.object({

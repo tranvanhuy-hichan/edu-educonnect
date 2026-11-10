@@ -9,3 +9,10 @@ export function findUserByEmail(login: string) {
     include,
   });
 }
+
+export function findSessionIdentity(id: string) {
+  return prisma.user.findUnique({
+    where: { id },
+    select: { email: true, roles: true, isActive: true, mustChangePwd: true, teacher: { select: { id: true, fullName: true } }, student: { select: { id: true, fullName: true } } },
+  });
+}

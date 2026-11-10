@@ -1,6 +1,8 @@
+import { AttachmentLinks } from "@/components/attachment-links";
+import { AttachmentUpload } from "@/components/attachment-upload";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen, Eye, FileText } from "lucide-react";
+import { BookOpen, Eye } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
@@ -51,18 +53,13 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const exercise = post.exercises.find((e) => e.id === sp.ex);
   const tabHref = (k: string) => `?tab=${k}`;
 
-  const linkList = (ls: string[]) => ls.length > 0 && (
-    <div className="mt-4 space-y-1 border-t pt-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">Tài liệu đính kèm</div>
-      {ls.map((l) => <a key={l} href={l} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-orange-700 hover:underline"><FileText className="size-4" /><span className="truncate">{l}</span></a>)}
-    </div>
-  );
+  const linkList = (urls: string[]) => <AttachmentLinks urls={urls} />;
   const exerciseFields = (e?: (typeof post.exercises)[number]) => (
     <>
       <Field label="Tiêu đề bài tập"><input name="title" defaultValue={e?.title} className={inputCls + " w-full"} required /></Field>
-      <Field label="Đề bài"><textarea name="content" rows={5} defaultValue={e?.content} className={inputCls + " h-auto w-full py-2"} required /></Field>
+      <Field label="Đề bài"><textarea name="content" rows={5} defaultValue={e?.content} className={inputCls + " h-auto w-full py-2"} /></Field>
       <Field label="Hạn nộp"><input name="dueDate" type="date" defaultValue={e?.dueDate ? e.dueDate.toISOString().slice(0, 10) : ""} className={inputCls + " w-full"} /></Field>
-      <Field label="Link đính kèm (mỗi dòng một link)"><textarea name="attachments" rows={2} defaultValue={e ? linksOf(e.attachments).join("\n") : ""} className={inputCls + " h-auto w-full py-2"} placeholder="https://" /></Field>
+      <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="EXERCISE" assignmentId={post.assignmentId} initialUrls={e ? linksOf(e.attachments) : []} /></div>
     </>
   );
 
@@ -85,8 +82,8 @@ export default async function LessonPostDetail({ params, searchParams }: { param
               <ActionForm action={updatePost} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
                 <input type="hidden" name="id" value={post.id} />
                 <Field label="Tiêu đề"><input name="title" defaultValue={post.title} className={inputCls + " w-full"} required /></Field>
-                <Field label="Nội dung"><textarea name="content" rows={5} defaultValue={post.content} className={inputCls + " h-auto w-full py-2"} required /></Field>
-                <Field label="Link đính kèm (mỗi dòng một link)"><textarea name="attachments" rows={2} defaultValue={links.join("\n")} className={inputCls + " h-auto w-full py-2"} /></Field>
+                <Field label="Nội dung"><textarea name="content" rows={5} defaultValue={post.content} className={inputCls + " h-auto w-full py-2"} /></Field>
+                <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="LESSON_POST" assignmentId={post.assignmentId} initialUrls={links} /></div>
               </ActionForm>
             </DialogButton>
           )}
@@ -179,7 +176,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                       {mine.isLate && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp muộn</span>}
                       {mine.resubmittedCount > 0 && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Đã cập nhật ({mine.resubmittedCount} lần)</span>}
                     </div>
-                    <p className="whitespace-pre-line rounded-md bg-slate-50 p-3">{mine.content}</p>
+                    <p className="whitespace-pre-line rounded-md bg-slate-50 p-3">{mine.content}</p><AttachmentLinks urls={linksOf(mine.attachments)} />
                     {mine.grade != null ? (
                       <div className="rounded-md border border-green-300 bg-green-50 p-3">
                         <b className="text-green-800">Điểm: {mine.grade}</b>
@@ -190,8 +187,9 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                         <div className="mb-2 text-xs text-slate-600">Giáo viên chưa chấm bài. Bạn có thể cập nhật lại bài làm nếu cần sửa đổi:</div>
                         <ActionForm action={submitWork} submit="Cập nhật bài làm" className="flex flex-col gap-3 [&>button]:self-start">
                           <input type="hidden" name="exerciseId" value={exercise.id} />
+                          <AttachmentUpload purpose="SUBMISSION" assignmentId={post.assignmentId} exerciseId={exercise.id} initialUrls={mine ? linksOf(mine.attachments) : []} />
                           <Field label="Bài làm cập nhật">
-                            <textarea name="content" defaultValue={mine.content ?? ""} rows={6} className={inputCls + " h-auto w-full py-2"} required placeholder="Nhập bài làm của em..." />
+                            <textarea name="content" defaultValue={mine.content ?? ""} rows={6} className={inputCls + " h-auto w-full py-2"} placeholder="Nhập bài làm của em..." />
                           </Field>
                           {late && <p className="text-xs text-red-600">Lưu ý: Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Lần cập nhật này sẽ được đánh dấu Nộp muộn.</p>}
                         </ActionForm>
@@ -201,7 +199,8 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                 ) : (
                   <ActionForm action={submitWork} submit="Nộp bài" className="flex flex-col gap-3 [&>button]:self-start">
                     <input type="hidden" name="exerciseId" value={exercise.id} />
-                    <Field label="Bài làm"><textarea name="content" rows={6} className={inputCls + " h-auto w-full py-2"} required placeholder="Nhập bài làm của em..." /></Field>
+                          <AttachmentUpload purpose="SUBMISSION" assignmentId={post.assignmentId} exerciseId={exercise.id} initialUrls={[]} />
+                    <Field label="Bài làm"><textarea name="content" rows={6} className={inputCls + " h-auto w-full py-2"} placeholder="Nhập bài làm của em..." /></Field>
                     {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
                   </ActionForm>
                 )}
@@ -228,11 +227,11 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                           )}
                         </td>
                         <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
-                        <td><span className="line-clamp-2 text-sm text-slate-600">{sub?.content ?? "-"}</span></td>
+                        <td><span className="line-clamp-2 text-sm text-slate-600">{sub?.content ?? "-"}</span>{sub && <AttachmentLinks urls={linksOf(sub.attachments)} />}</td>
                         <td>{sub?.grade != null ? <b>{sub.grade}</b> : <span className="text-slate-400">-</span>}</td>
                         <td>{sub && manage && (
                           <DialogButton label={sub.grade != null ? "Chấm lại" : "Chấm điểm"} title={`Chấm bài · ${s.fullName}`} size="sm" variant="secondary">
-                            <p className="mb-3 whitespace-pre-line rounded-md bg-slate-50 p-3 text-sm">{sub.content}</p>
+                            <p className="mb-3 whitespace-pre-line rounded-md bg-slate-50 p-3 text-sm">{sub.content}</p><AttachmentLinks urls={linksOf(sub.attachments)} />
                             <ActionForm action={gradeWork} submit="Lưu điểm" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
                               <input type="hidden" name="submissionId" value={sub.id} />
                               <Field label="Điểm (0–10)"><input name="grade" defaultValue={sub.grade ?? ""} inputMode="decimal" className={inputCls + " w-full"} required /></Field>

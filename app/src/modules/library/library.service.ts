@@ -1,5 +1,5 @@
 import { canManageLibrary, type SessionUser } from "@/lib/auth/session";
-import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
+import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as libraryRepository from "@/modules/library/library.repository";
 import { createNotification } from "@/modules/notification/notification.service";
 import type {

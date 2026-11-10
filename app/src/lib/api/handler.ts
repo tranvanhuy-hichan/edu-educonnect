@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { getSessionUser } from "@/lib/auth/request-session";
 import type { SessionUser } from "@/lib/auth/session";
-import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
+import { ConflictError, ForbiddenError } from "@/shared/errors";
 import { AccountDisabledError, InvalidCredentialsError } from "@/modules/auth/auth.service";
 
 type AuthedHandler<Ctx> = (

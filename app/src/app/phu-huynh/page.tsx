@@ -68,9 +68,11 @@ export default async function ParentPortalPage({
         orderBy: { academicYear: { startDate: "desc" } },
       },
       yearEndResults: {
+        where: { reviewStatus: "APPROVED" },
         include: { academicYear: true },
         orderBy: { academicYear: { startDate: "desc" } },
       },
+      assessments: { include: { assignment: { include: { subject: true, academicTerm: true } } } },
       subjectAverages: {
         include: {
           academicTerm: { include: { academicYear: true } },
@@ -138,7 +140,7 @@ export default async function ParentPortalPage({
     );
   }
 
-  // Tải thời khóa biểu & sổ đầu bài cho từng lớp của các con
+  // Chỉ tải lịch học; không đưa sổ đầu bài và thống kê vắng của lớp sang cổng phụ huynh.
   const classIds = [
     ...new Set(
       rawStudents
@@ -147,34 +149,10 @@ export default async function ParentPortalPage({
     ),
   ];
 
-  const [allSchedules, allPeriodLogs] = await Promise.all([
-    Promise.all(
-      classIds.map((cid) =>
-        loadScheduleSlots({ ...effectiveSlots(), schoolClassId: cid })
-      )
-    ),
-    Promise.all(
-      classIds.map((cid) =>
-        db.classPeriodLog.findMany({
-          where: { schoolClassId: cid },
-          include: {
-            timetableSlot: {
-              include: {
-                assignment: {
-                  include: { subject: true, teacher: true },
-                },
-              },
-            },
-          },
-          orderBy: { logDate: "desc" },
-          take: 30,
-        })
-      )
-    ),
-  ]);
-
+  const allSchedules = await Promise.all(classIds.map((cid) =>
+    loadScheduleSlots({ ...effectiveSlots(), schoolClassId: cid })
+  ));
   const scheduleMap = new Map(classIds.map((cid, i) => [cid, allSchedules[i]]));
-  const logsMap = new Map(classIds.map((cid, i) => [cid, allPeriodLogs[i]]));
 
   // Chuẩn bị dữ liệu từng con
   const childrenData: ChildData[] = rawStudents.map((s) => {
@@ -182,7 +160,6 @@ export default async function ParentPortalPage({
     const cls = latestEnr?.schoolClass;
     const yearEnd = s.yearEndResults[0];
     const slots = cls ? scheduleMap.get(cls.id) ?? [] : [];
-    const logs = cls ? logsMap.get(cls.id) ?? [] : [];
 
     return {
       id: s.id,
@@ -213,7 +190,9 @@ export default async function ParentPortalPage({
             result: yearEnd.result,
           }
         : null,
-      subjectAverages: s.subjectAverages.map((avg) => ({
+      assessments: s.assessments.map((review) => ({ id: review.id, academicTermId: review.assignment.academicTermId, subjectName: review.assignment.subject.subjectName, outcome: review.outcome, isExempt: review.isExempt, comment: review.comment })),
+      subjectAverages: s.subjectAverages.filter((avg) => !s.assessments.some((review) => review.assignmentId === avg.assignmentId && review.isExempt)).map((avg) => ({
+        assignmentId: avg.assignmentId,
         id: avg.id,
         academicTermId: avg.academicTermId,
         averageValue: avg.averageValue,
@@ -235,16 +214,6 @@ export default async function ParentPortalPage({
         subjectName: x.assignment.subject.subjectName,
         teacherName: x.assignment.teacher.fullName,
         roomName: x.room.roomName,
-      })),
-      periodLogs: logs.map((log) => ({
-        id: log.id,
-        logDate: fmtDate(log.logDate),
-        subjectName: log.timetableSlot.assignment.subject.subjectName,
-        teacherName: log.timetableSlot.assignment.teacher.fullName,
-        periodNo: log.timetableSlot.periodNo,
-        conductRating: log.conductRating,
-        attendanceAbsentCount: log.attendanceAbsentCount,
-        note: log.note,
       })),
       examSeats: s.examSeats.map((seat) => ({
         id: seat.id,

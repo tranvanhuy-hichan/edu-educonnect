@@ -1,5 +1,4 @@
 import { requireClassSubject } from "@/modules/curriculum/service";
-import { prisma } from "@/lib/prisma";
 import { isAdmin, isSystemAdmin, type SessionUser } from "@/lib/auth/session";
 import * as academicRepository from "@/modules/academic/academic.repository";
 import type {
@@ -11,19 +10,8 @@ import type {
   CreateTeacherInput,
 } from "@/modules/academic/academic.schema";
 
-export class ForbiddenError extends Error {
-  constructor(message = "Không có quyền thực hiện thao tác này") {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
-
-export class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConflictError";
-  }
-}
+export { ForbiddenError, ConflictError } from "@/shared/errors";
+import { ForbiddenError, ConflictError } from "@/shared/errors";
 
 /** Hiệu trưởng/Hiệu phó xem toàn bộ; các vai trò khác xem danh sách chung (read-only ở bước này). */
 export function listAcademicYears() {
@@ -120,7 +108,7 @@ export async function createClassSubjectAssignment(
     throw new ForbiddenError("Chỉ Hiệu trưởng/Hiệu phó được phân công giảng dạy");
   }
 
-  await requireClassSubject(prisma, input.schoolClassId, input.subjectId, input.academicTermId);
+  await requireClassSubject(undefined, input.schoolClassId, input.subjectId, input.academicTermId);
 
   const existing = await academicRepository.findAssignmentByClassSubjectTerm(
     input.schoolClassId,

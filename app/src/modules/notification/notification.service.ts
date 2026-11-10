@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import * as repository from "./notification.repository";
 
 export type NotificationType = "SYSTEM" | "EXAM" | "ASSIGNMENT" | "LIBRARY" | "SCHEDULE" | "GRADE";
 
@@ -9,15 +9,7 @@ export async function createNotification(data: {
   type?: NotificationType;
   link?: string | null;
 }) {
-  return db.notification.create({
-    data: {
-      userId: data.userId,
-      title: data.title,
-      content: data.content,
-      type: data.type ?? "SYSTEM",
-      link: data.link ?? null,
-    },
-  });
+  return repository.insertNotification({ userId: data.userId, title: data.title, content: data.content, type: data.type ?? "SYSTEM", link: data.link ?? null });
 }
 
 export async function notifyUsers(
@@ -31,41 +23,10 @@ export async function notifyUsers(
 ) {
   if (!userIds.length) return { count: 0 };
   const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
-  return db.notification.createMany({
-    data: uniqueIds.map((userId) => ({
-      userId,
-      title: data.title,
-      content: data.content,
-      type: data.type ?? "SYSTEM",
-      link: data.link ?? null,
-    })),
-  });
+  return repository.insertNotifications(uniqueIds.map((userId) => ({ userId, title: data.title, content: data.content, type: data.type ?? "SYSTEM", link: data.link ?? null })));
 }
 
-export async function listUserNotifications(userId: string, limit = 20) {
-  return db.notification.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
-}
-
-export async function countUnreadNotifications(userId: string) {
-  return db.notification.count({
-    where: { userId, isRead: false },
-  });
-}
-
-export async function markNotificationRead(id: string, userId: string) {
-  return db.notification.updateMany({
-    where: { id, userId },
-    data: { isRead: true },
-  });
-}
-
-export async function markAllNotificationsRead(userId: string) {
-  return db.notification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true },
-  });
-}
+export const listUserNotifications = (userId: string, limit = 20) => repository.notificationsForUser(userId, limit);
+export const countUnreadNotifications = (userId: string) => repository.unreadForUser(userId);
+export const markNotificationRead = (id: string, userId: string) => repository.readOne(id, userId);
+export const markAllNotificationsRead = (userId: string) => repository.readAll(userId);

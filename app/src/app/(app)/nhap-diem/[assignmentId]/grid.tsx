@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, useMemo, useState } from "react";
-import { saveScores, toggleLockTerm } from "../actions";
-import { Lock, Unlock, AlertTriangle } from "lucide-react";
+import { saveScores } from "../actions";
+import { AlertTriangle } from "lucide-react";
 
 type Stu = { id: string; name: string; code: string };
 type Weights = { tx: number; gk: number; ck: number };
@@ -11,19 +11,19 @@ const rankOf = (n: number | null) => (n == null ? "" : BANDS.find(([m]) => n >= 
 
 export function GradeGrid({
   assignmentId,
+  exemptStudentIds = [],
   txCols,
   weights,
   students,
   initial,
   readOnly = false,
   isLocked = false,
-  isManager = false,
-  termId,
   termName,
   isManualLocked = false,
   lockedBy,
 }: {
   assignmentId: string;
+  exemptStudentIds?: string[];
   txCols: number;
   weights: Weights;
   students: Stu[];
@@ -38,7 +38,6 @@ export function GradeGrid({
 }) {
   const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(initial).map(([k, v]) => [k, String(v)])));
   const [res, action, pending] = useActionState(saveScores, null);
-  const [lockRes, lockAction, lockPending] = useActionState(toggleLockTerm, null);
 
   const parse = (s: string | undefined) => { if (s == null || s.trim() === "") return undefined; const n = parseFloat(s.replace(",", ".")); return Number.isFinite(n) ? n : undefined; };
   const cols = useMemo(() => [
@@ -48,18 +47,20 @@ export function GradeGrid({
   ], [txCols, weights]);
 
   const totalOf = (sid: string) => {
+    if (exemptStudentIds.includes(sid)) return null;
     let sum = 0, w = 0;
     for (let i = 0; i < txCols; i++) { const v = parse(vals[`${sid}|tx${i}`]); if (v != null) { sum += v * weights.tx; w += weights.tx; } }
     const gk = parse(vals[`${sid}|gk`]), ck = parse(vals[`${sid}|ck`]);
     if (gk != null) { sum += gk * weights.gk; w += weights.gk; }
     if (ck != null) { sum += ck * weights.ck; w += weights.ck; }
-    return w > 0 ? Math.round((sum / w) * 100) / 100 : null;
+    return w > 0 ? Math.round((sum / w) * 10) / 10 : null;
   };
   const rows = useMemo(() => students.map((s) => { const total = totalOf(s.id); return { s, total, rank: rankOf(total) }; }), [vals, students]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changed = () => {
     const out: { studentId: string; tx: number[]; gk: number | null; ck: number | null }[] = [];
     for (const s of students) {
+      if (exemptStudentIds.includes(s.id)) continue;
       const diff = cols.some((c) => parse(vals[`${s.id}|${c.key}`]) !== initial[`${s.id}|${c.key}`]);
       if (!diff) continue;
       const tx: number[] = [];
@@ -86,30 +87,17 @@ export function GradeGrid({
             <div>
               <span className="font-semibold">Sổ điểm học kỳ {termName} đang bị khóa:</span>{" "}
               {isManualLocked ? `Đã khóa thủ công bởi BGH${lockedBy ? ` (${lockedBy})` : ""}.` : "Đã tự động khóa do học kỳ kết thúc quá 15 ngày."}{" "}
-              {readOnly ? "Bạn chỉ có quyền xem điểm, không thể chỉnh sửa." : "Bạn đang truy cập với quyền Ban Giám hiệu."}
+              {readOnly ? "Bạn chỉ có quyền xem điểm, không thể chỉnh sửa." : "Bạn có quyền sửa tạm thời đã được phê duyệt."}
             </div>
           </div>
-          {isManager && termId && (
-            <form action={lockAction} className="inline-flex items-center">
-              <input type="hidden" name="termId" value={termId} />
-              <input type="hidden" name="lock" value={isManualLocked ? "false" : "true"} />
-              <button
-                type="submit"
-                disabled={lockPending}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-400 bg-white px-3 py-1.5 text-xs font-semibold text-amber-900 shadow-sm hover:bg-amber-100 disabled:opacity-50"
-              >
-                {isManualLocked ? <><Unlock className="size-3.5" /> Mở khóa sổ điểm</> : <><Lock className="size-3.5" /> Khóa sổ điểm</>}
-              </button>
-            </form>
-          )}
+
         </div>
       )}
 
-      {lockRes?.ok && <div className="rounded-lg bg-green-50 p-2.5 text-xs font-medium text-green-700">{lockRes.ok}</div>}
-      {lockRes?.error && <div className="rounded-lg bg-red-50 p-2.5 text-xs font-medium text-red-700">{lockRes.error}</div>}
 
       <form action={action} className="space-y-3">
         <input type="hidden" name="assignmentId" value={assignmentId} />
+        {!readOnly && <label className="block text-xs font-medium">Lý do cập nhật điểm<input required minLength={5} name="reason" className="ml-2 h-9 rounded-md border bg-white px-3 text-sm" placeholder="Nhập mới / sửa theo biên bản…" /></label>}
         <input type="hidden" name="rows" value={JSON.stringify(changed())} />
         <div className="max-h-[calc(100vh-13rem)] overflow-auto rounded-xl border bg-white">
           <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
@@ -142,7 +130,7 @@ export function GradeGrid({
                           data-c={ci}
                           value={vals[k] ?? ""}
                           readOnly={readOnly}
-                          disabled={readOnly}
+                          disabled={readOnly || exemptStudentIds.includes(s.id)}
                           inputMode="decimal"
                           onChange={(e) => setVals((p) => ({ ...p, [k]: e.target.value }))}
                           onKeyDown={(e) => {
@@ -158,7 +146,7 @@ export function GradeGrid({
                     );
                   })}
                   <td className="sticky right-28 z-10 w-20 min-w-20 border-l bg-white px-3 py-1 text-center font-bold text-orange-700">{total ?? "-"}</td>
-                  <td className="sticky right-0 z-10 w-28 min-w-28 bg-white px-3 py-1">{rank}</td>
+                  <td className="sticky right-0 z-10 w-28 min-w-28 bg-white px-3 py-1">{exemptStudentIds.includes(s.id) ? "Miễn đánh giá" : rank}</td>
                 </tr>
               ))}
               <tr className="text-center text-xs">

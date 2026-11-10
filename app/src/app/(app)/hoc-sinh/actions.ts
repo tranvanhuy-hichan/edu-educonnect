@@ -1,4 +1,5 @@
 "use server";
+import { moveStudent } from "@/modules/academic/transfers";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
@@ -83,12 +84,7 @@ export const setStudentClass = wrap(async (fd) => {
   const studentId = str(fd, "studentId"), classId = str(fd, "classId");
   if (!classId) throw new Error("Chọn lớp");
   const cls = await db.schoolClass.findUniqueOrThrow({ where: { id: classId } });
-  if ((await db.studentClassEnrollment.count({ where: { schoolClassId: classId } })) >= CLASS_CAPACITY) throw new Error(`Lớp ${cls.className} đã đủ sĩ số`);
-  await db.studentClassEnrollment.upsert({
-    where: { studentId_academicYearId: { studentId, academicYearId: cls.academicYearId } },
-    update: { schoolClassId: classId }, create: { studentId, schoolClassId: classId, academicYearId: cls.academicYearId },
-  });
-  await audit(me.email, "set_student_class", "Student", studentId);
+  await moveStudent(me, { studentId, targetClassId: classId, effectiveDate: str(fd, "effectiveDate"), reason: str(fd, "reason"), decisionReference: str(fd, "decisionReference") });
   revalidatePath(`/hoc-sinh/${studentId}`); revalidatePath("/hoc-sinh"); revalidatePath(`/lop-hoc/${classId}`);
   return `Đã xếp vào lớp ${cls.className}`;
 });

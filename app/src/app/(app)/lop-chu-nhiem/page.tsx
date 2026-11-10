@@ -1,3 +1,4 @@
+import { YearResults } from "@/components/academic/year-results";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
@@ -15,16 +16,12 @@ import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
 import { bandOf } from "@/server/grades-stats";
 import { currentTermId, isManager } from "@/server/learning-scope";
-import { saveClassResults } from "../len-lop/actions";
 
 type SP = { sub?: string; a?: string; w?: string; tab?: string; classId?: string; termId?: string; page?: string; size?: string };
 // Chỉ hai tab nằm trong trang; các chức năng còn lại (bảng điểm, thời khóa biểu, sổ đầu bài, thi đua, xét lên lớp) mở từ menu bên trái.
 const TABS = [["overview", "Tổng quan"], ["students", "Học sinh"]] as const;
 const SECTIONS = ["overview", "students", "scores", "timetable", "diary", "emulation", "year"];
 const SECTION_TITLE: Record<string, string> = { scores: "Bảng điểm lớp", timetable: "Thời khóa biểu lớp", diary: "Sổ đầu bài lớp", emulation: "Thi đua lớp", year: "Xét lên lớp" };
-const CONDUCTS = ["Tốt", "Khá", "Trung bình"];
-const RESULT_LABEL = { LEN_LOP: "Lên lớp", O_LAI: "Ở lại", THI_LAI: "Thi lại" } as const;
-const RESULT_TONE = { LEN_LOP: "bg-green-100 text-green-800", O_LAI: "bg-red-100 text-red-800", THI_LAI: "bg-yellow-100 text-yellow-800" } as const;
 const fmt = (n: number | null | undefined, d = 2) => (n == null ? "—" : n.toFixed(d));
 
 export default async function Homeroom({ searchParams }: { searchParams: Promise<SP> }) {
@@ -232,35 +229,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
       {tab === "diary" && <ClassWeek me={me} cls={cls} w={sp.w} base={{ tab: "diary", classId: cls.id }} />}
 
       {/* ===================== KẾT QUẢ CUỐI NĂM ===================== */}
-      {tab === "year" && await (async () => {
-        const [results, yearAvgs] = await Promise.all([
-          db.yearEndResult.findMany({ where: { academicYearId: cls.academicYearId, studentId: { in: ids } } }),
-          db.subjectTermAverage.groupBy({ by: ["studentId"], where: { studentId: { in: ids }, academicTerm: { academicYearId: cls.academicYearId } }, _avg: { averageValue: true } }),
-        ]);
-        const resOf = new Map(results.map((r) => [r.studentId, r]));
-        const avgOf = new Map(yearAvgs.map((a) => [a.studentId, a._avg.averageValue]));
-        return (
-          <div className="space-y-3">
-            <p className="text-sm text-slate-600">Ghi kết quả cuối năm {cls.academicYear.yearName} cho cả lớp rồi bấm Lưu một lần. Điểm TB cả năm tự lấy từ điểm trung bình các môn.</p>
-            <ActionForm action={saveClassResults} submit="Lưu kết quả cả lớp" reset={false} className="flex flex-col gap-3 [&>button]:self-end">
-              <input type="hidden" name="academicYearId" value={cls.academicYearId} />
-              <input type="hidden" name="ids" value={roster.map((s) => s.id).join(",")} />
-              <div className="[&_table]:table-fixed [&_th:nth-child(1)]:w-[34%] [&_th:nth-child(2)]:w-[16%] [&_th:nth-child(3)]:w-[25%] [&_th:nth-child(4)]:w-[25%] [&_th:last-child]:text-right [&_td:last-child]:text-right">
-                <Table head={["Học sinh", "Điểm TB cả năm", "Kết quả", "Hạnh kiểm"]}>
-                  {roster.map((s) => { const r = resOf.get(s.id); const avg = avgOf.get(s.id); return (
-                    <tr key={s.id} className="align-middle [&>td]:!py-2.5">
-                      <td><Link data-row href={`/hoc-sinh/${s.id}`} className="font-semibold hover:text-orange-700">{s.fullName}</Link><div className="text-xs text-slate-500">{s.code}</div></td>
-                      <td>{fmt(avg)}<input type="hidden" name={`avg_${s.id}`} value={(r?.overallAverage ?? avg ?? 0).toFixed(2)} /></td>
-                      <td><select name={`result_${s.id}`} defaultValue={r?.result ?? "LEN_LOP"} className={inputCls + " w-full max-w-44"}>{Object.entries(RESULT_LABEL).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></td>
-                      <td><select name={`conduct_${s.id}`} defaultValue={r?.conductRank ?? "Tốt"} className={inputCls + " w-full max-w-44"}>{[...CONDUCTS, ...(r?.conductRank && !CONDUCTS.includes(r.conductRank) ? [r.conductRank] : [])].map((c) => <option key={c} value={c}>{c}</option>)}</select></td>
-                    </tr>); })}
-                  {!roster.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
-                </Table>
-              </div>
-            </ActionForm>
-          </div>
-        );
-      })()}
+      {tab === "year" && <YearResults classId={cls.id} academicYearId={cls.academicYearId} manager={me.roles.some((role) => MANAGER_ROLES.includes(role))} />}
     </div>
   );
 }

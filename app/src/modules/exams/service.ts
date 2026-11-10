@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { withTransaction, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
+import { examRepository } from "./exams.repository";
+import { appendAudit } from "@/modules/academic/records.repository";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { compareCandidates, examDate, examTime, groupCandidates, reservationConflict, timeOverlap, type Candidate, type Reservation } from "./planning";
 import type { ExamPlan } from "./schema";
 
-type Client = Prisma.TransactionClient;
+type Client = DatabaseContext | undefined;
 function manager(user: SessionUser) { if (!isAdmin(user)) throw new Error("Chỉ quản trị/ban giám hiệu được lập và sửa lịch thi"); }
 export function examVisibility(user: SessionUser): Prisma.ExamEventWhereInput {
   if (isAdmin(user)) return {};
@@ -15,17 +17,13 @@ export function examVisibility(user: SessionUser): Prisma.ExamEventWhereInput {
 }
 export function examStaff(user: SessionUser) { return isAdmin(user) || user.roles.some((role) => role === "SUBJECT_TEACHER" || role === "HOMEROOM_TEACHER"); }
 
-export async function prepareExamPlan(user: SessionUser, input: ExamPlan, client: Client = prisma) {
+export async function prepareExamPlan(user: SessionUser, input: ExamPlan, client?: Client) {
   manager(user);
-  const term = await client.academicTerm.findUniqueOrThrow({ where: { id: input.termId }, include: { academicYear: true } });
-  const grade = await client.gradeLevel.findUniqueOrThrow({ where: { id: input.gradeId } });
+  const term = await examRepository(client).term(input.termId);
+  const grade = await examRepository(client).grade(input.gradeId);
   const rosters = await Promise.all(input.papers.map(async (paper) => {
-    const subject = await client.subject.findUniqueOrThrow({ where: { id: paper.subjectId } });
-    const enrollments = await client.studentClassEnrollment.findMany({ where: {
-      academicYearId: term.academicYearId,
-      schoolClass: { gradeLevelId: grade.id, subjects: { some: { subjectId: paper.subjectId } } },
-      student: { user: { isActive: true } },
-    }, include: { student: true, schoolClass: true } });
+    const subject = await examRepository(client).subject(paper.subjectId);
+    const enrollments = await examRepository(client).candidates(term.academicYearId, grade.id, paper.subjectId);
     if (enrollments.length > 10000) throw new Error("Mỗi môn hỗ trợ tối đa 10.000 thí sinh");
     const available = new Set(enrollments.map((enrollment) => enrollment.studentId));
     if (paper.excludedStudentIds.some((id) => !available.has(id))) throw new Error(`${subject.subjectName}: danh sách loại trừ không còn khớp học sinh hiện tại, hãy khôi phục danh sách và chia lại`);
@@ -49,19 +47,19 @@ async function validateReservations(client: Client, incoming: Reservation[], exc
   }
   const earliest = new Date(Math.min(...incoming.map((item) => item.start.getTime())));
   const latest = new Date(Math.max(...incoming.map((item) => item.end.getTime())) + 120 * 60000);
-  const others = await client.examRoom.findMany({ where: { paper: { event: { status: { not: "CANCELLED" }, ...(excludeEventId ? { id: { not: excludeEventId } } : {}) }, startsAt: { lt: latest }, endsAt: { gt: earliest } } }, include: { paper: { include: { event: true, subject: true } }, invigilators: true, seats: { select: { studentId: true } } } });
+  const others = await examRepository(client).overlappingReservations(earliest, latest, excludeEventId);
   for (const item of incoming) for (const other of others) {
     const conflict = reservationConflict(item, { label: other.label, start: new Date(other.paper.startsAt.getTime() - other.paper.reportMinutes * 60000), end: other.paper.endsAt, roomId: other.roomId, teachers: other.invigilators.map((row) => row.teacherId), students: other.seats.map((row) => row.studentId) });
     if (conflict) throw new Error(`${item.label}: trùng ${conflict} với ${other.paper.event.title} · ${other.paper.subject.subjectName} · ${other.label} (bao gồm thời gian có mặt).`);
   }
 }
 
-export async function reviewExamPlan(user: SessionUser, input: ExamPlan, fingerprint: string, eventId?: string, client: Client = prisma, complete = true) {
+export async function reviewExamPlan(user: SessionUser, input: ExamPlan, fingerprint: string, eventId?: string, client?: Client, complete = true) {
   manager(user);
   const preview = await prepareExamPlan(user, input, client);
     if (preview.fingerprint !== fingerprint) throw new Error("Danh sách thí sinh hoặc cách chia đã thay đổi. Hãy xem trước lại trước khi lưu.");
     const [rooms, teachers, term] = await Promise.all([
-      client.room.findMany(), client.teacher.findMany({ where: { user: { isActive: true } } }), client.academicTerm.findUniqueOrThrow({ where: { id: input.termId } }),
+      examRepository(client).rooms(), examRepository(client).activeTeachers(), examRepository(client).term(input.termId),
     ]);
     const reservations: Reservation[] = [];
     const prepared = input.papers.map((paper) => {
@@ -98,34 +96,34 @@ export async function reviewExamPlan(user: SessionUser, input: ExamPlan, fingerp
 export async function saveExamPlan(user: SessionUser, input: ExamPlan, fingerprint: string, eventId?: string, transaction?: Client) {
   manager(user);
   const work = async (client: Client) => {
-    await client.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(20261110, 1600)`;
+    await examRepository(client).lock();
     if (eventId) {
-      const existing = await client.examEvent.findUniqueOrThrow({ where: { id: eventId } });
+      const existing = await examRepository(client).event(eventId);
       if (existing.status !== "DRAFT") throw new Error("Chỉ sửa lịch nháp. Hãy thu hồi lịch đã công bố trước khi sửa.");
     }
     const { prepared } = await reviewExamPlan(user, input, fingerprint, eventId, client, false);
     const data = { title: input.title, category: input.category, academicTermId: input.termId, gradeLevelId: input.gradeId, notes: input.notes || null };
-    const event = eventId ? await client.examEvent.update({ where: { id: eventId }, data: { ...data, revision: { increment: 1 } } }) : await client.examEvent.create({ data: { ...data, createdBy: user.email } });
-    if (eventId) await client.examPaper.deleteMany({ where: { eventId } });
+    const event = eventId ? await examRepository(client).updateEvent(eventId, { ...data, revision: { increment: 1 } }) : await examRepository(client).createEvent({ ...data, createdBy: user.email });
+    if (eventId) await examRepository(client).clearPapers(eventId);
     for (const preparedPaper of prepared) {
       const { paper, startsAt, endsAt, groups } = preparedPaper;
-      const created = await client.examPaper.create({ data: { eventId: event.id, subjectId: paper.subjectId, grouping: paper.grouping, roomCount: paper.roomCount, maxPerRoom: paper.maxPerRoom, startsAt, endsAt, reportMinutes: paper.reportMinutes, excludedStudentIds: paper.excludedStudentIds } });
+      const created = await examRepository(client).createPaper({ eventId: event.id, subjectId: paper.subjectId, grouping: paper.grouping, roomCount: paper.roomCount, maxPerRoom: paper.maxPerRoom, startsAt, endsAt, reportMinutes: paper.reportMinutes, excludedStudentIds: paper.excludedStudentIds });
       for (const { group, roomId, teacherIds } of groups) {
-        const room = await client.examRoom.create({ data: { paperId: created.id, groupKey: group.key, label: group.label, roomId, invigilators: { create: teacherIds.map((teacherId, index) => ({ teacherId, position: index + 1 })) } } });
-        await client.examSeat.createMany({ data: group.candidates.map((candidate) => ({ paperId: created.id, examRoomId: room.id, studentId: candidate.id, registrationNo: candidate.registrationNo, seatNo: candidate.seatNo, fullName: candidate.fullName, studentCode: candidate.code, className: candidate.className })) });
+        const room = await examRepository(client).createRoom({ paperId: created.id, groupKey: group.key, label: group.label, roomId, invigilators: { create: teacherIds.map((teacherId, index) => ({ teacherId, position: index + 1 })) } });
+        await examRepository(client).createSeats(group.candidates.map((candidate) => ({ paperId: created.id, examRoomId: room.id, studentId: candidate.id, registrationNo: candidate.registrationNo, seatNo: candidate.seatNo, fullName: candidate.fullName, studentCode: candidate.code, className: candidate.className })));
       }
     }
-    await client.activityLog.create({ data: { actorEmail: user.email, action: eventId ? "update_exam" : "create_exam", targetType: "ExamEvent", targetId: event.id } });
+    await appendAudit({ actorEmail: user.email, action: eventId ? "update_exam" : "create_exam", targetType: "ExamEvent", targetId: event.id }, client);
     return event;
   };
-  return transaction ? work(transaction) : prisma.$transaction(work, { timeout: 30000 });
+  return transaction ? work(transaction) : withTransaction(work, { timeout: 30000 });
 }
 
 export async function transitionExam(user: SessionUser, id: string, action: "publish" | "withdraw" | "cancel", transaction?: Client) {
   manager(user);
   const work = async (client: Client) => {
-    await client.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(20261110, 1600)`;
-    const event = await client.examEvent.findUniqueOrThrow({ where: { id }, include: { papers: { include: { rooms: { include: { room: true, invigilators: { include: { teacher: { include: { user: true } } } }, seats: true } } } } } });
+    await examRepository(client).lock();
+    const event = await examRepository(client).event(id);
     if (event.status === "CANCELLED") throw new Error("Lịch đã hủy, không thể chuyển trạng thái");
     if (action === "publish") {
       if (event.status !== "DRAFT") throw new Error("Lịch này đã được công bố");
@@ -147,23 +145,23 @@ export async function transitionExam(user: SessionUser, id: string, action: "pub
       if (event.papers.some((paper) => paper.startsAt <= new Date())) throw new Error("Kỳ thi đã bắt đầu, không thể thu hồi để thay đổi danh sách");
     }
     const status = action === "publish" ? "PUBLISHED" : action === "withdraw" ? "DRAFT" : "CANCELLED";
-    const updated = await client.examEvent.update({ where: { id }, data: { status, revision: { increment: 1 }, ...(action === "publish" ? { publishedAt: new Date() } : {}) } });
-    await client.activityLog.create({ data: { actorEmail: user.email, action: `${action}_exam`, targetType: "ExamEvent", targetId: id } });
+    const updated = await examRepository(client).updateEvent(id, { status, revision: { increment: 1 }, ...(action === "publish" ? { publishedAt: new Date() } : {}) });
+    await appendAudit({ actorEmail: user.email, action: `${action}_exam`, targetType: "ExamEvent", targetId: id }, client);
     return updated;
   };
-  return transaction ? work(transaction) : prisma.$transaction(work, { timeout: 30000 });
+  return transaction ? work(transaction) : withTransaction(work, { timeout: 30000 });
 }
 
 /** A suggestion only: keep selected exam times, assign free rooms and balance invigilation counts. */
-export async function suggestExamResources(user: SessionUser, input: ExamPlan, fingerprint: string, proctors = 1, eventId?: string, client: Client = prisma) {
+export async function suggestExamResources(user: SessionUser, input: ExamPlan, fingerprint: string, proctors = 1, eventId?: string, client?: Client) {
   manager(user);
   if (proctors !== 1 && proctors !== 2) throw new Error("Chọn 1 hoặc 2 giám thị/phòng");
   const preview = await prepareExamPlan(user, input, client);
   if (preview.fingerprint !== fingerprint) throw new Error("Danh sách đã thay đổi. Hãy chia phòng lại.");
   const [rooms, teachers, occupied] = await Promise.all([
-    client.room.findMany({ orderBy: [{ capacity: "asc" }, { roomName: "asc" }] }),
-    client.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" } }),
-    client.examRoom.findMany({ where: { paper: { event: { status: { not: "CANCELLED" }, ...(eventId ? { id: { not: eventId } } : {}) }, endsAt: { gt: new Date() } } }, include: { paper: true, invigilators: true, seats: { select: { studentId: true } } } }),
+    examRepository(client).rooms(),
+    examRepository(client).activeTeachers(),
+    examRepository(client).futureReservations(new Date(), eventId),
   ]);
   const busy: Reservation[] = occupied.map((room) => ({ label: room.label, start: new Date(room.paper.startsAt.getTime() - room.paper.reportMinutes * 60000), end: room.paper.endsAt, roomId: room.roomId, teachers: room.invigilators.map((row) => row.teacherId), students: room.seats.map((seat) => seat.studentId) }));
   const load = new Map<string, number>();

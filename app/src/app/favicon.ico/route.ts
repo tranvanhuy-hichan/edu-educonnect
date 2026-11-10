@@ -7,9 +7,9 @@ export async function GET(req: Request) {
   try {
     const brand = await getSchoolSetting();
     if (brand.logoUrl) {
-      return NextResponse.redirect(brand.logoUrl, { status: 307 });
+      return NextResponse.redirect(brand.logoUrl, { status: 307, headers: { "Cache-Control": "no-store" } });
     }
   } catch {}
   const url = new URL("/favicon.svg", req.url);
-  return NextResponse.redirect(url, { status: 307 });
+  return NextResponse.redirect(url, { status: 307, headers: { "Cache-Control": "no-store" } });
 }

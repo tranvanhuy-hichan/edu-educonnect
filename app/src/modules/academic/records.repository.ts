@@ -1,0 +1,16 @@
+import type { Prisma } from "@prisma/client";
+import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
+export const findYear = (id: string, context?: DatabaseContext) => databaseFor(context).academicYear.findUniqueOrThrow({ where: { id } });
+export const findClass = (id: string, context?: DatabaseContext) => databaseFor(context).schoolClass.findUniqueOrThrow({ where: { id }, include: { academicYear: true } });
+export const findEnrollment = (studentId: string, academicYearId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId } }, include: { schoolClass: true } });
+export const countClassEnrollments = (schoolClassId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.count({ where: { schoolClassId } });
+export const listClassStudentIds = (schoolClassId: string, academicYearId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.findMany({ where: { schoolClassId, academicYearId }, select: { studentId: true } });
+export const lockStudent = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "Student" WHERE "id" = ${id} FOR UPDATE`;
+export const lockClass = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "SchoolClass" WHERE "id" = ${id} FOR UPDATE`;
+export const lockEnrollment = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "StudentClassEnrollment" WHERE "id" = ${id} FOR UPDATE`;
+export const lockStudentYear = (studentId: string, academicYearId: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "StudentClassEnrollment" WHERE "studentId" = ${studentId} AND "academicYearId" = ${academicYearId} FOR UPDATE`;
+export const appendAudit = (data: Prisma.ActivityLogUncheckedCreateInput, context?: DatabaseContext) => databaseFor(context).activityLog.create({ data });
+export const appendTransfer = (data: Prisma.ClassTransferUncheckedCreateInput, context: DatabaseContext) => databaseFor(context).classTransfer.create({ data });
+export const clearClassMonitor = (schoolClassId: string, studentId: string, context: DatabaseContext) => databaseFor(context).schoolClass.updateMany({ where: { id: schoolClassId, monitorStudentId: studentId }, data: { monitorStudentId: null } });
+export const saveEnrollment = (studentId: string, academicYearId: string, schoolClassId: string, currentClassSince: Date, context: DatabaseContext) => databaseFor(context).studentClassEnrollment.upsert({ where: { studentId_academicYearId: { studentId, academicYearId } }, create: { studentId, academicYearId, schoolClassId, currentClassSince }, update: { schoolClassId, currentClassSince } });
+export const createEnrollment = (data: Prisma.StudentClassEnrollmentUncheckedCreateInput, context: DatabaseContext) => databaseFor(context).studentClassEnrollment.create({ data });

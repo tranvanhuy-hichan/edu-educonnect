@@ -1,6 +1,6 @@
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { canManageSchoolClass } from "@/lib/auth/permission";
-import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
+import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as emulationRepository from "@/modules/emulation/emulation.repository";
 import type {
   CreateEmulationCriteriaInput,

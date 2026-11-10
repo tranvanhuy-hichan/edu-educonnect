@@ -29,21 +29,9 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden theme-bg p-4 sm:p-6 text-[var(--fg)]">
+    <main className="auth-background relative flex min-h-screen items-center justify-center p-4 py-12 sm:p-6 sm:py-12 text-[var(--fg)]">
       <div className="absolute top-4 right-4 z-20">
         <ModeToggle />
-      </div>
-
-      <div
-        aria-hidden="true"
-        className="school-watermark school-watermark-login pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {logo ? (
-          <img src={logo} alt="" className="aspect-square w-[min(90vw,800px)] rounded-full object-cover" />
-        ) : (
-          <span className="text-[60vw] font-bold leading-none">{name.slice(0, 1).toUpperCase()}</span>
-        )}
       </div>
 
       <div className="relative flex w-full justify-center">
@@ -65,7 +53,7 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
                 {name.slice(0, 1).toUpperCase()}
               </div>
             )}
-            <h1 className="mt-3 text-xl font-bold tracking-tight text-[var(--fg)] sm:text-2xl">{name}</h1>
+            <h1 className="mt-3 text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">{name}</h1>
             <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">
               Cổng Quản lý Giáo dục EduConnect
             </p>
@@ -74,12 +62,12 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
           {/* Card Đăng nhập */}
           <form
             onSubmit={submit}
-            className="space-y-5 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 sm:p-8 shadow-xl backdrop-blur-md"
+            className="space-y-5 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-7 sm:p-8 shadow-xl shadow-slate-200/50 dark:shadow-black/50"
           >
-            <div>
-              <h2 className="text-xl font-bold text-[var(--fg)]">Đăng nhập Hệ thống</h2>
+            <div className="text-center">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">Đăng nhập EduConnect</h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Dành cho Cán bộ quản lý, Giáo viên và Học sinh.
+                Đăng nhập bằng tài khoản do nhà trường cấp.
               </p>
             </div>
 
@@ -92,7 +80,7 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
                   autoComplete="username"
                   autoFocus
                   required
-                  className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--bg)] pl-10 pr-3.5 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400"
+                  className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-10 pr-3.5 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-orange-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400"
                   placeholder="vd: hocsinh1@sonha.edu.vn hoặc HS00000004"
                 />
               </span>
@@ -107,7 +95,7 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
                   type={show ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--bg)] pl-10 pr-11 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400"
+                  className="h-11 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 pl-10 pr-11 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-orange-500 focus:bg-white dark:focus:bg-slate-900 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400"
                   placeholder="••••••••"
                 />
                 <button
@@ -124,7 +112,7 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
             {err && (
               <div
                 role="alert"
-                className="flex items-start gap-2 rounded-xl border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-600 dark:text-red-400 leading-relaxed"
+                className="flex items-start gap-2 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 p-3 text-xs text-rose-600 dark:text-rose-400 leading-relaxed"
               >
                 <AlertCircle className="size-4 shrink-0 mt-0.5" />
                 <span>{err}</span>
@@ -151,17 +139,20 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
           </form>
 
           {/* Thẻ chuyển sang Cổng Phụ huynh */}
-          <div className="mt-5 rounded-2xl border border-orange-200/80 dark:border-orange-900/50 bg-orange-500/5 hover:bg-orange-500/10 transition p-4 text-center shadow-xs">
+          <div className="mt-5 rounded-2xl border border-orange-200/80 dark:border-orange-900/50 bg-white dark:bg-slate-900 hover:border-orange-300 dark:hover:border-orange-800 transition p-4 text-center shadow-xs">
             <a
               href="/phu-huynh/dang-nhap"
-              className="group inline-flex items-center gap-2 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
+              className="group inline-flex items-center justify-center gap-2 text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline"
             >
-              <span>👨‍👩‍👧‍👦 Cổng Sổ liên lạc dành riêng cho Phụ huynh</span>
-              <ArrowRight className="size-3.5 transition group-hover:translate-x-1" />
+              <span>Cổng Sổ liên lạc dành riêng cho Phụ huynh</span>
+              <ArrowRight aria-hidden="true" className="size-3.5 shrink-0 transition group-hover:translate-x-1" />
             </a>
           </div>
         </div>
       </div>
+      <footer className="absolute inset-x-0 bottom-4 text-center text-[11px] text-slate-500 dark:text-slate-400">
+        v1.0.0
+      </footer>
     </main>
   );
 }

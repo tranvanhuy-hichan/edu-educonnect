@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { PRIMARY_COLOR } from "@/lib/theme";
 import { getSchoolSetting } from "@/lib/school-setting";
 
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
@@ -21,7 +22,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",
-    theme_color: "#ea580c",
+    theme_color: PRIMARY_COLOR,
     orientation: "portrait",
     icons: [
       ...customIcon,

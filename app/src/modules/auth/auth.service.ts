@@ -43,3 +43,15 @@ export async function login(input: LoginInput): Promise<SessionUser> {
     studentId: user.student?.id ?? null,
   };
 }
+
+/** Resolve the current database identity so disabled accounts take effect immediately. */
+export async function resolveSessionIdentity(userId: string) {
+  const user = await authRepository.findSessionIdentity(userId);
+  if (!user?.isActive) return null;
+  return {
+    id: userId, userId, email: user.email,
+    name: user.teacher?.fullName ?? user.student?.fullName ?? user.email,
+    roles: user.roles, teacherId: user.teacher?.id ?? null,
+    studentId: user.student?.id ?? null, mustChangePwd: user.mustChangePwd,
+  };
+}

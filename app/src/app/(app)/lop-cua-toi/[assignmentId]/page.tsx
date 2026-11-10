@@ -1,3 +1,4 @@
+import { AttachmentUpload } from "@/components/attachment-upload";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, GraduationCap, PenLine, ScrollText } from "lucide-react";
@@ -90,8 +91,8 @@ export default async function MyClass({ params, searchParams }: { params: Promis
               <ActionForm action={createPost} submit="Đăng bài" className="flex flex-col gap-3 [&>button]:self-start">
                 <input type="hidden" name="assignmentId" value={a.id} />
                 <Field label="Tiêu đề"><input name="title" className={inputCls + " w-full"} required /></Field>
-                <Field label="Nội dung"><textarea name="content" rows={5} className={inputCls + " h-auto w-full py-2"} required /></Field>
-                <Field label="Link đính kèm (mỗi dòng một link)"><textarea name="attachments" rows={2} className={inputCls + " h-auto w-full py-2"} placeholder="https://" /></Field>
+                <Field label="Nội dung"><textarea name="content" rows={5} className={inputCls + " h-auto w-full py-2"} /></Field>
+                <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="LESSON_POST" /></div>
               </ActionForm>
             </DialogButton>
           </div>
@@ -117,8 +118,8 @@ export default async function MyClass({ params, searchParams }: { params: Promis
               <ActionForm action={createPlan} submit="Đăng giáo án" className="flex flex-col gap-3 [&>button]:self-start">
                 <input type="hidden" name="assignmentId" value={a.id} />
                 <Field label="Tiêu đề"><input name="title" className={inputCls + " w-full"} required /></Field>
-                <Field label="Nội dung giáo án"><textarea name="content" rows={10} className={inputCls + " h-auto w-full py-2"} required /></Field>
-                <Field label="Link tài liệu đính kèm"><input name="attachment" className={inputCls + " w-full"} placeholder="https://" /></Field>
+                <Field label="Nội dung giáo án"><textarea name="content" rows={10} className={inputCls + " h-auto w-full py-2"} /></Field>
+                <div className="space-y-1 text-xs font-semibold"><p>Tài liệu giáo án</p><AttachmentUpload purpose="LESSON_PLAN" name="attachment" multiple={false} /></div>
               </ActionForm>
             </DialogButton>
           </div>

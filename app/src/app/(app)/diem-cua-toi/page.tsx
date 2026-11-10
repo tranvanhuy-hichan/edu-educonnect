@@ -19,7 +19,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
   const [assignments, entries, averages, subs] = await Promise.all([
     db.classSubjectAssignment.findMany({
       where: { schoolClass: { enrollments: { some: { studentId: sid } } }, ...(termId ? { academicTermId: termId } : {}) },
-      include: { subject: true, teacher: true, schoolClass: true, academicTerm: { include: { academicYear: true } } },
+      include: { assessments: { where: { studentId: sid } }, subject: true, teacher: true, schoolClass: true, academicTerm: { include: { academicYear: true } } },
       orderBy: [{ academicTerm: { startDate: "desc" } }, { subject: { subjectName: "asc" } }],
     }),
     db.scoreEntry.findMany({ where: { studentId: sid, ...(termId ? { academicTermId: termId } : {}) }, orderBy: { createdAt: "asc" } }),
@@ -28,7 +28,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
   ]);
   const cards = assignments.map((a) => {
     const es = entries.filter((e) => e.assignmentId === a.id);
-    const avg = es.length ? averages.find((x) => x.assignmentId === a.id)?.averageValue ?? null : null;
+    const avg = es.length && !a.assessments[0]?.isExempt && a.subject.assessmentType === "SCORE" ? averages.find((x) => x.assignmentId === a.id)?.averageValue ?? null : null;
     return { a, es, avg };
   });
   const graded = cards.filter((x) => x.avg != null);
@@ -56,16 +56,19 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
 
       <div className="grid gap-4 xl:grid-cols-2">
         {cards.map(({ a, es, avg: m }) => {
-          const band = m != null ? bandOf(m) : null;
+          const review = a.assessments[0];
+          const nonNumeric = a.subject.assessmentType === "COMMENT" || review?.isExempt;
+          const band = m != null && !nonNumeric ? bandOf(m) : null;
+          const outcome = review?.isExempt ? "Miễn đánh giá" : review?.outcome === "DAT" ? "Đạt" : review?.outcome === "CHUA_DAT" ? "Chưa đạt" : "Chưa đánh giá";
           const tx = es.filter((e) => e.scoreType === "THUONG_XUYEN");
           const boxes = [...tx.map((e, i) => ({ k: `tx${i}`, name: `TX ${i + 1}`, v: e.value })), ...CATS.slice(1).map((c) => ({ k: c.key, name: c.name, v: es.find((e) => e.scoreType === c.key)?.value }))];
           return (
             <Card key={a.id} className="space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div><div className="text-base font-semibold">{a.subject.subjectName}</div><div className="text-xs text-slate-500">GV: {a.teacher.fullName} · {a.academicTerm.termName} · {a.academicTerm.academicYear.yearName}</div></div>
-                <div className="text-right"><div className="text-2xl font-bold leading-none" style={{ color: band?.color }}>{m != null ? m.toFixed(2) : "-"}</div><div className="mt-1 text-xs font-medium" style={{ color: band?.color }}>{band?.label ?? "Chưa đủ điểm"}</div></div>
+                <div className="text-right"><div className="text-2xl font-bold leading-none" style={{ color: band?.color }}>{nonNumeric ? outcome : m != null ? m.toFixed(1) : "-"}</div><div className="mt-1 text-xs font-medium" style={{ color: band?.color }}>{nonNumeric ? review?.comment : "Điểm TB tạm tính"}</div></div>
               </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {!nonNumeric && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {boxes.map((b) => (
                   <div key={b.k} className="rounded-md border p-2.5">
                     <div className="truncate text-xs text-slate-500">{b.name}</div>
@@ -73,7 +76,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
                     <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-1.5 rounded-full" style={{ width: `${b.v != null ? Math.min(100, (b.v / 10) * 100) : 0}%`, background: b.v != null ? bandOf(b.v).color : undefined }} /></div>
                   </div>
                 ))}
-              </div>
+              </div>}
             </Card>
           );
         })}

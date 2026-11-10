@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { resolveSessionIdentity } from "@/modules/auth/auth.service";
 import { verifySessionToken } from "@/lib/auth/jwt";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/request-session";
 import type { SessionUser } from "@/lib/auth/session";
@@ -16,21 +16,7 @@ export const getMe = cache(async (): Promise<Me | null> => {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   const session = token ? verifySessionToken(token) : null;
   if (!session) return null;
-  const u = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { email: true, roles: true, isActive: true, mustChangePwd: true, teacher: { select: { id: true, fullName: true } }, student: { select: { id: true, fullName: true } } },
-  });
-  if (!u || !u.isActive) return null;
-  return {
-    id: session.userId,
-    userId: session.userId,
-    email: u.email,
-    name: u.teacher?.fullName ?? u.student?.fullName ?? u.email,
-    roles: u.roles,
-    teacherId: u.teacher?.id ?? null,
-    studentId: u.student?.id ?? null,
-    mustChangePwd: u.mustChangePwd,
-  };
+  return resolveSessionIdentity(session.userId);
 });
 
 const hasAny = (me: Me, roles: Role[]) => !roles.length || me.roles.some((r) => roles.includes(r));

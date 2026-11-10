@@ -124,11 +124,11 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative grid size-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+        className="relative rounded-md p-2 hover:bg-slate-100"
         aria-label="Thông báo"
         title="Thông báo"
       >
-        <Bell className="size-4" />
+        <Bell className="size-5" />
         {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
             {unreadCount > 99 ? "99+" : unreadCount}

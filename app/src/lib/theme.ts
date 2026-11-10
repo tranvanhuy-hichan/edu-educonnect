@@ -1,5 +1,3 @@
-import type { Role } from "@prisma/client";
-
 export type Theme = {
   primary: string;
   background: string;
@@ -15,35 +13,20 @@ export type Theme = {
   dark: boolean;
 };
 
+export const PRIMARY_COLOR = "#30794B";
+
 export const DEFAULT_THEME: Theme = {
-  primary: "#ea580c", background: "#fff7ed", surface: "#ffffff", text: "#172033", line: "#E5E5E0",
-  sidebar: "#ea580c", font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 8, logo: "", dark: false,
+  primary: PRIMARY_COLOR, background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0",
+  sidebar: PRIMARY_COLOR, font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 10, logo: "", dark: false,
 };
-
-/** First matching role wins, independently of the order saved on the account. */
-export const ROLE_COLORS: Record<Role, string> = {
-  ADMIN: "#ea580c",
-  PRINCIPAL: "#ea580c",
-  VICE_PRINCIPAL: "#ea580c",
-  HOMEROOM_TEACHER: "#30794B",
-  SUBJECT_TEACHER: "#1D7973",
-  LIBRARIAN: "#8C602D",
-  STUDENT: "#ea580c",
-};
-
-export function themeForRoles(roles: readonly Role[]): Theme {
-  const role = (Object.keys(ROLE_COLORS) as Role[]).find((role) => roles.includes(role));
-  const primary = role ? ROLE_COLORS[role] : DEFAULT_THEME.primary;
-  return { ...DEFAULT_THEME, primary, sidebar: primary };
-}
 
 export const FONTS = ["Segoe UI", "Be Vietnam Pro", "Inter", "Roboto", "Nunito", "Montserrat", "Lexend", "Quicksand", "Open Sans", "Merriweather", "Playfair Display", "System"];
 
 export const PRESETS: Record<string, Partial<Theme>> = {
-  "Tím đậm (mặc định)": { primary: "#6d28d9", background: "#faf7ff", surface: "#ffffff", text: "#172033", line: "#e6dcf7", sidebar: "#3b0764", dark: false },
+  "Tím đậm": { primary: "#6d28d9", background: "#faf7ff", surface: "#ffffff", text: "#172033", line: "#e6dcf7", sidebar: "#3b0764", dark: false },
   "Xanh dương": { primary: "#0b63b8", background: "#f8fafc", surface: "#ffffff", text: "#172033", line: "#e2e8f0", sidebar: "#084a8c", dark: false },
-  "Xanh lá": { primary: "#15803d", background: "#f6faf7", surface: "#ffffff", text: "#172033", line: "#dde7df", sidebar: "#14532d", dark: false },
-  "Cam": { primary: "#ea580c", background: "#fff7ed", surface: "#ffffff", text: "#1f2937", line: "#e5e7eb", sidebar: "#7c2d12", dark: false },
+  "Xanh lá (mặc định)": { primary: PRIMARY_COLOR, background: "#f6faf7", surface: "#ffffff", text: "#172033", line: "#dde7df", sidebar: "#14532d", dark: false },
+  "Cam": { primary: "#ea580c", background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0", sidebar: "#ea580c", dark: false },
   "Tím": { primary: "#7c3aed", background: "#f7f5ff", surface: "#ffffff", text: "#1f2937", line: "#e4defa", sidebar: "#4c1d95", dark: false },
   "Đỏ đô": { primary: "#be123c", background: "#fdf6f8", surface: "#ffffff", text: "#1f2937", line: "#f0dce2", sidebar: "#881337", dark: false },
   "Tối": { primary: "#3b82f6", background: "#0f172a", surface: "#1e293b", text: "#e2e8f0", line: "#334155", sidebar: "#020617", dark: true },
@@ -78,14 +61,14 @@ export function palette(primary: string, dark: boolean) {
   if (dark) {
     // Tối: 50–200 là nền tối pha màu chủ đạo; 600+ sáng dần để chữ/liên kết đọc được trên nền tối
     return {
-      50: mix(primary, K, 0.82), 100: mix(primary, K, 0.72), 200: mix(primary, K, 0.55), 300: mix(primary, K, 0.35), 400: mix(primary, K, 0.15),
-      500: primary, 600: primary, 700: mix(primary, W, 0.4), 800: mix(primary, W, 0.58), 900: mix(primary, W, 0.72),
+      50: mix(primary, K, 0.82), 100: mix(primary, K, 0.72), 200: mix(primary, K, 0.55), 300: mix(primary, W, 0.65), 400: mix(primary, W, 0.5),
+      500: primary, 600: primary, 700: mix(primary, W, 0.4), 800: mix(primary, W, 0.58), 900: mix(primary, W, 0.72), 950: mix(primary, K, 0.88),
     } as Record<number, string>;
   }
   const light = [0.93, 0.85, 0.7, 0.45, 0.2];
   return {
     50: mix(primary, W, light[0]), 100: mix(primary, W, light[1]), 200: mix(primary, W, light[2]), 300: mix(primary, W, light[3]), 400: mix(primary, W, light[4]),
-    500: primary, 600: mix(primary, K, 0.12), 700: mix(primary, K, 0.28), 800: mix(primary, K, 0.42), 900: mix(primary, K, 0.56),
+    500: primary, 600: mix(primary, K, 0.12), 700: mix(primary, K, 0.28), 800: mix(primary, K, 0.42), 900: mix(primary, K, 0.56), 950: mix(primary, K, 0.72),
   } as Record<number, string>;
 }
 
@@ -97,8 +80,8 @@ function lum(hex: string) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-const LIGHT_COLORS = { background: "#fff7ed", surface: "#ffffff", text: "#172033", line: "#E5E5E0", sidebar: "#ea580c" };
-const DARK_COLORS = { background: "#0f172a", surface: "#1e293b", text: "#e2e8f0", line: "#334155", sidebar: "#020617" };
+const LIGHT_COLORS = { background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0", sidebar: PRIMARY_COLOR };
+const DARK_COLORS = { background: "#090d16", surface: "#111827", text: "#f8fafc", line: "#1f2937", sidebar: "#0d1c13" };
 
 function block(t: Theme, dark: boolean) {
   // Màu của quản trị dùng cho chế độ trùng với mặc định của họ; chế độ còn lại dùng bộ màu chuẩn.

@@ -2,7 +2,7 @@ import { isVersionEffective } from "@/modules/scheduling/effective";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { todayUTC } from "@/lib/format";
-import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
+import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as attendanceRepository from "@/modules/attendance/attendance.repository";
 import type { CreateClassPeriodLogInput } from "@/modules/attendance/attendance.schema";
 

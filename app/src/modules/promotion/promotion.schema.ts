@@ -3,9 +3,10 @@ import { z } from "zod";
 export const createYearEndResultSchema = z.object({
   studentId: z.string().min(1),
   academicYearId: z.string().min(1),
-  overallAverage: z.number().min(0).max(10),
-  conductRank: z.string().optional(),
-  result: z.enum(["LEN_LOP", "O_LAI", "THI_LAI"]),
+  overallAverage: z.number().min(0).max(10).nullable().optional(),
+  absenceDays: z.number().int().min(0).max(366).nullable().optional(),
+  conductRank: z.enum(["Tốt", "Khá", "Đạt", "Chưa đạt"]).optional(),
+  result: z.enum(["CHUA_DU_DIEU_KIEN", "LEN_LOP", "O_LAI", "THI_LAI"]),
 });
 export type CreateYearEndResultInput = z.infer<typeof createYearEndResultSchema>;
 

@@ -68,7 +68,7 @@ export default async function ActivityLog({ searchParams }: { searchParams: Prom
             <td className="whitespace-nowrap">{fmtTime(l.createdAt)}</td>
             <td>{l.actorEmail}</td>
             <td><span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">{label(ACTION_LABEL, l.action)}</span></td>
-            <td>{label(TYPE_LABEL, l.targetType)}{l.targetId ? <span className="text-xs text-slate-500"> · {l.targetId.slice(0, 8)}</span> : null}</td>
+            <td>{label(TYPE_LABEL, l.targetType)}{l.targetId ? <span className="text-xs text-slate-500"> · {l.targetId.slice(0, 8)}</span> : null}{(l.beforeData || l.afterData || l.reason) && <details className="mt-1 text-xs"><summary className="cursor-pointer text-orange-700">Lý do và dữ liệu trước/sau</summary><p className="my-2">{l.reason}</p><pre className="max-h-72 max-w-lg overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3">{JSON.stringify({ before: l.beforeData, after: l.afterData }, null, 2)}</pre></details>}</td>
           </tr>
         ))}
         {!logs.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Chưa có hoạt động phù hợp.</td></tr>}

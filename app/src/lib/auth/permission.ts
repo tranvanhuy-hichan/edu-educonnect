@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import * as repository from "@/modules/auth/permission.repository";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 
 /** Hiệu trưởng/Hiệu phó xem được mọi lớp; GVCN chỉ xem được lớp mình chủ nhiệm. */
@@ -9,10 +9,7 @@ export async function canManageSchoolClass(
   if (isAdmin(user)) return true;
   if (!user.teacherId) return false;
 
-  const schoolClass = await prisma.schoolClass.findUnique({
-    where: { id: schoolClassId },
-    select: { homeroomTeacherId: true },
-  });
+  const schoolClass = await repository.classHomeroom(schoolClassId);
 
   return schoolClass?.homeroomTeacherId === user.teacherId;
 }
@@ -25,10 +22,7 @@ export async function canManageClassSubjectAssignment(
   if (isAdmin(user)) return true;
   if (!user.teacherId) return false;
 
-  const assignment = await prisma.classSubjectAssignment.findUnique({
-    where: { id: assignmentId },
-    select: { teacherId: true },
-  });
+  const assignment = await repository.assignmentTeacher(assignmentId);
 
   return assignment?.teacherId === user.teacherId;
 }
@@ -42,10 +36,7 @@ export async function canViewSchoolClassRoster(
   if (allowedAsHomeroom) return true;
   if (!user.teacherId) return false;
 
-  const assignment = await prisma.classSubjectAssignment.findFirst({
-    where: { schoolClassId, teacherId: user.teacherId },
-    select: { id: true },
-  });
+  const assignment = await repository.teacherClassAssignment(schoolClassId, user.teacherId);
 
   return assignment !== null;
 }
@@ -62,13 +53,7 @@ export async function canViewStudent(
   if (user.studentId === studentId) return true;
 
   if (user.teacherId) {
-    const enrollment = await prisma.studentClassEnrollment.findFirst({
-      where: {
-        studentId,
-        schoolClass: { homeroomTeacherId: user.teacherId },
-      },
-      select: { id: true },
-    });
+    const enrollment = await repository.studentHomeroomEnrollment(studentId, user.teacherId);
     if (enrollment) return true;
   }
 

@@ -1,3 +1,4 @@
+import { contextFor } from "@/infrastructure/database/unit-of-work";
 import type { Room, Teacher } from "@prisma/client";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
@@ -27,13 +28,13 @@ test("class curriculum is the shared source for assignments, timetable and exam 
       teachers.push(await tx.teacher.create({ data: { fullName: `Teacher ${i}`, user: { create: { email: `${tag}-t${i}@test.invalid`, passwordHash: "test-only", roles: ["SUBJECT_TEACHER"] } } } }));
     }
     const classData = (i: number) => ({ className: `A${i}`, academicYearId: year.id, gradeLevelId: grade.id, roomId: rooms[i].id });
-    const a = await createClassWithSubjects(classData(0), [subjects[0].id], tx);
-    const b = await createClassWithSubjects(classData(1), [subjects[1].id], tx);
-    await assert.rejects(createClassWithSubjects({ ...classData(0), className: "Invalid" }, [], tx), /ít nhất một môn/);
-    await assert.rejects(createClassWithSubjects({ ...classData(0), className: "Invalid" }, ["missing"], tx), /không hợp lệ/);
+    const a = await createClassWithSubjects(classData(0), [subjects[0].id], contextFor(tx));
+    const b = await createClassWithSubjects(classData(1), [subjects[1].id], contextFor(tx));
+    await assert.rejects(createClassWithSubjects({ ...classData(0), className: "Invalid" }, [], contextFor(tx)), /ít nhất một môn/);
+    await assert.rejects(createClassWithSubjects({ ...classData(0), className: "Invalid" }, ["missing"], contextFor(tx)), /không hợp lệ/);
     assert.equal(await tx.schoolClass.count({ where: { academicYearId: year.id } }), 2);
-    await requireClassSubject(tx, a.id, subjects[0].id, term.id);
-    await assert.rejects(requireClassSubject(tx, a.id, subjects[1].id, term.id), /Lớp không học môn này/);
+    await requireClassSubject(contextFor(tx), a.id, subjects[0].id, term.id);
+    await assert.rejects(requireClassSubject(contextFor(tx), a.id, subjects[1].id, term.id), /Lớp không học môn này/);
     await tx.$executeRawUnsafe("SAVEPOINT invalid_curriculum_assignment");
     await assert.rejects(tx.classSubjectAssignment.create({ data: { schoolClassId: a.id, subjectId: subjects[1].id, teacherId: teachers[0].id, academicTermId: term.id } }));
     await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT invalid_curriculum_assignment");
@@ -45,25 +46,25 @@ test("class curriculum is the shared source for assignments, timetable and exam 
     const manager: SessionUser = { userId: "test-admin", email: "test@test.invalid", roles: ["ADMIN"], teacherId: null, studentId: null };
     const paper = (subjectId: string, startsAt = "2099-01-05T08:00"): ExamPlan["papers"][number] => ({ subjectId, startsAt, grouping: "CLASS", maxPerRoom: null, roomCount: null, excludedStudentIds: [], durationMinutes: 45, reportMinutes: 15, allocations: [] });
     const exam: ExamPlan = { title: "Curriculum exam", category: "KHAC", termId: term.id, gradeId: grade.id, notes: "test", papers: [paper(subjects[0].id), paper(subjects[1].id)] };
-    const beforeTeacher = await prepareExamPlan(manager, exam, tx);
+    const beforeTeacher = await prepareExamPlan(manager, exam, contextFor(tx));
     assert.equal(beforeTeacher.papers[0].groups[0].candidates[0].classId, a.id);
     assert.equal(beforeTeacher.papers[1].groups[0].candidates[0].classId, b.id); // Class B has no teacher yet.
-    const missing = await loadAutoScheduleInput(term.id, tx);
+    const missing = await loadAutoScheduleInput(term.id, contextFor(tx));
     assert.deepEqual(missing.missingAssignments.map((row) => row.className), [b.className]);
     const options: ScheduleOptions = { grades: (await tx.gradeLevel.findMany()).map((row) => ({ gradeLevelId: row.id, days: [2, 3, 4, 5, 6, 7].map((dayOfWeek) => ({ dayOfWeek, morning: 5, afternoon: 0 })) })), fixed: [] };
-    await assert.rejects(computeAutoSchedule(term.id, options, tx), /Cần phân công giáo viên/);
+    await assert.rejects(computeAutoSchedule(term.id, options, contextFor(tx)), /Cần phân công giáo viên/);
     await tx.classSubjectAssignment.create({ data: { schoolClassId: b.id, subjectId: subjects[1].id, teacherId: teachers[1].id, academicTermId: term.id } });
-    const timetable = await computeAutoSchedule(term.id, options, tx);
+    const timetable = await computeAutoSchedule(term.id, options, contextFor(tx));
     assert.equal(timetable.result.unplaced.length, 0); assert.equal(timetable.result.placements.length, 4);
-    await assert.rejects(setClassSubjects(tx, a.id, [subjects[2].id]), /Không thể bỏ môn đã có phân công/);
-    await setClassSubjects(tx, a.id, [subjects[0].id, subjects[2].id, subjects[3].id]);
-    await setClassSubjects(tx, a.id, [subjects[0].id, subjects[2].id]);
+    await assert.rejects(setClassSubjects(contextFor(tx), a.id, [subjects[2].id]), /Không thể bỏ môn đã có phân công/);
+    await setClassSubjects(contextFor(tx), a.id, [subjects[0].id, subjects[2].id, subjects[3].id]);
+    await setClassSubjects(contextFor(tx), a.id, [subjects[0].id, subjects[2].id]);
     assert.equal(await tx.classSubject.count({ where: { schoolClassId: a.id } }), 2);
     exam.papers.push(paper(subjects[2].id, "2099-01-05T10:00")); // A selected subject can have an exam before teacher assignment.
-    const preview = await prepareExamPlan(manager, exam, tx);
+    const preview = await prepareExamPlan(manager, exam, contextFor(tx));
     for (const [index, row] of preview.papers.entries()) exam.papers[index].allocations = row.groups.map((group) => ({ key: group.key, roomId: group.preferredRoomId, teacherIds: [group.candidates[0].classId === a.id ? teachers[0].id : teachers[1].id] }));
-    await saveExamPlan(manager, exam, preview.fingerprint, undefined, tx); // Different classes, different subjects can share a time slot.
-    await assert.rejects(setClassSubjects(tx, a.id, [subjects[0].id]), /Không thể bỏ môn đã có học sinh.*lịch thi/);
+    await saveExamPlan(manager, exam, preview.fingerprint, undefined, contextFor(tx)); // Different classes, different subjects can share a time slot.
+    await assert.rejects(setClassSubjects(contextFor(tx), a.id, [subjects[0].id]), /Không thể bỏ môn đã có học sinh.*lịch thi/);
     assert.equal(await tx.classSubject.count({ where: { schoolClassId: a.id, subjectId: subjects[2].id } }), 1);
     throw rollback;
   }, { timeout: 30000 }), (error: unknown) => error === rollback);

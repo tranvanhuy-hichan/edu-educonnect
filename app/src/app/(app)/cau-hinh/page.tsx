@@ -129,7 +129,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         <Card className="space-y-3">
           <div>
             <h2 className="font-semibold">Hệ số điểm theo học kỳ</h2>
-            <p className="mt-1 text-sm text-slate-600">Điểm trung bình môn = (Σ điểm thường xuyên × hệ số TX + điểm giữa kỳ × hệ số GK + điểm cuối kỳ × hệ số CK) ÷ (tổng hệ số của các cột đã có điểm). Chỉ <b>Quản trị hệ thống</b> được thay đổi; lưu xong, điểm trung bình đã tính của học kỳ đó được tính lại theo công thức mới. Học kỳ chưa cấu hình dùng mặc định 1 / 2 / 3.</p>
+            <p className="mt-1 text-sm text-slate-600">Hệ số đánh giá THPT: thường xuyên 1, giữa kỳ 2, cuối kỳ 3. Điểm cả năm từng môn = (HK1 + HK2 × 2) / 3. Kết quả thiếu cột điểm chỉ là tạm tính; chưa đủ điều kiện tổng kết. Chỉ đồng bộ cấu hình ở học kỳ chưa khóa.</p>
           </div>
           <Table bare head={["Học kỳ", "Năm học", "Hệ số điểm (TX / GK / CK)"]}>
             {terms.map((t) => {
@@ -141,9 +141,9 @@ export default async function Settings({ searchParams }: { searchParams: Promise
                   <td>
                     <ActionForm action={saveScoreWeights} submit="Lưu" compact reset={false} className="flex flex-wrap items-center gap-2">
                       <input type="hidden" name="academicTermId" value={t.id} />
-                      <input name="txWeight" defaultValue={c?.txWeight ?? 1} className={inputCls + " w-16"} aria-label="Hệ số thường xuyên" title="Thường xuyên (TX)" />
-                      <input name="gkWeight" defaultValue={c?.gkWeight ?? 2} className={inputCls + " w-16"} aria-label="Hệ số giữa kỳ" title="Giữa kỳ (GK)" />
-                      <input name="ckWeight" defaultValue={c?.ckWeight ?? 3} className={inputCls + " w-16"} aria-label="Hệ số cuối kỳ" title="Cuối kỳ (CK)" />
+                      <input name="txWeight" readOnly value={1} className={inputCls + " w-16"} aria-label="Hệ số thường xuyên" title="Thường xuyên (TX)" />
+                      <input name="gkWeight" readOnly value={2} className={inputCls + " w-16"} aria-label="Hệ số giữa kỳ" title="Giữa kỳ (GK)" />
+                      <input name="ckWeight" readOnly value={3} className={inputCls + " w-16"} aria-label="Hệ số cuối kỳ" title="Cuối kỳ (CK)" />
                     </ActionForm>
                   </td>
                 </tr>

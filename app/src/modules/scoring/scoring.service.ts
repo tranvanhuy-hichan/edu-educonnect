@@ -1,6 +1,12 @@
+import { roundGrade } from "./annual";
+import { withTransaction } from "@/infrastructure/database/unit-of-work";
+import * as records from "@/modules/academic/records.repository";
+import { yearResultRepository } from "@/modules/promotion/promotion.repository";
+import { gradingRepository } from "./scoring.repository";
+import { assertScoreWrite } from "./locking";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { canManageClassSubjectAssignment, canManageSchoolClass } from "@/lib/auth/permission";
-import { ForbiddenError } from "@/modules/academic/academic.service";
+import { ForbiddenError } from "@/shared/errors";
 import * as scoringRepository from "@/modules/scoring/scoring.repository";
 import type {
   CreateScoreEntryInput,
@@ -18,6 +24,9 @@ export async function upsertScoreWeightConfig(
       "Chỉ Hiệu trưởng/Hiệu phó được cấu hình hệ số tính điểm",
     );
   }
+  if (input.txWeight !== 1 || input.gkWeight !== 2 || input.ckWeight !== 3) throw new Error("Hệ số đánh giá THPT cố định: TX 1, giữa kỳ 2, cuối kỳ 3");
+  const term = await gradingRepository().term(input.academicTermId);
+  if (term.isLocked || Date.now() > term.endDate.getTime() + 15 * 86400000) throw new Error("Không sửa cấu hình học kỳ đã khóa");
   return scoringRepository.upsertScoreWeightConfig(input);
 }
 
@@ -37,32 +46,35 @@ export async function createScoreEntry(
     throw new ForbiddenError("Không có quyền nhập điểm cho môn học này");
   }
 
-  await scoringRepository.createScoreEntry(input);
-  return recalculateSubjectTermAverage(
-    input.studentId,
-    input.assignmentId,
-    input.academicTermId,
-  );
+  return withTransaction(async (tx) => {
+    const assignment = await assertScoreWrite(user, input.assignmentId, tx);
+    if (assignment.academicTermId !== input.academicTermId || assignment.subject.assessmentType !== "SCORE") throw new Error("Học kỳ hoặc hình thức đánh giá không phù hợp");
+    const enrollment = await records.findEnrollment(input.studentId, assignment.academicTerm.academicYearId, tx);
+    if (!enrollment || enrollment.schoolClassId !== assignment.schoolClassId) throw new Error("Học sinh không thuộc lớp-môn");
+    await records.lockEnrollment(enrollment.id, tx);
+    if ((await yearResultRepository(tx).find(input.studentId, enrollment.academicYearId))?.reviewStatus === "APPROVED") throw new Error("Kết quả cuối năm đã duyệt");
+    if (!Number.isFinite(input.value) || input.value < 0 || input.value > 10) throw new Error("Điểm từ 0 đến 10");
+    if ((await gradingRepository(tx).assessment(input.studentId, input.assignmentId))?.isExempt) throw new Error("Học sinh được miễn đánh giá môn này");
+    if (input.scoreType !== "THUONG_XUYEN" && (await gradingRepository(tx).entries(input.studentId, input.assignmentId, input.academicTermId)).filter((entry) => entry.scoreType === input.scoreType).length) throw new Error("Đã có điểm định kỳ loại này");
+    const entry = await gradingRepository(tx).insertEntry(input);
+    const entries = await gradingRepository(tx).entries(input.studentId, input.assignmentId, input.academicTermId);
+    const weight = (type: string) => type === "THUONG_XUYEN" ? 1 : type === "GIUA_KY" ? 2 : 3;
+    const averageValue = roundGrade(entries.reduce((sum, row) => sum + row.value * weight(row.scoreType), 0) / entries.reduce((sum, row) => sum + weight(row.scoreType), 0));
+    await gradingRepository(tx).average(input.studentId, input.assignmentId, input.academicTermId, averageValue);
+    await records.appendAudit({ actorEmail: user.email, action: "create_score", targetType: "ScoreEntry", targetId: entry.id, reason: "Thêm điểm môn học", afterData: JSON.parse(JSON.stringify(entry)) }, tx);
+    return entry;
+  });
 }
 
-/**
- * Công thức mặc định (ScoreWeightConfig): TB = (ΣTX×txWeight + GK×gkWeight + CK×ckWeight)
- * / (số lượng điểm TX×txWeight + gkWeight (nếu có GK) + ckWeight (nếu có CK)).
- * Hệ số lấy từ ScoreWeightConfig của học kỳ; nếu học kỳ chưa cấu hình, dùng mặc định 1/2/3.
- * LƯU Ý: công thức này là giả định phổ biến, cần xác nhận lại quy chế thật của trường
- * (xem Rủi ro #1 trong docs/phan-tich-yeu-cau.md) trước khi dùng chính thức.
- */
+/** Cập nhật điểm TB tạm tính theo hệ số 1/2/3. Tổng kết chính thức kiểm tra đủ cột trong annual-query. */
 export async function recalculateSubjectTermAverage(
   studentId: string,
   assignmentId: string,
   academicTermId: string,
 ) {
-  const [entries, weightConfig] = await Promise.all([
-    scoringRepository.listScoreEntries(studentId, assignmentId, academicTermId),
-    scoringRepository.findScoreWeightConfig(academicTermId),
-  ]);
+  const entries = await scoringRepository.listScoreEntries(studentId, assignmentId, academicTermId);
 
-  const weights = weightConfig ?? DEFAULT_WEIGHTS;
+  const weights = DEFAULT_WEIGHTS;
 
   let weightedSum = 0;
   let weightTotal = 0;
@@ -85,7 +97,7 @@ export async function recalculateSubjectTermAverage(
     studentId,
     assignmentId,
     academicTermId,
-    Math.round(averageValue * 100) / 100,
+    roundGrade(averageValue),
   );
 }
 

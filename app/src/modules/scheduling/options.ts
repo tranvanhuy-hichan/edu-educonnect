@@ -7,7 +7,7 @@ export const scheduleOptionsSchema = z.object({
   fixed: z.array(z.object({ name: z.string().trim().min(1).max(100), gradeLevelId: z.string().nullable(), classId: z.string().nullable().optional(), subjectId: z.string().nullable(), dayOfWeek: z.number().int().min(2).max(7), periodNo: z.number().int().min(1).max(10), length: z.number().int().min(1).max(5) })).max(100),
 });
 export type ScheduleOptions = z.infer<typeof scheduleOptionsSchema>;
-export type SchedulingClass = { id: string; className: string; gradeLevelId: string; roomId: string | null; shift?: "MORNING" | "AFTERNOON" };
+export type SchedulingClass = { id: string; className: string; gradeLevelId: string; roomId: string | null; shift: "MORNING" | "AFTERNOON" };
 export type SchedulingAssignment = AutoAssignment & { subjectId: string };
 export type Activity = { schoolClassId: string; name: string; dayOfWeek: number; periodNo: number };
 
@@ -27,7 +27,7 @@ export function scheduleWithOptions(input: { classes: SchedulingClass[]; assignm
     configuredGrades.add(grade.gradeLevelId);
     if (new Set(grade.days.map((day) => day.dayOfWeek)).size !== 6) throw new Error("Mỗi khối cần cấu hình đủ thứ 2 đến thứ 7, không lặp ngày");
     for (const cls of input.classes.filter((cls) => cls.gradeLevelId === grade.gradeLevelId)) {
-      const isMorning = cls.shift !== "AFTERNOON";
+      const isMorning = cls.shift === "MORNING";
       allowedPeriods[cls.id] = Object.fromEntries(
         grade.days.map((day) => [
           day.dayOfWeek,

@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseScheduleOptions, scheduleWithOptions, type ScheduleOptions } from "../src/modules/scheduling/options";
+import { parseScheduleOptions, scheduleWithOptions, type ScheduleOptions, type SchedulingClass } from "../src/modules/scheduling/options";
 import { DAYS } from "../src/modules/scheduling/auto-schedule";
-const classes = [{ id: "c10", className: "10A1", gradeLevelId: "g10", roomId: "r10" }, { id: "c12", className: "12A1", gradeLevelId: "g12", roomId: "r12" }];
+const classes: SchedulingClass[] = [
+  { id: "c10", className: "10A1", gradeLevelId: "g10", roomId: "r10", shift: "AFTERNOON" },
+  { id: "c12", className: "12A1", gradeLevelId: "g12", roomId: "r12", shift: "MORNING" },
+];
 const rooms = [{ id: "r10", capacity: 40 }, { id: "r12", capacity: 40 }];
 const assignments = classes.map((cls) => ({ id: `math-${cls.id}`, subjectId: "math", schoolClassId: cls.id, teacherId: `t-${cls.id}`, roomId: cls.roomId, periodsPerWeek: 4 }));
 const options = (): ScheduleOptions => ({ grades: classes.map((cls) => ({ gradeLevelId: cls.gradeLevelId, days: DAYS.map((dayOfWeek) => ({ dayOfWeek, morning: cls.id === "c12" ? 5 : 0, afternoon: cls.id === "c10" ? 5 : 0 })) })), fixed: [] });
@@ -47,7 +50,7 @@ test("fixed subjects must fit daily availability and weekly quotas", () => {
 test("fixed lessons reject shared-teacher conflicts", () => {
   const config = options(); config.grades[1].days.forEach((day) => { day.afternoon = 5; });
   config.fixed = [{ ...rule, name: "Toán", subjectId: "math", periodNo: 6 }];
-  assert.throws(() => scheduleWithOptions({ ...input, assignments: assignments.map((item) => ({ ...item, teacherId: "shared" })) }, config), /giáo viên hoặc phòng bị trùng/);
+  assert.throws(() => scheduleWithOptions({ ...input, classes: classes.map((cls) => ({ ...cls, shift: "AFTERNOON" })), assignments: assignments.map((item) => ({ ...item, teacherId: "shared" })) }, config), /giáo viên hoặc phòng bị trùng/);
 });
 test("validate JSON, day uniqueness, all grades, and unplaced accounting", () => {
   assert.throws(() => parseScheduleOptions("bad"));
@@ -86,4 +89,21 @@ test("catalog grades without any classes can still be configured", () => {
   const result = scheduleWithOptions({ classes: [classes[0]], rooms, assignments: [assignments[0]], grades: [{ id: "g10" }, { id: "g12" }] }, config);
   assert.equal(result.result.unplaced.length, 0);
   assert.equal(result.result.placements.length, 4);
+});
+
+test("class shifts restrict placements even when both sessions are open", () => {
+  const config = options();
+  config.grades.forEach((grade) => grade.days.forEach((day) => { day.morning = 5; day.afternoon = 5; }));
+  const { result } = scheduleWithOptions(input, config);
+  assert.equal(result.unplaced.length, 0);
+  for (const cls of classes) {
+    const slots = result.placements.filter((slot) => slot.schoolClassId === cls.id);
+    assert.equal(slots.length, 4);
+    assert.ok(slots.every((slot) => cls.shift === "MORNING" ? slot.periodNo <= 5 : slot.periodNo >= 6));
+    const wrongSession = cls.shift === "MORNING" ? 6 : 1;
+    assert.throws(() => scheduleWithOptions(input, {
+      ...config,
+      fixed: [{ ...rule, name: "Toán", subjectId: "math", classId: cls.id, periodNo: wrongSession }],
+    }), /nằm ngoài buổi/);
+  }
 });

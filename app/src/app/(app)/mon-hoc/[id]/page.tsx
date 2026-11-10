@@ -12,6 +12,10 @@ import { deleteSubject, updateSubject } from "../actions";
 const TABS = [["overview", "Tổng quan"], ["classes", "Lớp & giáo viên dạy"], ["settings", "Thông tin & Xoá"]] as const;
 const ic = inputCls + " w-full";
 
+const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
+  <Card className="flex items-center gap-3 p-4"><span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tone}`}><I className="size-5" /></span><div><div className="text-xs text-slate-500">{label}</div><div className="text-xl font-bold">{value}</div></div></Card>
+);
+
 export default async function SubjectDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES);
   const { id } = await params;
@@ -26,9 +30,6 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
   const now = s.assignments.filter((a) => a.academicTermId === term?.id);
   const isAdmin = me.roles.some((r) => ADMIN_ROLES.includes(r));
 
-  const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
-    <Card className="flex items-center gap-3 p-4"><span className={`grid size-10 shrink-0 place-items-center rounded-lg ${tone}`}><I className="size-5" /></span><div><div className="text-xs text-slate-500">{label}</div><div className="text-xl font-bold">{value}</div></div></Card>
-  );
   return (
     <div className="space-y-4">
       <Card className="flex flex-wrap items-center gap-4">
@@ -74,7 +75,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
               <input type="hidden" name="id" value={s.id} />
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Tên môn học *"><input name="name" defaultValue={s.subjectName} className={ic} required /></Field>
-                <Field label="Số tiết mỗi tuần (mặc định)"><input name="periods" defaultValue={s.defaultPeriodsPerWeek} className={ic} /></Field>
+                <Field label="Số tiết mỗi tuần (mặc định)"><input name="periods" defaultValue={s.defaultPeriodsPerWeek} className={ic} /></Field><Field label="Hình thức đánh giá"><select name="assessmentType" defaultValue={s.assessmentType} className={ic}><option value="SCORE">Nhận xét kết hợp điểm số</option><option value="COMMENT">Nhận xét: Đạt / Chưa đạt</option></select></Field><Field label="Số tiết cả năm (xác định số điểm TX)"><input required type="number" min={1} max={700} name="annualPeriods" defaultValue={s.annualPeriods} className={ic} /></Field>
               </div>
             </ActionForm>
           </Card>
