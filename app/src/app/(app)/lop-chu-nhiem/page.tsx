@@ -60,7 +60,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
 
   return (
     <div className="space-y-4">
-      <Card className="homeroom-heading flex flex-wrap items-center gap-2.5 sm:gap-4">
+      <Card className="detail-header homeroom-heading flex flex-wrap items-center gap-2.5 sm:gap-4">
         <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-orange-100 text-orange-700 sm:size-14 sm:rounded-xl"><GraduationCap className="size-5 sm:size-7" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">Lớp {cls.className}</h1>

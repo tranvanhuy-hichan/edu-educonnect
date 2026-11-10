@@ -345,7 +345,7 @@ export default async function Home() {
     const hue = [...me.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
     blocks.push(
       <div key="student" className="space-y-4">
-        <Card className="flex flex-wrap items-center gap-4">
+        <Card className="detail-header flex flex-wrap items-center gap-4">
           <span className="grid size-16 shrink-0 place-items-center rounded-full text-2xl font-bold" style={{ background: `hsl(${hue} 70% 90%)`, color: `hsl(${hue} 60% 25%)` }}>{(student?.fullName ?? me.name).split(" ").pop()?.[0]}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold">{student?.fullName ?? me.name}</h1>{student?.code && <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{student.code}</span>}</div>

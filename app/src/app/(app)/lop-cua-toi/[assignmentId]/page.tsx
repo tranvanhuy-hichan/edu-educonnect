@@ -47,7 +47,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
 
   return (
     <div className="space-y-4">
-      <Card className="flex flex-wrap items-center gap-4">
+      <Card className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><GraduationCap className="size-7" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{a.schoolClass.className} · {a.subject.subjectName}</h1>

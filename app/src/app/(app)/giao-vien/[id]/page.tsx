@@ -14,6 +14,10 @@ import { deleteTeacher, resetTeacherPassword, toggleTeacherLocked, updateTeacher
 const TABS = [["overview", "Tổng quan"], ["info", "Thông tin cá nhân"], ["homeroom", "Lớp chủ nhiệm"], ["assign", "Phân công giảng dạy"], ["schedule", "Lịch dạy"], ["account", "Tài khoản"]] as const;
 const menuForm = "flex flex-col items-stretch gap-1 [&>button]:w-full [&>button]:justify-self-stretch";
 
+const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
+  <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4"><span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span><div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div></Card>
+);
+
 export default async function TeacherDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; created?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES);
   const canEdit = me.roles.some((r) => MANAGER_ROLES.includes(r));
@@ -31,14 +35,12 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
     db.classSubjectAssignment.findMany({ where: { teacherId: id, academicTermId: term?.id ?? "-" }, include: { subject: true, schoolClass: true, academicTerm: true, timetableSlots: { where: effectiveSlots(), include: { room: true } } }, orderBy: [{ schoolClass: { className: "asc" } }] }),
   ]);
   const slots = assigns.flatMap((a) => a.timetableSlots.map((s) => ({ ...s, a })));
-  const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
-    <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4"><span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span><div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div></Card>
-  );
+
 
   return (
     <div className="space-y-4">
       {created && <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800">Đã tạo giáo viên. Tài khoản <b>{created[0]}</b> · mật khẩu <b>{created[1]}</b> (chỉ hiện một lần, hãy ghi lại).</div>}
-      <Card mobile="flat" className="flex flex-wrap items-center gap-4">
+      <Card mobile="flat" className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-16 shrink-0 place-items-center rounded-full bg-orange-100 text-2xl font-bold text-orange-700">{t.fullName.split(" ").pop()?.[0]}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

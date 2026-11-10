@@ -17,6 +17,13 @@ const STAFF_ROLES_EDIT: Role[] = ["ADMIN", "PRINCIPAL", "VICE_PRINCIPAL", "HOMER
 
 const fmtTime = (d: Date) => d.toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", hour12: false });
 
+const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700", vt = "" }: { icon: typeof Mail; label: string; value: React.ReactNode; tone?: string; vt?: string }) => (
+  <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+    <span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span>
+    <div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className={`truncate text-lg font-bold sm:text-xl ${vt}`}>{value}</div></div>
+  </Card>
+);
+
 export default async function AccountDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; ap?: string; size?: string }> }) {
   const me = await requireRole(...ADMIN_ROLES);
   const { id } = await params;
@@ -42,17 +49,12 @@ export default async function AccountDetail({ params, searchParams }: { params: 
   const hue = [...u.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   const cls = u.student?.enrollments[0]?.schoolClass;
 
-  const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700", vt = "" }: { icon: typeof Mail; label: string; value: React.ReactNode; tone?: string; vt?: string }) => (
-    <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
-      <span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span>
-      <div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className={`truncate text-lg font-bold sm:text-xl ${vt}`}>{value}</div></div>
-    </Card>
-  );
+
 
   return (
     <div className="space-y-4">
       {/* ===== Đầu trang: hồ sơ tóm tắt + thao tác ===== */}
-      <Card mobile="flat" className="flex flex-wrap items-center gap-4">
+      <Card mobile="flat" className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-16 shrink-0 place-items-center rounded-full text-2xl font-bold" style={{ background: `hsl(${hue} 70% 90%)`, color: `hsl(${hue} 60% 25%)` }}>{name.split(" ").pop()?.[0]?.toUpperCase()}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

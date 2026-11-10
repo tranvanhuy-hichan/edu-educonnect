@@ -65,7 +65,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
 
   return (
     <div className="space-y-4">
-      <Card mobile="flat" className="flex flex-wrap items-center gap-4">
+      <Card mobile="flat" className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><BookOpen className="size-7" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">{post.title}</h1>

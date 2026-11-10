@@ -189,11 +189,11 @@ export function ParentPortalView({
       {/* 2. THẺ HỒ SƠ HỌC SINH & LỚP CỦA CON */}
       <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-xs">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="grid size-16 sm:size-20 shrink-0 place-items-center rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 font-bold text-white text-2xl sm:text-3xl shadow-md shadow-orange-600/20 ring-4 ring-orange-500/10">
               {child.fullName.slice(0, 1).toUpperCase()}
             </div>
-            <div>
+            <div className="min-w-0 break-words">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
                   {child.fullName}

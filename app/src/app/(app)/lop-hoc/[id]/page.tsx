@@ -8,7 +8,6 @@ import { db } from "@/lib/db";
 import { MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
 import { ClassWeek } from "../../so-dau-bai/class-week";
 import { ActionForm } from "@/components/action-form";
-import { ActionMenu } from "@/components/action-menu";
 import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
@@ -54,7 +53,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
   return (
     <div className="space-y-4">
       <Card mobile="flat" className="space-y-3">
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="detail-summary-row flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl font-semibold">Lớp {c.className}</h1>

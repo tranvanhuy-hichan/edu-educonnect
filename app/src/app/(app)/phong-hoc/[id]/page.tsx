@@ -15,6 +15,13 @@ import { deleteRoom, updateRoom } from "../actions";
 
 const TABS = [["overview", "Tổng quan"], ["classes", "Lớp sử dụng"], ["schedule", "Lịch sử dụng"], ["settings", "Thông tin & Xoá"]] as const;
 
+const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
+  <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
+    <span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span>
+    <div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div>
+  </Card>
+);
+
 export default async function RoomDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; page?: string; size?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES);
   const canEdit = me.roles.some((r) => MANAGER_ROLES.includes(r));
@@ -38,16 +45,11 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
   const todaySlots = slots.filter((s) => s.dayOfWeek === dow);
   const classes = [...new Map(slots.map((s) => [s.schoolClassId, s.schoolClass])).values()].sort((a, b) => a.className.localeCompare(b.className, "vi"));
 
-  const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
-    <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4">
-      <span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span>
-      <div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div>
-    </Card>
-  );
+
 
   return (
     <div className="space-y-4">
-      <Card className="flex flex-wrap items-center gap-4">
+      <Card className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><DoorOpen className="size-7" /></span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

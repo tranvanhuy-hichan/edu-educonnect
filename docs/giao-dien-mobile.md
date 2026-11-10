@@ -33,3 +33,10 @@ Các utility Tailwind như `[&>td]:!py-3` có `!important` trong layer `utilitie
 `Table` và `ResponsiveTable` bổ sung `mobileLayout="compact"`: nhãn ngắn đặt cùng dòng giá trị, chữ căn trái, gap nhỏ. Đã áp dụng cho bảng điểm/Lớp chủ nhiệm, sổ đầu bài theo ngày, danh sách bài học dạng bảng và giáo án. Nội dung và nút hành động vẫn giữ đủ; dialog giáo án mở bằng tiêu đề căn trái, cho phép xuống dòng. Thời khóa biểu ở Lớp chủ nhiệm dùng cùng khung lưới có đường chia cột và cột tiết cố định như chi tiết lớp.
 
 Kiểm tra browser với cấu trúc Table/row utility tương ứng và dữ liệu minh họa: ở 390px, hàng điểm 182→83px, dòng sổ đầu bài 254→103px, bài học 202→108px, giáo án 199→107px. Đây là số đo fixture, không phải cam kết chiều cao cố định cho nội dung dài. Kiểm tra 320/390/768/1280px, sáng/tối; desktop giữ padding cũ, mobile padding ô bằng 0 và không tràn ngang toàn trang.
+
+
+### Đầu trang không được ép cột chữ bởi nút thao tác
+
+Rà bố cục flex ở các trang chi tiết lớp/môn được phân công, lớp chủ nhiệm, lớp học, bài học, giáo viên, học sinh, tài khoản, phòng học và môn học; đồng thời kiểm tra thẻ phòng, điểm cá nhân và phần đầu cổng phụ huynh. Header có biểu tượng dùng quy ước `.detail-header`: mobile chia cột biểu tượng 36px và nội dung `minmax(0, 1fr)`, nhóm thao tác nằm hàng riêng. Desktop giữ flex nhưng nội dung có basis 16rem để các nút không lấy hết chiều ngang. Header không có biểu tượng dùng `.detail-summary-row` để tách nội dung và thao tác trên mobile.
+
+Fixture lấy JSX đầu trang thực tế của Lớp của tôi, Lớp chủ nhiệm, Phòng học và Môn học, bổ sung tình huống tên/email dài và nhiều thao tác. Kiểm tra 320/390/768/1280px cả sáng/tối: không tràn ngang, các nút xuống dưới nội dung trên mobile. Tại 390px, trước sửa phần chữ ở đầu Lớp của tôi bị ép còn 42px; sau sửa còn đủ 299px. Đây là kiểm tra trình bày với dữ liệu minh họa và router giả lập, không truy cập DB production.

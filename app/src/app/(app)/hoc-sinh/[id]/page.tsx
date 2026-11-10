@@ -37,7 +37,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
   return (
     <div className="space-y-4">
       <Card mobile="flat" className="space-y-3">
-        <div className="flex flex-wrap items-start gap-3">
+        <div className="detail-header flex flex-wrap items-start gap-3">
           <span className="grid size-14 shrink-0 place-items-center rounded-full text-xl font-bold" style={{ background: `hsl(${hue} 70% 90%)`, color: `hsl(${hue} 60% 25%)` }}>{initialOf(s.fullName)}</span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-xl font-semibold">{s.fullName}</h1><span className={`text-sm font-semibold ${STATUS_COLOR[s.status]}`}>{STATUS_LABEL[s.status]}</span></div>

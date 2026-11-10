@@ -75,10 +75,10 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<{ 
         {info.map(({ r, today, classes }) => (
           <Link key={r.id} href={`/phong-hoc/${r.id}`}>
           <Card className="flex h-full flex-col gap-3 transition-colors hover:border-orange-400">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-lg bg-orange-100 text-orange-700"><DoorOpen className="size-5" /></span>
-                <div>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="flex min-w-0 flex-1 basis-44 items-center gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-orange-100 text-orange-700"><DoorOpen className="size-5" /></span>
+                <div className="min-w-0 break-words">
                   <div className="text-base font-semibold leading-tight">{r.roomName}</div>
                   <div className="text-xs font-medium text-orange-700">{roomTypeLabel(r.roomType)}</div>
                   <div className="flex items-center gap-1 text-xs text-slate-500"><Users className="size-3.5" /> Sức chứa {r.capacity} chỗ</div>

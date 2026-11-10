@@ -8,6 +8,10 @@ import { fmtDate } from "@/lib/format";
 import { CATS, bandOf } from "@/server/grades-stats";
 import { currentTermId, termOptions } from "@/server/learning-scope";
 
+const Stat = ({ icon: I, label, value, tone }: { icon: typeof School; label: string; value: React.ReactNode; tone: string }) => (
+  <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4"><span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span><div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div></Card>
+);
+
 export default async function MyGrades({ searchParams }: { searchParams: Promise<{ termId?: string }> }) {
   const me = await requireRole("STUDENT");
   if (!me.studentId) redirect("/");
@@ -36,9 +40,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
   const best = [...graded].sort((x, y) => y.avg! - x.avg!)[0];
   const gradedWork = subs.filter((s) => s.grade != null).length;
 
-  const Stat = ({ icon: I, label, value, tone }: { icon: typeof School; label: string; value: React.ReactNode; tone: string }) => (
-    <Card className="flex items-center gap-2 p-3 sm:gap-3 sm:p-4"><span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-10 ${tone}`}><I className="size-4 sm:size-5" /></span><div className="min-w-0"><div className="text-xs leading-tight text-slate-500">{label}</div><div className="truncate text-lg font-bold sm:text-xl">{value}</div></div></Card>
-  );
+
 
   return (
     <div className="space-y-4">
@@ -64,9 +66,9 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
           const boxes = [...tx.map((e, i) => ({ k: `tx${i}`, name: `TX ${i + 1}`, v: e.value })), ...CATS.slice(1).map((c) => ({ k: c.key, name: c.name, v: es.find((e) => e.scoreType === c.key)?.value }))];
           return (
             <Card key={a.id} className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div><div className="text-base font-semibold">{a.subject.subjectName}</div><div className="text-xs text-slate-500">GV: {a.teacher.fullName} · {a.academicTerm.termName} · {a.academicTerm.academicYear.yearName}</div></div>
-                <div className="text-right"><div className="text-2xl font-bold leading-none" style={{ color: band?.color }}>{nonNumeric ? outcome : m != null ? m.toFixed(1) : "-"}</div><div className="mt-1 text-xs font-medium" style={{ color: band?.color }}>{nonNumeric ? review?.comment : "Điểm TB tạm tính"}</div></div>
+              <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
+                <div className="min-w-0 break-words"><div className="text-base font-semibold">{a.subject.subjectName}</div><div className="text-xs text-slate-500">GV: {a.teacher.fullName} · {a.academicTerm.termName} · {a.academicTerm.academicYear.yearName}</div></div>
+                <div className="min-w-0 break-words sm:text-right"><div className="text-2xl font-bold leading-none" style={{ color: band?.color }}>{nonNumeric ? outcome : m != null ? m.toFixed(1) : "-"}</div><div className="mt-1 text-xs font-medium" style={{ color: band?.color }}>{nonNumeric ? review?.comment : "Điểm TB tạm tính"}</div></div>
               </div>
               {!nonNumeric && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {boxes.map((b) => (
