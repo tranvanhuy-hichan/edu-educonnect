@@ -15,8 +15,25 @@ const valid = (n: number | null) => n == null || (Number.isFinite(n) && n >= 0 &
 export const saveScores = wrap(async (fd) => {
   const me = await assertRole(...TEACHING_ROLES, ...MANAGER_ROLES);
   const assignmentId = str(fd, "assignmentId");
-  const a = await db.classSubjectAssignment.findUniqueOrThrow({ where: { id: assignmentId }, include: { schoolClass: true, subject: true } });
+  const a = await db.classSubjectAssignment.findUniqueOrThrow({
+    where: { id: assignmentId },
+    include: { schoolClass: true, subject: true, academicTerm: true },
+  });
   if (!(await canManageClassSubjectAssignment(me, assignmentId))) throw new Error("Bạn không phụ trách lớp-môn này");
+
+  // Kiểm tra khóa sổ điểm
+  const term = a.academicTerm;
+  const isManager = me.roles.some((r) => (MANAGER_ROLES as readonly string[]).includes(r));
+  const isPast15Days = term.endDate && (Date.now() - new Date(term.endDate).getTime() > 15 * 24 * 60 * 60 * 1000);
+  const isLocked = term.isLocked || isPast15Days;
+
+  if (isLocked && !isManager) {
+    if (term.isLocked) {
+      throw new Error(`Sổ điểm học kỳ ${term.termName} đã bị khóa bởi Ban Giám hiệu. Bạn không thể chỉnh sửa điểm.`);
+    }
+    throw new Error(`Học kỳ ${term.termName} đã kết thúc quá 15 ngày, sổ điểm đã tự động khóa. Vui lòng liên hệ Ban Giám hiệu để mở khóa.`);
+  }
+
   let rows: Row[];
   try { rows = JSON.parse(str(fd, "rows")); } catch { throw new Error("Dữ liệu không hợp lệ"); }
 
@@ -41,4 +58,24 @@ export const saveScores = wrap(async (fd) => {
   revalidatePath("/nhap-diem");
   revalidatePath(`/nhap-diem/${assignmentId}`);
   return `Đã lưu điểm (${changed} học sinh thay đổi)`;
+});
+
+/** Ban giám hiệu / Admin khóa hoặc mở khóa sổ điểm học kỳ */
+export const toggleLockTerm = wrap(async (fd) => {
+  const me = await assertRole(...MANAGER_ROLES);
+  const termId = str(fd, "termId");
+  const lock = fd.get("lock") === "true";
+
+  const term = await db.academicTerm.update({
+    where: { id: termId },
+    data: {
+      isLocked: lock,
+      lockedAt: lock ? new Date() : null,
+      lockedBy: lock ? (me.name || me.email) : null,
+    },
+  });
+
+  await audit(me.email, lock ? "lock_term" : "unlock_term", "AcademicTerm", termId);
+  revalidatePath("/nhap-diem");
+  return lock ? `Đã khóa sổ điểm ${term.termName}` : `Đã mở khóa sổ điểm ${term.termName}`;
 });

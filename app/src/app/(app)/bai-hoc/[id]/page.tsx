@@ -173,16 +173,36 @@ export default async function LessonPostDetail({ params, searchParams }: { param
               <Card>
                 <h2 className="mb-3 font-semibold">Bài làm của tôi</h2>
                 {mine ? (
-                  <div className="space-y-2 text-sm">
-                    <div className="text-xs text-slate-500">Đã nộp lúc {fmtTime(mine.submittedAt)}</div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-slate-500">Đã nộp lúc {fmtTime(mine.submittedAt)}</span>
+                      {mine.isLate && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp muộn</span>}
+                      {mine.resubmittedCount > 0 && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Đã cập nhật ({mine.resubmittedCount} lần)</span>}
+                    </div>
                     <p className="whitespace-pre-line rounded-md bg-slate-50 p-3">{mine.content}</p>
-                    {mine.grade != null ? <div className="rounded-md border border-green-300 bg-green-50 p-3"><b className="text-green-800">Điểm: {mine.grade}</b>{mine.feedback && <p className="mt-1 whitespace-pre-line text-slate-700">{mine.feedback}</p>}</div> : <div className="text-slate-500">Giáo viên chưa chấm bài.</div>}
+                    {mine.grade != null ? (
+                      <div className="rounded-md border border-green-300 bg-green-50 p-3">
+                        <b className="text-green-800">Điểm: {mine.grade}</b>
+                        {mine.feedback && <p className="mt-1 whitespace-pre-line text-slate-700">{mine.feedback}</p>}
+                      </div>
+                    ) : (
+                      <div className="mt-4 border-t pt-3">
+                        <div className="mb-2 text-xs text-slate-600">Giáo viên chưa chấm bài. Bạn có thể cập nhật lại bài làm nếu cần sửa đổi:</div>
+                        <ActionForm action={submitWork} submit="Cập nhật bài làm" className="flex flex-col gap-3 [&>button]:self-start">
+                          <input type="hidden" name="exerciseId" value={exercise.id} />
+                          <Field label="Bài làm cập nhật">
+                            <textarea name="content" defaultValue={mine.content ?? ""} rows={6} className={inputCls + " h-auto w-full py-2"} required placeholder="Nhập bài làm của em..." />
+                          </Field>
+                          {late && <p className="text-xs text-red-600">Lưu ý: Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Lần cập nhật này sẽ được đánh dấu Nộp muộn.</p>}
+                        </ActionForm>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <ActionForm action={submitWork} submit="Nộp bài" className="flex flex-col gap-3 [&>button]:self-start">
                     <input type="hidden" name="exerciseId" value={exercise.id} />
                     <Field label="Bài làm"><textarea name="content" rows={6} className={inputCls + " h-auto w-full py-2"} required placeholder="Nhập bài làm của em..." /></Field>
-                    {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}).</p>}
+                    {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
                   </ActionForm>
                 )}
               </Card>
@@ -196,7 +216,17 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                     return (
                       <tr key={s.id} className="align-middle [&>td]:!py-3">
                         <td><Link data-row href={`/hoc-sinh/${s.id}`} className="font-semibold hover:text-orange-700">{s.fullName}</Link><div className="text-xs text-slate-500">{s.code}</div></td>
-                        <td>{sub ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
+                        <td>
+                          {sub ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="inline-flex w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span>
+                              {sub.isLate && <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nộp muộn</span>}
+                              {sub.resubmittedCount > 0 && <span className="text-[10px] text-slate-500">Sửa {sub.resubmittedCount} lần</span>}
+                            </div>
+                          ) : (
+                            <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>
+                          )}
+                        </td>
                         <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
                         <td><span className="line-clamp-2 text-sm text-slate-600">{sub?.content ?? "-"}</span></td>
                         <td>{sub?.grade != null ? <b>{sub.grade}</b> : <span className="text-slate-400">-</span>}</td>

@@ -10,7 +10,7 @@ import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
-import { runPromotion, saveClassResults } from "./actions";
+import { resolveReExamResult, runPromotion, saveClassResults } from "./actions";
 
 type SP = { tab?: string; yearId?: string; toYearId?: string; classId?: string; q?: string; result?: string; page?: string; size?: string };
 const RESULT_LABEL = { LEN_LOP: "Lên lớp", O_LAI: "Ở lại", THI_LAI: "Thi lại" } as const;
@@ -21,7 +21,7 @@ const JOB_LABEL: Record<string, string> = { PENDING: "Chờ chạy", RUNNING: "�
 export default async function Promotion({ searchParams }: { searchParams: Promise<SP> }) {
   await requireRole(...MANAGER_ROLES);
   const sp = await searchParams;
-  const tab = sp.tab === "run" ? "run" : "results";
+  const tab = sp.tab === "run" ? "run" : sp.tab === "re-exam" ? "re-exam" : "results";
   const pg = getPaging(sp, 20);
   const years = await db.academicYear.findMany({ orderBy: { startDate: "desc" } });
   const yearId = sp.yearId && years.some((y) => y.id === sp.yearId) ? sp.yearId : years[0]?.id;
@@ -34,11 +34,16 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
   }
 
   const classes = await db.schoolClass.findMany({ where: { academicYearId: yearId }, orderBy: { className: "asc" }, include: { gradeLevel: true } });
-  const [nEnrolled, nResults] = await Promise.all([
+  const [nEnrolled, nResults, nRetake] = await Promise.all([
     db.studentClassEnrollment.count({ where: { academicYearId: yearId } }),
     db.yearEndResult.count({ where: { academicYearId: yearId } }),
+    db.yearEndResult.count({ where: { academicYearId: yearId, result: "THI_LAI" } }),
   ]);
-  const tabItems: [string, string][] = [[`?tab=results&yearId=${yearId}`, `Kết quả cuối năm (${nResults}/${nEnrolled})`], [`?tab=run&yearId=${yearId}`, "Chạy lên lớp"]];
+  const tabItems: [string, string][] = [
+    [`?tab=results&yearId=${yearId}`, `Kết quả cuối năm (${nResults}/${nEnrolled})`],
+    [`?tab=re-exam&yearId=${yearId}`, `Xử lý thi lại (${nRetake})`],
+    [`?tab=run&yearId=${yearId}`, "Chạy lên lớp"],
+  ];
 
   return (
     <div className="space-y-4">
@@ -131,6 +136,86 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
                 {!rows.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Không có học sinh nào phù hợp.</td></tr>}
               </Table>
             </ActionForm>
+          </div>
+        );
+      })()}
+
+      {/* ===================== XỬ LÝ THI LẠI ===================== */}
+      {tab === "re-exam" && await (async () => {
+        const reExams = await db.yearEndResult.findMany({
+          where: { academicYearId: yearId, result: "THI_LAI" },
+          include: {
+            student: {
+              include: {
+                enrollments: {
+                  where: { academicYearId: yearId },
+                  include: { schoolClass: true },
+                },
+              },
+            },
+          },
+          orderBy: { student: { fullName: "asc" } },
+        });
+
+        return (
+          <div className="space-y-3">
+            <AutoForm className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="tab" value="re-exam" />
+              <select name="yearId" defaultValue={yearId} className={inputCls}>
+                {years.map((y) => <option key={y.id} value={y.id}>Năm học {y.yearName}</option>)}
+              </select>
+            </AutoForm>
+
+            <div className="rounded-xl border bg-white p-4">
+              <h3 className="text-base font-semibold text-slate-800">Danh sách học sinh thi lại trong hè</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Sau khi tổ chức kiểm tra lại trong dịp hè, nhập điểm thi lại và quyết định công nhận &ldquo;Lên lớp&rdquo; hoặc &ldquo;Ở lại lớp&rdquo; trước khi chạy chuyển lớp.
+              </p>
+
+              <div className="mt-4">
+                <Table head={["Học sinh", "Lớp", "ĐTB cũ", "Hạnh kiểm", "Trạng thái", ""]}>
+                  {reExams.map((r) => {
+                    const cls = r.student.enrollments[0]?.schoolClass?.className ?? "-";
+                    return (
+                      <tr key={r.id} className="align-middle [&>td]:!py-3">
+                        <td>
+                          <div className="font-semibold">{r.student.fullName}</div>
+                          <div className="text-xs text-slate-500">{r.student.code ?? "-"}</div>
+                        </td>
+                        <td>{cls}</td>
+                        <td><b>{r.overallAverage}</b></td>
+                        <td>{r.conductRank ?? "-"}</td>
+                        <td><span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">Thi lại</span></td>
+                        <td>
+                          <DialogButton label="Nhập điểm thi lại" title={`Cập nhật thi lại · ${r.student.fullName}`} size="sm" variant="secondary">
+                            <ActionForm action={resolveReExamResult} submit="Lưu kết quả" className="flex flex-col gap-3 [&>button]:self-start">
+                              <input type="hidden" name="studentId" value={r.studentId} />
+                              <input type="hidden" name="academicYearId" value={yearId} />
+                              <Field label="Điểm trung bình sau thi lại (thang 10)">
+                                <input name="score" type="text" inputMode="decimal" defaultValue={String(r.overallAverage)} required className={inputCls + " w-full"} />
+                              </Field>
+                              <Field label="Quyết định công nhận">
+                                <select name="result" className={inputCls + " w-full"} required defaultValue="LEN_LOP">
+                                  <option value="LEN_LOP">Lên lớp</option>
+                                  <option value="O_LAI">Ở lại lớp</option>
+                                </select>
+                              </Field>
+                            </ActionForm>
+                          </DialogButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {!reExams.length && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        Không có học sinh nào cần thi lại trong năm học này.
+                      </td>
+                    </tr>
+                  )}
+                </Table>
+              </div>
+            </div>
           </div>
         );
       })()}

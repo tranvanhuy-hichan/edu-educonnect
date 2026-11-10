@@ -7,6 +7,7 @@ import clsx from "clsx";
 import { buildNav, ROLE_LABEL, titleOf, type NavGroup, type NavItem } from "@/lib/nav";
 import type { Role } from "@/lib/guard";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { NotificationBell } from "@/components/layout/notification-bell";
 
 const HOMEROOM_MAIN_TABS = [null, "overview", "students"];
 const LIBRARY_MAIN_TABS = [null, "", "titles"];
@@ -144,6 +145,7 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
               </span>
             ))}
           </nav>
+          <NotificationBell />
           <ModeToggle />
           <div className="relative" ref={ref}>
             <button onClick={() => setMenu((o) => !o)} className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-slate-100">

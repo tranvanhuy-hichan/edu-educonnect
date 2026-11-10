@@ -70,3 +70,27 @@ export const runPromotion = wrap(async (fd) => {
   revalidatePath("/len-lop");
   return `Đã xếp ${job.enrollmentsCreated}/${assignments.length} học sinh vào lớp của năm học mới`;
 });
+
+/** Cập nhật kết quả thi lại: cập nhật điểm sau thi lại và đổi kết quả thành LEN_LOP hoặc O_LAI. */
+export const resolveReExamResult = wrap(async (fd) => {
+  const me = await assertRole("HOMEROOM_TEACHER", ...MANAGER_ROLES);
+  const studentId = str(fd, "studentId");
+  const academicYearId = str(fd, "academicYearId");
+  const result = str(fd, "result") as "LEN_LOP" | "O_LAI";
+  if (!["LEN_LOP", "O_LAI"].includes(result)) throw new Error("Kết quả sau thi lại phải là Lên lớp hoặc Ở lại");
+  const score = Number(str(fd, "score").replace(",", "."));
+  if (!Number.isFinite(score) || score < 0 || score > 10) throw new Error("Điểm sau thi lại phải từ 0 đến 10");
+
+  await db.yearEndResult.update({
+    where: { studentId_academicYearId: { studentId, academicYearId } },
+    data: {
+      result,
+      overallAverage: Math.round(score * 100) / 100,
+    },
+  });
+
+  await audit(me.email, "resolve_re_exam", "YearEndResult", `${studentId}_${academicYearId}`);
+  revalidatePath("/len-lop");
+  revalidatePath("/lop-chu-nhiem");
+  return `Đã cập nhật kết quả thi lại: ${result === "LEN_LOP" ? "Lên lớp" : "Ở lại"}`;
+});

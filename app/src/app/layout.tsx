@@ -6,12 +6,32 @@ import { themeForRoles, fontsHref, themeCss } from "@/lib/theme";
 
 export const metadata: Metadata = {
   title: "EduConnect — THPT Sơn Hà",
-  description: "EduConnect — hệ thống quản lý trường học THPT Sơn Hà",
-  icons: { icon: "/logo-truong-placeholder.svg" },
+  description: "EduConnect — Hệ thống quản lý trường học & Sổ liên lạc điện tử THPT Sơn Hà",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "EduConnect",
+  },
 };
 
-// Điện thoại: khoá thu/phóng màn hình bằng hai ngón (giao diện đã đặt cỡ chữ ô nhập 16px nên iOS cũng không tự phóng khi bấm vào ô).
-export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1, userScalable: false };
+// Điện thoại: khoá thu/phóng màn hình bằng hai ngón, theme color PWA
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: "#ea580c",
+};
 
 // Mọi trang đều cần phiên đăng nhập / dữ liệu: không dựng tĩnh lúc build (build không được chạm CSDL).
 export const dynamic = "force-dynamic";

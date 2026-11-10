@@ -1,6 +1,7 @@
 import { canManageLibrary, type SessionUser } from "@/lib/auth/session";
 import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
 import * as libraryRepository from "@/modules/library/library.repository";
+import { createNotification } from "@/modules/notification/notification.service";
 import type {
   CreateBookCopyInput,
   CreateBookTitleInput,
@@ -74,6 +75,33 @@ export async function createLoan(user: SessionUser, input: CreateLoanInput) {
     throw new ConflictError("Cần chọn ít nhất một cuốn sách để lập phiếu");
   }
 
+  // 1. Kiểm tra tài khoản học sinh
+  const student = await libraryRepository.findStudentWithUser(input.studentId);
+  if (!student) {
+    throw new ConflictError("Học sinh không tồn tại");
+  }
+  if (student.user && !student.user.isActive) {
+    throw new ConflictError("Tài khoản học sinh này đã bị khóa hoặc ngừng hoạt động");
+  }
+
+  // 2. Kiểm tra sách nợ quá hạn
+  const overdueLoans = await libraryRepository.findOverdueLoansByStudent(input.studentId);
+  if (overdueLoans.length > 0) {
+    const overdueBookCount = overdueLoans.reduce((sum, l) => sum + l.items.length, 0);
+    throw new ConflictError(
+      `Học sinh đang có ${overdueLoans.length} phiếu mượn quá hạn (${overdueBookCount} cuốn sách chưa trả). Cần thu hồi sách quá hạn trước khi cho mượn tiếp!`
+    );
+  }
+
+  // 3. Kiểm tra hạn mức số lượng sách đang mượn (tối đa 5 cuốn/học sinh)
+  const MAX_BORROW_LIMIT = 5;
+  const currentHoldingCount = await libraryRepository.countActiveBorrowedItems(input.studentId);
+  if (currentHoldingCount + input.bookCopyIds.length > MAX_BORROW_LIMIT) {
+    throw new ConflictError(
+      `Học sinh hiện đang giữ ${currentHoldingCount} cuốn sách. Mượn thêm ${input.bookCopyIds.length} cuốn sẽ vượt quá hạn mức tối đa (${MAX_BORROW_LIMIT} cuốn/học sinh).`
+    );
+  }
+
   // Kiểm tra trùng lặp sách trong cùng phiếu
   const uniqueCopies = new Set(input.bookCopyIds);
   if (uniqueCopies.size !== input.bookCopyIds.length) {
@@ -91,7 +119,24 @@ export async function createLoan(user: SessionUser, input: CreateLoanInput) {
     }
   }
 
-  return libraryRepository.createLoan(input);
+  const loan = await libraryRepository.createLoan(input);
+
+  // Gửi thông báo đến học sinh mượn sách
+  try {
+    if (student.userId) {
+      await createNotification({
+        userId: student.userId,
+        title: "Phiếu mượn sách thư viện",
+        content: `Bạn đã mượn thành công ${input.bookCopyIds.length} cuốn sách. Hạn trả: ${new Date(input.dueDate).toLocaleDateString("vi-VN")}. Vui lòng trả sách đúng hạn.`,
+        type: "LIBRARY",
+        link: "/thu-vien?tab=my-loans",
+      });
+    }
+  } catch {
+    // Không làm gián đoạn
+  }
+
+  return loan;
 }
 
 /** Thủ thư xác nhận trả toàn bộ phiếu mượn. */

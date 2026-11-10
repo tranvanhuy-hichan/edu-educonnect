@@ -11,6 +11,11 @@ export function fmtDate(d: Date | null | undefined) {
   const x = new Date(d);
   return `${String(x.getUTCDate()).padStart(2, "0")}/${String(x.getUTCMonth() + 1).padStart(2, "0")}/${x.getUTCFullYear()}`;
 }
+export function fmtTime(d: Date | string | null | undefined) {
+  if (!d) return "";
+  const x = new Date(d);
+  return `${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")} ${String(x.getDate()).padStart(2, "0")}/${String(x.getMonth() + 1).padStart(2, "0")}`;
+}
 export function todayUTC() {
   const n = new Date(Date.now() + 7 * 3600_000); // giờ Việt Nam
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));

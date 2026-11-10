@@ -40,6 +40,12 @@ export default async function AssignmentGrades({ params }: { params: Promise<{ a
     .map((e) => ({ id: e.studentId, name: e.student.fullName, code: e.student.code ?? "" }))
     .sort((x, y) => x.name.localeCompare(y.name, "vi"));
 
+  const isManager = me.roles.some((r) => (MANAGER_ROLES as readonly string[]).includes(r));
+  const term = a.academicTerm;
+  const isPast15Days = term.endDate && (Date.now() - new Date(term.endDate).getTime() > 15 * 24 * 60 * 60 * 1000);
+  const isLocked = term.isLocked || Boolean(isPast15Days);
+  const readOnly = isLocked && !isManager;
+
   return (
     <div className="space-y-3">
       <Title>Bảng điểm: {a.schoolClass.className} · {a.subject.subjectName}</Title>
@@ -47,7 +53,20 @@ export default async function AssignmentGrades({ params }: { params: Promise<{ a
         {a.academicTerm.termName} · {a.academicTerm.academicYear.yearName} · GV: {a.teacher.fullName} · Điểm TB môn tính theo hệ số học kỳ:
         {" "}<code>thường xuyên ×{weights.tx}, giữa kỳ ×{weights.gk}, cuối kỳ ×{weights.ck}</code> (thang 10)
       </p>
-      <GradeGrid assignmentId={assignmentId} txCols={txCols} weights={weights} students={students} initial={initial} />
+      <GradeGrid
+        assignmentId={assignmentId}
+        txCols={txCols}
+        weights={weights}
+        students={students}
+        initial={initial}
+        readOnly={readOnly}
+        isLocked={isLocked}
+        isManager={isManager}
+        termId={term.id}
+        termName={term.termName}
+        isManualLocked={term.isLocked}
+        lockedBy={term.lockedBy}
+      />
     </div>
   );
 }

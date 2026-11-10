@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AutoForm } from "@/components/auto-form";
+import { ActionForm } from "@/components/action-form";
+import { DialogButton } from "@/components/dialog";
 import { MobileCollapse } from "@/components/mobile-collapse";
-import { BarChart3, ChevronRight, ClipboardCheck, Percent, Users } from "lucide-react";
+import { BarChart3, ChevronRight, ClipboardCheck, Lock, Percent, Unlock, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
@@ -11,6 +13,7 @@ import { BarList, ColumnChart, Donut } from "@/components/charts";
 import { getPaging } from "@/lib/paging";
 import { BANDS, bandOf, gradeStats, type AssignmentStat } from "@/server/grades-stats";
 import { assignmentWhere, termOptions } from "@/server/learning-scope";
+import { toggleLockTerm } from "./actions";
 
 const TABS = [["classes", "Danh sách lớp"], ["stats", "Thống kê"]] as const;
 const fmt = (n: number | null, d = 1) => (n == null ? "-" : n.toFixed(d));
@@ -30,9 +33,45 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
     q: tab === "classes" ? sp.q : undefined, includePast: !!sp.all || tab === "stats",
   });
 
+  const isManager = me.roles.some((r) => (MANAGER_ROLES as readonly string[]).includes(r));
+  const lockManageBtn = isManager ? (
+    <DialogButton label="🔒 Khóa sổ điểm" title="Quản lý khóa sổ điểm các học kỳ" variant="secondary">
+      <div className="space-y-3">
+        <p className="text-xs text-slate-500">
+          Khi khóa sổ điểm, giáo viên bộ môn sẽ không thể sửa đổi điểm. Hệ thống cũng tự động khóa sau khi học kỳ kết thúc quá 15 ngày (chỉ Ban Giám hiệu mới có quyền mở khóa).
+        </p>
+        <div className="divide-y rounded-lg border bg-white">
+          {terms.map((t) => {
+            const isPast15 = t.endDate && (Date.now() - new Date(t.endDate).getTime() > 15 * 24 * 60 * 60 * 1000);
+            return (
+              <div key={t.id} className="flex items-center justify-between p-3 text-sm">
+                <div>
+                  <div className="font-semibold">{t.termName} · {t.yearName}</div>
+                  <div className="text-xs text-slate-500">
+                    {t.isLocked ? (
+                      <span className="font-medium text-amber-700">Đã khóa thủ công bởi {t.lockedBy || "BGH"}</span>
+                    ) : isPast15 ? (
+                      <span className="font-medium text-slate-500">Tự động khóa (&gt;15 ngày kết thúc)</span>
+                    ) : (
+                      <span className="font-medium text-green-700">Đang mở cho giáo viên nhập điểm</span>
+                    )}
+                  </div>
+                </div>
+                <ActionForm action={toggleLockTerm} submit={t.isLocked ? "Mở khóa" : "Khóa sổ"} className="inline" reset={false}>
+                  <input type="hidden" name="termId" value={t.id} />
+                  <input type="hidden" name="lock" value={t.isLocked ? "false" : "true"} />
+                </ActionForm>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </DialogButton>
+  ) : null;
+
   return (
     <div className="space-y-4">
-      <Title>Nhập điểm</Title>
+      <Title right={lockManageBtn}>Nhập điểm</Title>
       <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {/* ===================== DANH SÁCH LỚP ===================== */}

@@ -1,0 +1,160 @@
+const fs = require("fs");
+const path = require("path");
+const sharp = require("sharp");
+
+// Vector SVG for EduConnect
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#eab308"/>
+    </linearGradient>
+    <linearGradient id="bookGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded squircle / badge -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="12" y="12" width="488" height="488" rx="100" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="4"/>
+
+  <!-- Subtle connection network arcs in background -->
+  <g stroke="rgba(255,255,255,0.18)" stroke-width="3" fill="none">
+    <circle cx="256" cy="240" r="170" stroke-dasharray="8 8" />
+    <circle cx="256" cy="240" r="130" stroke-dasharray="6 6" />
+  </g>
+
+  <!-- Digital nodes -->
+  <circle cx="100" cy="180" r="7" fill="#fde047" opacity="0.8" />
+  <circle cx="412" cy="180" r="7" fill="#fde047" opacity="0.8" />
+  <circle cx="140" cy="350" r="6" fill="#ffffff" opacity="0.7" />
+  <circle cx="372" cy="350" r="6" fill="#ffffff" opacity="0.7" />
+  <circle cx="256" cy="80" r="8" fill="#fde047" opacity="0.9" />
+
+  <!-- Main emblem group with shadow -->
+  <g filter="url(#shadow)">
+    <!-- Graduation Cap / Mortarboard -->
+    <path d="M 256 120 L 396 175 L 256 230 L 116 175 Z" fill="#ffffff" />
+    <!-- Cap Underneath Base -->
+    <path d="M 176 205 L 176 250 C 176 278, 336 278, 336 250 L 336 205" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+    <!-- Tassel -->
+    <circle cx="256" cy="175" r="8" fill="url(#goldGrad)" />
+    <path d="M 256 175 Q 380 200, 395 240" fill="none" stroke="url(#goldGrad)" stroke-width="6" stroke-linecap="round" />
+    <polygon points="388,240 402,240 405,270 385,270" fill="url(#goldGrad)" />
+
+    <!-- Open Book -->
+    <!-- Left page -->
+    <path d="M 256 375 C 220 355, 145 350, 110 365 C 105 367, 100 362, 100 355 L 100 270 C 100 264, 105 259, 110 258 C 150 245, 220 250, 256 275 Z" fill="url(#bookGrad)" />
+    <!-- Right page -->
+    <path d="M 256 375 C 292 355, 367 350, 402 365 C 407 367, 412 362, 412 355 L 412 270 C 412 264, 407 259, 402 258 C 362 245, 292 250, 256 275 Z" fill="url(#bookGrad)" />
+    <!-- Center spine line -->
+    <line x1="256" y1="275" x2="256" y2="385" stroke="#ea580c" stroke-width="5" stroke-linecap="round" />
+
+    <!-- Book Page Text Lines (Stylized Knowledge) -->
+    <line x1="130" y1="285" x2="230" y2="295" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="130" y1="310" x2="225" y2="320" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="130" y1="335" x2="220" y2="345" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+
+    <line x1="382" y1="285" x2="282" y2="295" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="382" y1="310" x2="287" y2="320" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="382" y1="335" x2="292" y2="345" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+  </g>
+
+  <!-- Banner text / Brand -->
+  <g text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+    <text x="256" y="435" font-size="34" font-weight="900" fill="#ffffff" letter-spacing="4">EDUCONNECT</text>
+    <text x="256" y="468" font-size="20" font-weight="700" fill="#fde047" letter-spacing="3">THPT SƠN HÀ</text>
+  </g>
+</svg>`;
+
+// Safe zone maskable version (extra padded for round/squircle icon cutters)
+const svgMaskableContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#c2410c"/>
+      <stop offset="100%" stop-color="#9a3412"/>
+    </linearGradient>
+    <linearGradient id="goldGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#eab308"/>
+    </linearGradient>
+    <linearGradient id="bookGrad2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f5f9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full bleed background for maskable -->
+  <rect width="512" height="512" fill="url(#bgGrad2)" />
+
+  <!-- Centered safe scaled content (approx 75% scale centered at 256, 256) -->
+  <g transform="translate(64, 64) scale(0.75)">
+    <!-- Graduation Cap / Mortarboard -->
+    <path d="M 256 120 L 396 175 L 256 230 L 116 175 Z" fill="#ffffff" />
+    <path d="M 176 205 L 176 250 C 176 278, 336 278, 336 250 L 336 205" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" />
+    <circle cx="256" cy="175" r="8" fill="url(#goldGrad2)" />
+    <path d="M 256 175 Q 380 200, 395 240" fill="none" stroke="url(#goldGrad2)" stroke-width="6" stroke-linecap="round" />
+    <polygon points="388,240 402,240 405,270 385,270" fill="url(#goldGrad2)" />
+
+    <!-- Open Book -->
+    <path d="M 256 375 C 220 355, 145 350, 110 365 C 105 367, 100 362, 100 355 L 100 270 C 100 264, 105 259, 110 258 C 150 245, 220 250, 256 275 Z" fill="url(#bookGrad2)" />
+    <path d="M 256 375 C 292 355, 367 350, 402 365 C 407 367, 412 362, 412 355 L 412 270 C 412 264, 407 259, 402 258 C 362 245, 292 250, 256 275 Z" fill="url(#bookGrad2)" />
+    <line x1="256" y1="275" x2="256" y2="385" stroke="#ea580c" stroke-width="5" stroke-linecap="round" />
+
+    <line x1="130" y1="285" x2="230" y2="295" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="130" y1="310" x2="225" y2="320" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="130" y1="335" x2="220" y2="345" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+
+    <line x1="382" y1="285" x2="282" y2="295" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="382" y1="310" x2="287" y2="320" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+    <line x1="382" y1="335" x2="292" y2="345" stroke="#cbd5e1" stroke-width="4" stroke-linecap="round" />
+
+    <g text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+      <text x="256" y="435" font-size="34" font-weight="900" fill="#ffffff" letter-spacing="4">EDUCONNECT</text>
+      <text x="256" y="468" font-size="20" font-weight="700" fill="#fde047" letter-spacing="3">THPT SƠN HÀ</text>
+    </g>
+  </g>
+</svg>`;
+
+async function main() {
+  const publicDir = path.join(__dirname, "../public");
+  const iconsDir = path.join(publicDir, "icons");
+  if (!fs.existsSync(iconsDir)) fs.mkdirSync(iconsDir, { recursive: true });
+
+  // Save SVGs
+  fs.writeFileSync(path.join(iconsDir, "icon.svg"), svgContent);
+  fs.writeFileSync(path.join(publicDir, "favicon.svg"), svgContent);
+  fs.writeFileSync(path.join(publicDir, "logo-truong-placeholder.svg"), svgContent);
+
+  const svgBuffer = Buffer.from(svgContent);
+  const maskableBuffer = Buffer.from(svgMaskableContent);
+
+  // Generate PNGs
+  console.log("Generating icons...");
+  await sharp(svgBuffer).resize(192, 192).png().toFile(path.join(iconsDir, "icon-192x192.png"));
+  await sharp(svgBuffer).resize(512, 512).png().toFile(path.join(iconsDir, "icon-512x512.png"));
+  await sharp(svgBuffer).resize(180, 180).png().toFile(path.join(iconsDir, "apple-touch-icon.png"));
+  await sharp(svgBuffer).resize(48, 48).png().toFile(path.join(publicDir, "favicon-48.png"));
+  await sharp(svgBuffer).resize(32, 32).png().toFile(path.join(publicDir, "favicon.png"));
+
+  await sharp(maskableBuffer).resize(192, 192).png().toFile(path.join(iconsDir, "icon-maskable-192x192.png"));
+  await sharp(maskableBuffer).resize(512, 512).png().toFile(path.join(iconsDir, "icon-maskable-512x512.png"));
+
+  console.log("All icons successfully generated!");
+}
+
+main().catch(console.error);

@@ -22,7 +22,17 @@ export function assignmentWhere(me: Me): Prisma.ClassSubjectAssignmentWhereInput
 /** Danh sách học kỳ (mới nhất trước) kèm năm học, dùng cho ô chọn lọc. */
 export async function termOptions() {
   const terms = await db.academicTerm.findMany({ orderBy: { startDate: "desc" }, include: { academicYear: { select: { yearName: true } } } });
-  return terms.map((t) => ({ id: t.id, label: `${t.termName} · ${t.academicYear.yearName}`, startDate: t.startDate, endDate: t.endDate }));
+  return terms.map((t) => ({
+    id: t.id,
+    label: `${t.termName} · ${t.academicYear.yearName}${t.isLocked ? " 🔒 (Đã khóa)" : ""}`,
+    termName: t.termName,
+    yearName: t.academicYear.yearName,
+    startDate: t.startDate,
+    endDate: t.endDate,
+    isLocked: t.isLocked,
+    lockedAt: t.lockedAt,
+    lockedBy: t.lockedBy,
+  }));
 }
 
 /** Học kỳ đang diễn ra (hoặc mới nhất nếu không có học kỳ nào bao trùm hôm nay). */

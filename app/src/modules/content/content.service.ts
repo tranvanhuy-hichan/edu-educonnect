@@ -2,6 +2,8 @@ import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { ConflictError, ForbiddenError } from "@/modules/academic/academic.service";
 import * as contentRepository from "@/modules/content/content.repository";
+import { prisma } from "@/lib/prisma";
+import { notifyUsers } from "@/modules/notification/notification.service";
 import type {
   CreateLessonPlanInput,
   CreateExerciseInput,
@@ -43,12 +45,44 @@ export async function createLessonPost(
   return contentRepository.createLessonPost(input);
 }
 
-/** Thêm bài tập vào một bài học (quyền theo lớp-môn của bài học). */
+/** Thêm bài tập vào một bài học (quyền theo lớp-môn của bài học) và thông báo cho học sinh. */
 export async function createExercise(user: SessionUser, input: CreateExerciseInput) {
   const post = await contentRepository.findLessonPost(input.lessonPostId);
   if (!post) throw new ForbiddenError("Bài học không tồn tại");
   await assertCanManageAssignment(user, post.assignmentId);
-  return contentRepository.createExercise(input);
+  const ex = await contentRepository.createExercise(input);
+
+  // Gửi thông báo đến học sinh trong lớp
+  try {
+    const assignment = await prisma.classSubjectAssignment.findUnique({
+      where: { id: post.assignmentId },
+      include: {
+        subject: true,
+        schoolClass: {
+          include: {
+            enrollments: {
+              include: { student: { select: { userId: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (assignment) {
+      const userIds = assignment.schoolClass.enrollments
+        .map((e) => e.student.userId)
+        .filter(Boolean);
+      await notifyUsers(userIds, {
+        title: `Bài tập mới: ${ex.title}`,
+        content: `Môn ${assignment.subject.subjectName} vừa giao bài tập mới trong bài học "${post.title}". Hạn nộp: ${ex.dueDate ? new Date(ex.dueDate).toLocaleDateString("vi-VN") : "Không có hạn"}.`,
+        type: "ASSIGNMENT",
+        link: `/bai-hoc/${post.id}?tab=bai-tap&ex=${ex.id}`,
+      });
+    }
+  } catch {
+    // Không làm gián đoạn nếu gửi thông báo lỗi
+  }
+
+  return ex;
 }
 
 export async function listLessonPosts(
@@ -110,7 +144,7 @@ export async function listLessonPlans(
   return contentRepository.listLessonPlansByAssignment(assignmentId);
 }
 
-/** Học sinh nộp bài tự luận (quizMode=false): 1 học sinh chỉ nộp 1 lần/bài tập (unique exerciseId+studentId). */
+/** Học sinh nộp bài tự luận (quizMode=false): cho phép nộp lại nếu giáo viên chưa chấm điểm; kiểm tra hạn nộp để ghi nhận nộp muộn. */
 export async function submitAssignment(
   user: SessionUser,
   exerciseId: string,
@@ -126,19 +160,33 @@ export async function submitAssignment(
   }
   await assertCanAccessAsStudent(user, exercise.lessonPost.assignmentId);
 
+  const now = new Date();
+  const isLate = Boolean(exercise.dueDate && now > exercise.dueDate);
+
   const existing = await contentRepository.findSubmission(
     exerciseId,
     user.studentId,
   );
+
   if (existing) {
-    throw new ConflictError("Bạn đã nộp bài này rồi");
+    if (existing.grade !== null) {
+      throw new ConflictError("Bài tập đã được giáo viên chấm điểm, không thể nộp lại");
+    }
+    return contentRepository.updateSubmission(existing.id, {
+      content,
+      submittedAt: now,
+      isLate,
+      resubmittedCount: (existing.resubmittedCount ?? 0) + 1,
+    });
   }
 
-  return contentRepository.createSubmission(
+  return contentRepository.createSubmission({
     exerciseId,
-    user.studentId,
+    studentId: user.studentId,
     content,
-  );
+    isLate,
+    submittedAt: now,
+  });
 }
 
 /** GVBM chấm điểm/nhận xét bài tự luận bằng tay. */

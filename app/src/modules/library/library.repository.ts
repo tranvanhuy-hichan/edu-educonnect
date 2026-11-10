@@ -241,3 +241,38 @@ export function listLoansByStudent(studentId: string) {
     orderBy: { borrowedDate: "desc" },
   });
 }
+
+export function findStudentWithUser(studentId: string) {
+  return prisma.student.findUnique({
+    where: { id: studentId },
+    include: { user: true },
+  });
+}
+
+export function findOverdueLoansByStudent(studentId: string) {
+  return prisma.libraryLoan.findMany({
+    where: {
+      studentId,
+      status: { in: ["BORROWED", "PARTIALLY_RETURNED"] },
+      dueDate: { lt: new Date() },
+    },
+    include: {
+      items: {
+        where: { status: "BORROWED" },
+        include: { bookCopy: { include: { bookTitle: true } } },
+      },
+    },
+  });
+}
+
+export function countActiveBorrowedItems(studentId: string) {
+  return prisma.libraryLoanItem.count({
+    where: {
+      loan: {
+        studentId,
+        status: { in: ["BORROWED", "PARTIALLY_RETURNED"] },
+      },
+      status: "BORROWED",
+    },
+  });
+}

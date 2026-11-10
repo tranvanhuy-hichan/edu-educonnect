@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -62,8 +63,10 @@ model User {
   roles        Role[]
   isActive     Boolean  @default(true)
   mustChangePwd Boolean @default(false)
+  tokenVersion Int      @default(1)
   teacher      Teacher?
   student      Student?
+  notifications Notification[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -96,6 +99,9 @@ model AcademicTerm {
   termName           String // "HK1" | "HK2"
   startDate          DateTime
   endDate            DateTime
+  isLocked           Boolean                  @default(false)
+  lockedAt           DateTime?
+  lockedBy           String?
   assignments        ClassSubjectAssignment[]
   scoreEntries       ScoreEntry[]
   subjectAverages    SubjectTermAverage[]
@@ -293,17 +299,19 @@ model LessonPostView {
 }
 
 model AssignmentSubmission {
-  id           String          @id @default(cuid())
-  exerciseId   String
-  exercise     Exercise        @relation(fields: [exerciseId], references: [id])
-  studentId    String
-  student      Student         @relation(fields: [studentId], references: [id])
-  content      String? // tự luận: text/file url
-  submittedAt  DateTime        @default(now())
-  grade        Float? // tự luận: GV chấm tay; trắc nghiệm: hệ thống tự tính
-  feedback     String?
-  autoGraded   Boolean         @default(false)
-  answers      StudentAnswer[]
+  id               String          @id @default(cuid())
+  exerciseId       String
+  exercise         Exercise        @relation(fields: [exerciseId], references: [id])
+  studentId        String
+  student          Student         @relation(fields: [studentId], references: [id])
+  content          String? // tự luận: text/file url
+  submittedAt      DateTime        @default(now())
+  isLate           Boolean         @default(false)
+  resubmittedCount Int             @default(0)
+  grade            Float? // tự luận: GV chấm tay; trắc nghiệm: hệ thống tự tính
+  feedback         String?
+  autoGraded       Boolean         @default(false)
+  answers          StudentAnswer[]
 
   @@unique([exerciseId, studentId])
 }
@@ -633,4 +641,18 @@ model ExamInvigilation {
   position   Int
 
   @@id([examRoomId, teacherId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  type      String   @default("SYSTEM") // SYSTEM | EXAM | ASSIGNMENT | LIBRARY | SCHEDULE | GRADE
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
 }

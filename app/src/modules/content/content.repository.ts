@@ -79,13 +79,36 @@ export function isStudentInAssignmentClass(
     });
 }
 
-export function createSubmission(
-  exerciseId: string,
-  studentId: string,
-  content: string,
-) {
+export function createSubmission(data: {
+  exerciseId: string;
+  studentId: string;
+  content: string;
+  isLate?: boolean;
+  submittedAt?: Date;
+}) {
   return prisma.assignmentSubmission.create({
-    data: { exerciseId, studentId, content },
+    data: {
+      exerciseId: data.exerciseId,
+      studentId: data.studentId,
+      content: data.content,
+      isLate: data.isLate ?? false,
+      submittedAt: data.submittedAt ?? new Date(),
+    },
+  });
+}
+
+export function updateSubmission(
+  id: string,
+  data: {
+    content: string;
+    submittedAt: Date;
+    isLate: boolean;
+    resubmittedCount: number;
+  },
+) {
+  return prisma.assignmentSubmission.update({
+    where: { id },
+    data,
   });
 }
 

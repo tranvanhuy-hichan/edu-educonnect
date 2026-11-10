@@ -66,6 +66,12 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
             <p className="text-center text-xs text-slate-500">Học sinh dùng tài khoản do nhà trường cấp. Quên mật khẩu? Liên hệ quản trị viên để được cấp lại.</p>
           </form>
 
+          <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/70 p-3 text-center">
+            <a href="/tra-cuu" className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-700 hover:text-orange-900 hover:underline">
+              🔍 Phụ huynh tra cứu Sổ liên lạc điện tử (không cần tài khoản) →
+            </a>
+          </div>
+
 
         </div>
       </div>
