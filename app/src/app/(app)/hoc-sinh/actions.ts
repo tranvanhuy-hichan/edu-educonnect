@@ -1,5 +1,6 @@
 "use server";
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { MANAGER_ROLES, assertRole } from "@/lib/guard";
 import { wrap, str, opt } from "@/lib/action";
@@ -106,4 +107,18 @@ export const deleteStudent = wrap(async (fd) => {
   ]);
   await audit(me.email, "delete_student", "Student", id);
   revalidatePath("/hoc-sinh");
+});
+
+export const resetParentPassword = wrap(async (fd) => {
+  const me = await assertRole(...MANAGER_ROLES, "HOMEROOM_TEACHER");
+  const phone = str(fd, "phone").replace(/\D/g, "");
+  if (!phone) throw new Error("Không có số điện thoại phụ huynh");
+  const defaultHash = await bcrypt.hash("123456", 10);
+  await db.parentAccount.upsert({
+    where: { phone },
+    update: { passwordHash: defaultHash },
+    create: { phone, passwordHash: defaultHash, fullName: opt(fd, "fullName") ?? "Phụ huynh" },
+  });
+  await audit(me.email, "reset_parent_password", "ParentAccount", phone);
+  return `Mật khẩu Sổ liên lạc của phụ huynh (SĐT: ${phone}) đã được đặt lại về mặc định: 123456`;
 });

@@ -656,3 +656,16 @@ model Notification {
 
   @@index([userId, isRead])
 }
+
+/// Tài khoản Cổng Phụ huynh (Sổ liên lạc điện tử) — tách riêng với tài khoản cán bộ/học sinh.
+/// Đăng nhập bằng số điện thoại người giám hộ; mật khẩu mặc định khởi tạo là 123456.
+model ParentAccount {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  fullName     String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([phone])
+}

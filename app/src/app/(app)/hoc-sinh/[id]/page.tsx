@@ -11,7 +11,7 @@ import { fmtDate } from "@/lib/format";
 import { currentTerm, hueOfStr, initialOf, rankOf } from "@/lib/catalog";
 import { STATUS_COLOR, STATUS_LABEL, loadStudents } from "@/server/students";
 import { StudentFields } from "../student-fields";
-import { deleteStudent, resetStudentPassword, setStudentClass, toggleLocked, updateStudent } from "../actions";
+import { deleteStudent, resetParentPassword, resetStudentPassword, setStudentClass, toggleLocked, updateStudent } from "../actions";
 
 const TABS = [["overview", "Tổng quan"], ["info", "Thông tin cá nhân"], ["classes", "Lớp & thời khóa biểu"], ["grades", "Bảng điểm"], ["loans", "Mượn sách"]] as const;
 
@@ -45,6 +45,19 @@ export default async function StudentDetail({ params, searchParams }: { params: 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isManager && <ActionForm action={resetStudentPassword} submit="Cấp lại mật khẩu" compact reset={false} className="inline-flex"><input type="hidden" name="id" value={s.id} /></ActionForm>}
+            {isManager && s.guardianPhone && (
+              <ActionForm
+                action={resetParentPassword}
+                submit="Đặt lại MK Phụ huynh"
+                compact
+                reset={false}
+                confirmText={`Đặt lại mật khẩu Sổ liên lạc của phụ huynh (SĐT: ${s.guardianPhone}) về 123456?`}
+                className="inline-flex"
+              >
+                <input type="hidden" name="phone" value={s.guardianPhone} />
+                <input type="hidden" name="fullName" value={s.guardianName ?? `Phụ huynh em ${s.fullName}`} />
+              </ActionForm>
+            )}
             {isManager && <ActionForm action={toggleLocked} submit={s.status === "locked" ? "Mở khóa" : "Khóa tài khoản"} compact danger={s.status !== "locked"} confirmText={s.status === "locked" ? undefined : "Khóa tài khoản học sinh này?"} reset={false} className="inline-flex"><input type="hidden" name="id" value={s.id} /></ActionForm>}
             {me.roles.includes("ADMIN") && <ActionForm action={deleteStudent} submit="Xoá" compact danger confirmText="Xoá hẳn học sinh này?" className="inline-flex"><input type="hidden" name="id" value={s.id} /></ActionForm>}
           </div>
