@@ -20,49 +20,68 @@ function normalizePhone(raw: string): string {
 }
 
 export async function parentLogin(formData: FormData) {
-  const rawPhone = String(formData.get("phone") ?? "").trim();
+  const input = String(formData.get("phone") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!rawPhone) {
-    return { success: false, error: "Vui lòng nhập số điện thoại người giám hộ." };
+  if (!input) {
+    return { success: false, error: "Vui lòng nhập Số điện thoại người giám hộ hoặc Mã học sinh." };
   }
   if (!password) {
-    return { success: false, error: "Vui lòng nhập mật khẩu (mặc định: 123456)." };
+    return { success: false, error: "Vui lòng nhập mật khẩu (mặc định khởi tạo: 123456)." };
   }
 
-  const phone = normalizePhone(rawPhone);
-  if (phone.length < 9 || phone.length > 11) {
-    return { success: false, error: "Số điện thoại không hợp lệ (cần từ 9 đến 11 chữ số)." };
-  }
+  const cleanedDigits = input.replace(/\D/g, "");
+  const normalized = normalizePhone(input);
 
-  // 1. Kiểm tra số điện thoại có trong hồ sơ của học sinh nào không
+  // 1. Tìm hồ sơ học sinh theo SĐT người giám hộ, Mã học sinh (HS...) hoặc Email
   const students = await prisma.student.findMany({
     where: {
       OR: [
-        { guardianPhone: phone },
-        { guardianPhone: rawPhone },
-        { guardianPhone: { startsWith: phone } },
+        // Khớp theo mã học sinh
+        { code: { equals: input, mode: "insensitive" } },
+        // Khớp theo email
+        { user: { email: { equals: input, mode: "insensitive" } } },
+        // Khớp theo SĐT
+        { guardianPhone: input },
+        { guardianPhone: normalized },
+        ...(cleanedDigits.length >= 7
+          ? [{ guardianPhone: { contains: cleanedDigits.slice(-9) } }]
+          : []),
       ],
     },
-    select: { id: true, fullName: true, guardianName: true, guardianPhone: true },
+    select: { id: true, code: true, fullName: true, guardianName: true, guardianPhone: true },
   });
 
   if (!students.length) {
     return {
       success: false,
-      error:
-        "Số điện thoại này chưa được đăng ký trong hồ sơ học sinh của nhà trường. Vui lòng liên hệ GVCN để bổ sung số điện thoại phụ huynh.",
+      error: `Không tìm thấy hồ sơ học sinh khớp với "${input}". Quý phụ huynh vui lòng kiểm tra lại Số điện thoại đã đăng ký hoặc Mã học sinh (VD: 0911111111 hoặc HS00000004).`,
     };
   }
 
-  // Lấy tên phụ huynh từ hồ sơ học sinh nếu có
+  // Số điện thoại dùng làm định danh tài khoản phụ huynh
+  const matchedStudent = students[0];
+  const phone = matchedStudent.guardianPhone?.replace(/\D/g, "") || normalized || input;
+
+  if (!phone) {
+    return {
+      success: false,
+      error: "Học sinh này chưa có Số điện thoại người giám hộ trong hồ sơ. Vui lòng liên hệ GVCN để bổ sung.",
+    };
+  }
+
   const guardianName =
-    students.find((s) => s.guardianName)?.guardianName ??
-    `Phụ huynh em ${students[0].fullName}`;
+    matchedStudent.guardianName ?? `Phụ huynh em ${matchedStudent.fullName}`;
 
   // 2. Tìm hoặc khởi tạo tài khoản phụ huynh
-  let account = await prisma.parentAccount.findUnique({
-    where: { phone },
+  let account = await prisma.parentAccount.findFirst({
+    where: {
+      OR: [
+        { phone },
+        { phone: normalized },
+        { phone: input },
+      ],
+    },
   });
 
   if (!account) {
@@ -90,7 +109,7 @@ export async function parentLogin(formData: FormData) {
       return {
         success: false,
         error:
-          "Mật khẩu không chính xác. Mật khẩu khởi tạo mặc định là 123456. Nếu quên mật khẩu, vui lòng liên hệ GVCN để được cấp lại.",
+          "Mật khẩu không chính xác. Mật khẩu mặc định là 123456. Nếu quên mật khẩu, vui lòng liên hệ GVCN để được đặt lại.",
       };
     }
   }

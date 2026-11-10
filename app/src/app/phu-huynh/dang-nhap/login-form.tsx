@@ -8,6 +8,8 @@ import { parentLogin } from "../actions";
 
 export function ParentLoginForm({ name, logo }: { name: string; logo: string }) {
   const router = useRouter();
+  const [phoneVal, setPhoneVal] = useState("");
+  const [pwdVal, setPwdVal] = useState("123456");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
@@ -20,16 +22,23 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
     try {
       const res = await parentLogin(formData);
       if (res.success) {
-        router.push("/phu-huynh");
-        router.refresh();
+        window.location.href = "/phu-huynh";
+        return;
       } else {
         setBusy(false);
         setErr(res.error ?? "Đăng nhập không thành công.");
       }
-    } catch {
+    } catch (e: unknown) {
       setBusy(false);
-      setErr("Đã có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại.");
+      const msg = e instanceof Error ? e.message : "Đã có lỗi xảy ra trong quá trình đăng nhập. Vui lòng thử lại.";
+      setErr(msg);
     }
+  }
+
+  function fillSample(phone: string) {
+    setPhoneVal(phone);
+    setPwdVal("123456");
+    setErr("");
   }
 
   return (
@@ -95,20 +104,47 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
             </div>
 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Số điện thoại người giám hộ
+              Số điện thoại người giám hộ hoặc Mã học sinh
               <span className="relative mt-1 block">
                 <Phone className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <input
                   name="phone"
-                  type="tel"
+                  value={phoneVal}
+                  onChange={(e) => setPhoneVal(e.target.value)}
                   autoComplete="tel"
                   autoFocus
                   required
                   className="h-11 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] pl-10 pr-3 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/25 placeholder:text-slate-400"
-                  placeholder="vd: 0912345678"
+                  placeholder="vd: 0911111111 hoặc HS00000004"
                 />
               </span>
             </label>
+
+            {/* Tài khoản mẫu tiện thử nghiệm */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+              <span>Bấm thử mẫu:</span>
+              <button
+                type="button"
+                onClick={() => fillSample("0911111111")}
+                className="rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-0.5 font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition"
+              >
+                0911111111
+              </button>
+              <button
+                type="button"
+                onClick={() => fillSample("0944000000")}
+                className="rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-0.5 font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition"
+              >
+                0944000000 (4 con)
+              </button>
+              <button
+                type="button"
+                onClick={() => fillSample("HS00000004")}
+                className="rounded-md border border-[var(--line)] bg-[var(--bg)] px-2 py-0.5 font-medium text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/40 transition"
+              >
+                Mã: HS00000004
+              </button>
+            </div>
 
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
               Mật khẩu
@@ -117,9 +153,10 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
                 <input
                   name="password"
                   type={show ? "text" : "password"}
+                  value={pwdVal}
+                  onChange={(e) => setPwdVal(e.target.value)}
                   autoComplete="current-password"
                   required
-                  defaultValue="123456"
                   className="h-11 w-full rounded-lg border border-[var(--line)] bg-[var(--bg)] pl-10 pr-11 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-500/25 placeholder:text-slate-400"
                   placeholder="Mặc định: 123456"
                 />

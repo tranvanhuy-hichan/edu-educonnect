@@ -50,11 +50,15 @@ export default async function ParentPortalPage({
   const sp = await searchParams;
 
   // Lấy toàn bộ học sinh liên kết với SĐT của phụ huynh
+  const cleanedDigits = parent.phone.replace(/\D/g, "");
   const rawStudents = await db.student.findMany({
     where: {
       OR: [
         { guardianPhone: parent.phone },
         { guardianPhone: { startsWith: parent.phone } },
+        ...(cleanedDigits.length >= 7
+          ? [{ guardianPhone: { contains: cleanedDigits.slice(-9) } }]
+          : []),
       ],
     },
     include: {
