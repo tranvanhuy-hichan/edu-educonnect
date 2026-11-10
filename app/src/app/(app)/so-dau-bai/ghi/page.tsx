@@ -54,7 +54,7 @@ export default async function DiaryEntry({ searchParams }: { searchParams: Promi
         {stat("Sĩ số", `${size} học sinh`)}
       </div>
 
-      <Card className="space-y-3">
+      <Card mobile="flat" className="space-y-3">
         <h2 className="font-semibold">{log ? "Sổ đầu bài đã ghi" : "Chưa ghi sổ đầu bài"}</h2>
         {mine && !locked ? (
           <ActionForm action={saveLog} submit="Lưu sổ đầu bài" reset={false} className="flex max-w-lg flex-col gap-3 [&>button]:self-start">

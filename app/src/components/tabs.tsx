@@ -31,7 +31,7 @@ export function Tabs({ items, current, right }: { items: [string, string][]; cur
             const on = current === href;
             return (
               <Link key={href} href={href} scroll={false} {...(on ? { "data-on": "" } : {})}
-                className={`-mb-px whitespace-nowrap border-b-2 py-2 text-[13px] sm:px-3 sm:text-sm ${few ? "flex-1 px-1 text-center sm:flex-none" : "px-2.5"} ${on ? "border-orange-600 font-semibold text-orange-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
+                className={`-mb-px min-w-max shrink-0 whitespace-nowrap border-b-2 py-2.5 text-[13px] sm:px-3 sm:text-sm ${few ? "flex-1 px-3 text-center sm:flex-none" : "px-3"} ${on ? "border-orange-600 font-semibold text-orange-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
                 {label}
               </Link>
             );

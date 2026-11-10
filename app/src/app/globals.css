@@ -83,7 +83,7 @@ button:disabled { cursor: not-allowed; }
 .sb-muted { color: color-mix(in srgb, var(--sb-fg) 65%, transparent); }
 
 /* Mobile: bảng -> danh sách thẻ */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   .rtable, .rtable tbody { display: block; width: 100%; }
   .rtable thead { display: none; }
   .rtable tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0.25rem 0.75rem; margin: 0; padding: 0.75rem; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
@@ -101,9 +101,10 @@ button:disabled { cursor: not-allowed; }
 }
 @media (max-width: 767px) { input, select, textarea { font-size: 16px !important; } }
 
+
 tr[data-clickable] { cursor: pointer; }
 
-@media (min-width: 640px) {
+@media (min-width: 768px) {
   .rtable:has(thead th:last-child:empty) :is(th, td):last-child { width: 1%; white-space: nowrap; text-align: right; }
   .rtable:has(thead th:last-child:empty) td:last-child > * { justify-content: flex-end; }
   .rtable tbody td { vertical-align: middle; }
@@ -241,3 +242,87 @@ tr[data-clickable] { cursor: pointer; }
 :root[data-dark="1"] .rtable tbody tr:hover { background-color: #182234; }
 :root[data-dark="1"] input::placeholder,
 :root[data-dark="1"] textarea::placeholder { color: #94a3b8; }
+
+/* Mobile: nội dung dùng trọn bề ngang, không lồng thêm khung card.
+   Chỉ đánh dấu vùng nội dung; ô nhập, nút, cảnh báo và hộp thoại giữ bề mặt riêng. */
+@media screen and (max-width: 767px) {
+  .content-panel,
+  :root[data-dark="1"] .content-panel {
+    min-width: 0;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding-inline: 0 !important;
+  }
+  .content-panel > .border-b,
+  .content-panel > legend {
+    padding-inline: 0;
+  }
+  fieldset.content-panel > legend { margin-bottom: 0.75rem; }
+}
+
+.mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+@media screen and (max-width: 767px) {
+  .filter-form:not(.contents) {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .filter-form :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select) {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .filter-form > input[name="q"] { grid-column: 1 / -1; }
+  .filter-form > input[type="hidden"] { display: none; }
+  .filter-form > :is(label, button, a) { min-width: 0; }
+  .list-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .toolbar-actions { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-left: 0; }
+  .toolbar-actions > button { width: 100%; padding-inline: 0.5rem; }
+  .schedule-view-toolbar .filter-form button[aria-expanded] { width: 100%; justify-content: space-between; }
+  .diary-week-actions > button { width: 100%; min-height: 2.5rem; padding-inline: 0.5rem; }
+  .rtable tbody { background: transparent !important; }
+  .rtable tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 0.75rem; padding: 1rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface) !important; }
+  .rtable tbody tr:first-child { border-top: 1px solid var(--line); }
+  .rtable-stack tbody tr { grid-template-columns: minmax(0, 1fr); }
+  .rtable tbody td::before { display: block; margin: 0 0 0.3rem; font-size: 10px; line-height: 1.4; }
+  .rtable tbody td[data-actions] { grid-column: 1 / -1; }
+  .rtable tbody td[data-actions] > div { flex-wrap: wrap; }
+  .rtable tbody td :is(input:not([type="hidden"]), select, textarea) { max-width: 100%; }
+  .rtable-stack tbody td :is(input:not([type="hidden"]), select, textarea) { width: 100%; }
+  .rtable tbody tr:hover { background: var(--surface) !important; }
+  .diary-toolbar > .filter-form { grid-template-columns: minmax(0, 1fr) 7rem; }
+  .diary-buttons > button { width: 100%; min-height: 2.5rem; }
+  .list-toolbar .filter-form > select,
+  .list-toolbar .filter-form button[aria-expanded] { grid-column: 1 / -1; width: 100%; }
+  .list-toolbar .filter-form button[aria-expanded] { justify-content: space-between; }
+}
+
+@media screen and (max-width: 767px) {
+  /* Tìm kiếm và một nút lọc dùng chung hàng; các trường mở rộng xuống dưới. */
+  .filter-form:has(> input[name="q"]):has(.mobile-filter-toggle) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .filter-form:has(.mobile-filter-toggle) > input[name="q"] { grid-column: auto; }
+  .filter-form:has(> input[name="q"]) .mobile-filter-toggle { width: auto; grid-column: auto; }
+  .filter-form:has(> input[name="q"]):has(> select):not(:has(> select ~ select)) > input[name="q"] { grid-column: auto; order: -1; }
+  .filter-form.teacher-search { grid-template-columns: minmax(0, 1fr); }
+  .filter-form.menu-filter-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 767px) {
+  .filter-form:has(> input[name="q"]):has(> select):not(:has(> select ~ select)) { grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr); }
+  .filter-form:has(> input[name="q"]):has(> select):not(:has(> select ~ select)) > select { grid-column: auto; }
+}
+@media screen and (max-width: 767px) {
+  .filter-form:has(> input[name="q"]):has(> label):not(:has(> select)):not(:has(.mobile-filter-toggle)) { grid-template-columns: minmax(0, 1fr) auto; }
+  .filter-form:has(> label):not(:has(.mobile-filter-toggle)) > input[name="q"] { grid-column: auto; }
+}
+@media screen and (max-width: 767px) {
+  .filter-form:not(:has(> input[name="q"])):not(:has(> select)):has(.mobile-filter-toggle) .mobile-filter-toggle { grid-column: 1 / -1; justify-self: start; }
+  .filter-form:not(:has(.mobile-filter-toggle)):not(:has(> input[name="q"])):has(> select:only-of-type) { grid-template-columns: minmax(0, 1fr); }
+}
+@media screen and (max-width: 767px) {
+  .mobile-filter-fields > label:has(input[type="checkbox"]) { grid-column: 1 / -1; }
+}

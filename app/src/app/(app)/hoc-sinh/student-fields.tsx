@@ -4,7 +4,7 @@ import { isoDate } from "@/lib/format";
 const ic = inputCls + " w-full";
 type S = { fullName?: string; dob?: Date | null; email?: string | null; guardianName?: string | null; guardianPhone?: string | null };
 const Sec = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <fieldset className="w-full rounded-lg border p-4"><legend className="px-2 text-sm font-semibold">{title}</legend><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{children}</div></fieldset>
+  <fieldset className="content-panel w-full rounded-lg border p-4"><legend className="px-2 text-sm font-semibold">{title}</legend><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{children}</div></fieldset>
 );
 
 export function StudentFields({ s = {}, classes, editing = false }: { s?: S; classes?: { id: string; label: string }[]; editing?: boolean }) {

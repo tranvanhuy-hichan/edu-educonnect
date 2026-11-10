@@ -150,6 +150,23 @@ export function buildNav(roles: Role[]): NavGroup[] {
   return groups;
 }
 
+/** Five everyday destinations, restricted to the navigation available to the user. */
+export function buildMobileNav(roles: Role[]): NavItem[] {
+  const allowed = buildNav(roles).flatMap((group) => group.items.flatMap((item) => item.children ?? [item]));
+  const preferred = ["/lop-hoc", "/lich-hoc", "/so-dau-bai", "/lop-chu-nhiem?tab=diary", "/nhap-diem", "/lop-chu-nhiem?tab=scores", "/bai-hoc", "/lich-thi", "/diem-cua-toi", "/thu-vien?tab=titles", "/thu-vien?tab=copies", "/thu-vien?tab=loans", "/thu-vien?tab=overdue", "/thu-vien"];
+  const items: NavItem[] = [home];
+  for (const href of preferred) {
+    const item = allowed.find((entry) => entry.href === href);
+    if (!item) continue;
+    if (href.includes("tab=diary") && items.some((entry) => entry.href === diary.href)) continue;
+    if (href.includes("tab=scores") && items.some((entry) => entry.href === scores.href)) continue;
+    const label = href === "/lich-hoc" ? "TKB" : href === "/lop-hoc" ? "Lớp học" : href.includes("tab=diary") ? "Sổ đầu bài" : href.includes("tab=scores") ? "Bảng điểm" : item.label;
+    items.push({ ...item, label });
+    if (items.length === 5) break;
+  }
+  return items;
+}
+
 export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Quản trị hệ thống", PRINCIPAL: "Hiệu trưởng", VICE_PRINCIPAL: "Hiệu phó",
   HOMEROOM_TEACHER: "Giáo viên chủ nhiệm", SUBJECT_TEACHER: "Giáo viên bộ môn", LIBRARIAN: "Thủ thư", STUDENT: "Học sinh",

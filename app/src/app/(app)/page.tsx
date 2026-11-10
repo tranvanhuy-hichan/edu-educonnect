@@ -145,7 +145,7 @@ export default async function Home() {
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-orange-200" role="progressbar" aria-label="Tỷ lệ tiết đã ghi sổ đầu bài" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion ?? undefined}><div className="h-full rounded-full bg-orange-600" style={{ width: `${completion ?? 0}%` }} /></div>
             <p className="mt-3 text-xs text-slate-500">{lessonCount ? "Tính trên toàn bộ tiết học trong thời khóa biểu hôm nay, bao gồm các tiết chưa diễn ra." : "Hôm nay chưa có tiết học trong thời khóa biểu."}</p>
           </div>
-          <div className="rounded-2xl border bg-white p-5">
+          <div className="content-panel rounded-2xl border bg-white p-5">
             <h2 className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4 text-orange-700" /> Cần theo dõi</h2>
             <div className="mt-3 divide-y">
               {[

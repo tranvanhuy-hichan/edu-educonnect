@@ -27,7 +27,7 @@ export function AutoForm({ children, className, resets = {} }: { children: React
 
   return (
     <form
-      className={className}
+      className={`filter-form ${className ?? ""}`}
       data-pending={pending || undefined}
       onSubmit={(e) => { e.preventDefault(); clearTimeout(timer.current); apply(e.currentTarget as unknown as HTMLFormElement); }}
       onChange={(e) => {

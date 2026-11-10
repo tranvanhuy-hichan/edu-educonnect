@@ -1,3 +1,4 @@
+import { ToolbarActions } from "@/components/toolbar-actions";
 import { db } from "@/lib/db";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { DialogButton } from "@/components/dialog";
@@ -34,7 +35,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">Năm học</h2>
-            <DialogButton label="+ Thêm năm học" title="Thêm năm học">
+            <ToolbarActions label="Thao tác cấu hình"><DialogButton label="+ Thêm năm học" title="Thêm năm học">
               <ActionForm action={addAcademicYear} submit="Thêm năm học" className="flex flex-col gap-3 [&>button]:self-start">
                 <Field label="Tên năm học"><input name="yearName" className={inputCls + " w-full"} placeholder="vd: 2027-2028" required /></Field>
                 <Field label="Ngày bắt đầu"><input type="date" name="startDate" className={inputCls + " w-full"} required /></Field>
@@ -42,7 +43,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
                 <Field label="Ngày kết thúc"><input type="date" name="endDate" className={inputCls + " w-full"} required /></Field>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="createTerms" defaultChecked className="size-4" /> Tạo luôn HK1 và HK2 (chia đôi thời gian năm học)</label>
               </ActionForm>
-            </DialogButton>
+            </DialogButton></ToolbarActions>
           </div>
           {years.map((y) => (
             <Card key={y.id} className="p-0">
@@ -92,15 +93,15 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       )}
 
       {tab === "grades" && (
-        <Card>
+        <Card mobile="flat">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-semibold">Khối lớp</h2>
-            <DialogButton label="+ Thêm khối" title="Thêm khối lớp">
+            <ToolbarActions label="Thao tác cấu hình"><DialogButton label="+ Thêm khối" title="Thêm khối lớp">
               <ActionForm action={addGradeLevel} submit="Thêm khối" className="flex flex-col gap-3 [&>button]:self-start">
                 <Field label="Tên khối"><input name="gradeName" className={inputCls + " w-full"} placeholder="vd: Khối 11" required /></Field>
                 <Field label="Thứ tự sắp xếp"><input name="sortOrder" defaultValue={11} className={inputCls + " w-full"} /></Field>
               </ActionForm>
-            </DialogButton>
+            </DialogButton></ToolbarActions>
           </div>
           <Table bare head={["Khối", "Thứ tự", "Số lớp", ""]}>
             {grades.map((g) => (
@@ -126,7 +127,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       )}
 
       {tab === "weights" && (
-        <Card className="space-y-3">
+        <Card mobile="flat" className="space-y-3">
           <div>
             <h2 className="font-semibold">Hệ số điểm theo học kỳ</h2>
             <p className="mt-1 text-sm text-slate-600">Hệ số đánh giá THPT: thường xuyên 1, giữa kỳ 2, cuối kỳ 3. Điểm cả năm từng môn = (HK1 + HK2 × 2) / 3. Kết quả thiếu cột điểm chỉ là tạm tính; chưa đủ điều kiện tổng kết. Chỉ đồng bộ cấu hình ở học kỳ chưa khóa.</p>
@@ -157,7 +158,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       {tab === "brand" && await (async () => {
         const brand = await getSchoolSetting();
         return (
-          <Card className="max-w-xl space-y-4">
+          <Card mobile="flat" className="max-w-xl space-y-4">
             <div>
               <h2 className="font-semibold">Tên trường & logo</h2>
               <p className="mt-1 text-sm text-slate-600">Hiện ở sidebar, trang đăng nhập và tiêu đề trình duyệt của toàn hệ thống.</p>

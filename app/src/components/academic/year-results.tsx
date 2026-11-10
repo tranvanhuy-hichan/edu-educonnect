@@ -22,7 +22,7 @@ export async function YearResults({ classId, academicYearId, manager }: { classI
     <p className="text-sm text-slate-500">Điểm cả năm từng môn = (HK1 + HK2 × 2) / 3. Thiếu điểm/nhận xét sẽ chưa đủ điều kiện xét. TB các môn chỉ để tham khảo; kết quả học tập xét theo từng môn.</p>
     <ActionForm action={saveClassResults} submit="Tổng hợp và trình duyệt" reset={false} className="flex flex-col gap-3 [&>button]:self-end">
       <input type="hidden" name="academicYearId" value={academicYearId} /><input type="hidden" name="ids" value={writable.map((row) => row.student.id).join(",")} />
-      <Table head={["Học sinh", "Kết quả theo môn", "Rèn luyện cả năm", "Buổi nghỉ cả năm", "Đề xuất / trạng thái"]}>
+      <Table mobileLayout="stack" head={["Học sinh", "Kết quả theo môn", "Rèn luyện cả năm", "Buổi nghỉ cả năm", "Đề xuất / trạng thái"]}>
         {rows.map(({ student, saved, subjects, evaluation }) => <tr key={student.id}>
           <td><Link href={`/hoc-sinh/${student.id}`} className="font-semibold hover:text-orange-700">{student.fullName}</Link><p className="text-xs text-slate-500">{student.code}</p></td>
           <td><details><summary className="cursor-pointer text-xs text-orange-700">{subjects.length} môn · TB tham khảo {evaluation.overallAverage?.toFixed(1) ?? "—"}</summary><ul className="mt-2 space-y-1 text-xs">{subjects.map((subject) => <li key={subject.subjectId}><b>{subject.name}</b>: {subject.exempt ? "Miễn đánh giá" : subject.type === "COMMENT" ? subject.outcome === "DAT" ? "Đạt" : subject.outcome === "CHUA_DAT" ? "Chưa đạt" : "Chưa đánh giá" : `${subject.first ?? "—"} / ${subject.second ?? "—"} → ${subject.average ?? "—"}`}{subject.missing.length > 0 && <p className="text-amber-700">{subject.missing.join("; ")}</p>}</li>)}</ul></details></td>
@@ -33,7 +33,7 @@ export async function YearResults({ classId, academicYearId, manager }: { classI
         {!rows.length && <tr><td colSpan={5}>Lớp chưa có học sinh.</td></tr>}
       </Table>
     </ActionForm>
-    {manager && rows.filter((row) => row.saved && ["SUBMITTED", "APPROVED"].includes(row.saved.reviewStatus)).map(({ student, saved }) => <div key={student.id} className="rounded-xl border bg-white p-4">
+    {manager && rows.filter((row) => row.saved && ["SUBMITTED", "APPROVED"].includes(row.saved.reviewStatus)).map(({ student, saved }) => <div key={student.id} className="item-card rounded-xl border bg-white p-4">
       <p className="mb-2 text-sm font-semibold">{student.fullName} · {STATUS_LABEL[saved!.reviewStatus]}</p>
       <ActionForm action={reviewResult} submit={saved!.reviewStatus === "APPROVED" ? "Mở lại hồ sơ" : "Phê duyệt kết quả"} reset={false} className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="studentId" value={student.id} /><input type="hidden" name="academicYearId" value={academicYearId} /><input type="hidden" name="approve" value={saved!.reviewStatus === "APPROVED" ? "false" : "true"} />

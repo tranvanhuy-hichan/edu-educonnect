@@ -21,7 +21,7 @@ export function ClassFormFields({ grades, years, teachers, rooms, subjects, defa
       <p className="col-span-full text-xs text-slate-500">
         💡 Mỗi phòng học có thể dùng chung giữa 1 lớp ca sáng và 1 lớp ca chiều. Trong cùng một ca học (buổi học), hệ thống đảm bảo không bao giờ có 2 lớp học chung một phòng.
       </p>
-      <fieldset className="col-span-full rounded-lg border p-3"><legend className="px-2 text-sm font-semibold">Môn học của lớp *</legend><p className="mb-3 text-xs text-slate-500">Danh sách dùng chung cho phân công, thời khóa biểu và lịch thi.</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{subjects.map((subject) => <label key={subject.id} className="flex items-center gap-2 text-sm"><input name="subjectIds" type="checkbox" value={subject.id} defaultChecked={defaults.subjectIds?.includes(subject.id)} />{subject.label}</label>)}</div></fieldset>
+      <fieldset className="content-panel col-span-full rounded-lg border p-3"><legend className="px-2 text-sm font-semibold">Môn học của lớp *</legend><p className="mb-3 text-xs text-slate-500">Danh sách dùng chung cho phân công, thời khóa biểu và lịch thi.</p><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{subjects.map((subject) => <label key={subject.id} className="flex items-center gap-2 text-sm"><input name="subjectIds" type="checkbox" value={subject.id} defaultChecked={defaults.subjectIds?.includes(subject.id)} />{subject.label}</label>)}</div></fieldset>
     </div>
   );
 }

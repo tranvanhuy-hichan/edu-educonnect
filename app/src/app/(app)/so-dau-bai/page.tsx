@@ -1,20 +1,17 @@
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ClipboardCheck, Percent, ScrollText, Users } from "lucide-react";
+import { ChevronRight, ClipboardCheck, Percent, ScrollText, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { AutoForm } from "@/components/auto-form";
 import { MobileCollapse } from "@/components/mobile-collapse";
-import { ActionForm } from "@/components/action-form";
-import { DialogButton } from "@/components/dialog";
-import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
+import { Card, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { ViewToggle } from "@/components/view-toggle";
 import { Pagination } from "@/components/pagination";
 import { BarList, Donut } from "@/components/charts";
 import { getPaging } from "@/lib/paging";
-import { WEEKDAYS, addDays, fmtDate, isoDate, mondayOf, parseDate, todayUTC } from "@/lib/format";
-import { clampWeek, shortDate, weekCount, weekNumber, weekStart } from "@/lib/week";
-import { TEACHER_EDIT_DAYS } from "@/modules/attendance/attendance.service";
+import { WEEKDAYS, addDays, fmtDate, mondayOf, parseDate, todayUTC } from "@/lib/format";
+import { weekNumber } from "@/lib/week";
 import { ClassWeek } from "./class-week";
 
 const TABS = [["lop", "Danh sách lớp"], ["lich-su", "Lịch sử"], ["thong-ke", "Thống kê"]] as const;
@@ -43,7 +40,6 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
   const visibleClassIds = classes.map((c) => c.id);
   const fClass = visibleClassIds.includes(sp.class ?? "") ? sp.class! : "";
   const fTeacher = staff ? sp.teacher ?? "" : "";
-  const ownsSlot = (s: { assignment: { teacherId: string } }) => staff || (!!me.teacherId && s.assignment.teacherId === me.teacherId);
 
   // Bộ lọc dùng chung cho Lịch sử và Thống kê.
   const from = validDate(sp.from), to = validDate(sp.to);
@@ -78,8 +74,10 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
             <AutoForm className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="lop" /><input type="hidden" name="v" value={view} />
               <input name="q" defaultValue={sp.q} placeholder="Tìm lớp..." className={inputCls + " min-w-48 flex-1 max-md:w-full max-md:basis-full"} />
+              <MobileCollapse active={sp.all ? 1 : 0}>
               <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 text-sm max-md:flex-1 max-md:justify-center has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!sp.all} /> Gồm lớp năm học cũ</label>
-            <div className="hidden md:block"><ViewToggle path="/so-dau-bai" params={{ tab: "lop", q: sp.q, all: sp.all, size: sp.size }} view={view} /></div>
+            <ViewToggle path="/so-dau-bai" params={{ tab: "lop", q: sp.q, all: sp.all, size: sp.size }} view={view} />
+              </MobileCollapse>
             </AutoForm>
             {view === "cards" && (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -204,9 +202,9 @@ function FilterBar({ sp, classes, teachers, staff, tab, noRating }: { sp: SP; cl
   return (
     <AutoForm className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="tab" value={tab} />
+      <MobileCollapse active={n}>
       <input type="date" name="from" defaultValue={sp.from} className={inputCls} aria-label="Từ ngày" />
       <input type="date" name="to" defaultValue={sp.to} className={inputCls} aria-label="Đến ngày" />
-      <MobileCollapse active={[sp.class, sp.teacher, sp.rating].filter(Boolean).length}>
         <select name="class" defaultValue={sp.class ?? ""} className={inputCls} aria-label="Lớp"><option value="">Tất cả lớp</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
         {staff && <select name="teacher" defaultValue={sp.teacher ?? ""} className={inputCls} aria-label="Giáo viên"><option value="">Tất cả giáo viên</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>}
         {!noRating && <select name="rating" defaultValue={sp.rating ?? ""} className={inputCls} aria-label="Xếp loại"><option value="">Tất cả xếp loại</option>{Object.entries(RATING).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>}

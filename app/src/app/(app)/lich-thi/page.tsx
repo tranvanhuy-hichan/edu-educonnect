@@ -2,6 +2,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { isAdmin } from "@/lib/auth/session";
+import { ActionMenu } from "@/components/action-menu";
+import { MobileCollapse } from "@/components/mobile-collapse";
 import { AutoForm } from "@/components/auto-form";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
@@ -21,13 +23,15 @@ export default async function Exams({ searchParams }: { searchParams: Promise<{ 
     db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }), db.subject.findMany({ orderBy: { subjectName: "asc" } }),
   ]);
   return <div className="space-y-4">
-    <Title right={manager && <Link href="/lich-thi/them" className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white">+ Tạo lịch thi</Link>}>{staff ? "Lịch thi" : "Lịch thi của tôi"}</Title>
+    <Title actionsInline right={manager && <><div className="hidden md:block"><Link href="/lich-thi/them" className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white">+ Tạo lịch thi</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lịch thi"><Link href="/lich-thi/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Tạo lịch thi</Link></ActionMenu></div></>}>{staff ? "Lịch thi" : "Lịch thi của tôi"}</Title>
     <AutoForm className="flex flex-wrap gap-2">
       <input name="q" defaultValue={sp.q} placeholder="Tìm kỳ thi..." className={inputCls + " min-w-0 flex-1"} aria-label="Tìm kỳ thi" />
+      <MobileCollapse active={[sp.grade, sp.subject, sp.status, sp.mine].filter(Boolean).length}>
       <select name="grade" defaultValue={sp.grade ?? ""} className={inputCls} aria-label="Khối"><option value="">Tất cả khối</option>{grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.gradeName}</option>)}</select>
       <select name="subject" defaultValue={sp.subject ?? ""} className={inputCls} aria-label="Môn thi"><option value="">Tất cả môn</option>{subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.subjectName}</option>)}</select>
       {manager && <select name="status" defaultValue={sp.status ?? ""} className={inputCls} aria-label="Trạng thái"><option value="">Tất cả trạng thái</option>{Object.entries(EXAM_STATUS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select>}
       {user.teacherId && <label className="flex items-center gap-2 px-2 text-sm"><input type="checkbox" name="mine" value="1" defaultChecked={sp.mine === "1"} />Tôi coi thi</label>}
+      </MobileCollapse>
     </AutoForm>
     <div className="grid gap-3 xl:grid-cols-2">{events.map((event) => <Card key={event.id} className="space-y-3">
       <div className="flex items-start justify-between gap-3"><Link href={`/lich-thi/${event.id}`} className="font-semibold text-orange-700 hover:underline">{event.title}</Link><span className={`rounded-full px-2 py-1 text-xs ${event.status === "PUBLISHED" ? "bg-green-100 text-green-800" : event.status === "CANCELLED" ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"}`}>{EXAM_STATUS[event.status]}</span></div>

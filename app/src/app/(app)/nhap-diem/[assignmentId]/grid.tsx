@@ -99,7 +99,7 @@ export function GradeGrid({
         <input type="hidden" name="assignmentId" value={assignmentId} />
         {!readOnly && <label className="block text-xs font-medium">Lý do cập nhật điểm<input required minLength={5} name="reason" className="ml-2 h-9 rounded-md border bg-white px-3 text-sm" placeholder="Nhập mới / sửa theo biên bản…" /></label>}
         <input type="hidden" name="rows" value={JSON.stringify(changed())} />
-        <div className="max-h-[calc(100vh-13rem)] overflow-auto rounded-xl border bg-white">
+        <div className="content-panel max-h-[calc(100vh-13rem)] overflow-auto rounded-xl border bg-white">
           <table className="w-max min-w-full border-separate border-spacing-0 text-sm">
             <thead className="text-left">
               <tr>

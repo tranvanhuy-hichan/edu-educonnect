@@ -8,9 +8,6 @@ import {
   BookOpen,
   Calendar,
   CheckCheck,
-  CheckCircle,
-  Clock,
-  ExternalLink,
   GraduationCap,
 } from "lucide-react";
 
@@ -29,26 +26,30 @@ export function NotificationBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [now, setNow] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  async function loadData() {
-    try {
-      const res = await fetch("/api/notifications");
-      if (res.ok) {
-        const data = await res.json();
-        setNotifications(data.notifications || []);
-        setUnreadCount(data.unreadCount || 0);
-      }
-    } catch {
-      // ignore network errors
-    }
-  }
-
   useEffect(() => {
+    const controller = new AbortController();
+    const loadData = () => {
+      fetch("/api/notifications", { signal: controller.signal })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          if (controller.signal.aborted) return;
+          setNotifications(data.notifications || []);
+          setUnreadCount(data.unreadCount || 0);
+          setNow(Date.now());
+        })
+        .catch(() => { /* Giữ dữ liệu hiện tại khi mất mạng hoặc unmount. */ });
+    };
     loadData();
     const interval = setInterval(loadData, 45000); // Polling mỗi 45 giây
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -112,7 +113,7 @@ export function NotificationBell() {
   }
 
   function timeAgo(dateStr: string) {
-    const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+    const diff = Math.max(0, Math.floor((now - new Date(dateStr).getTime()) / 1000));
     if (diff < 60) return "Vừa xong";
     if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
     if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
@@ -137,7 +138,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 z-50">
+        <div className="fixed inset-x-3 top-16 z-50 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-black/5 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-96">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-slate-900 text-sm">Thông báo</span>

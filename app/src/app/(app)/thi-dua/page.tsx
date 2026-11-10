@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Medal, Trophy, TrendingDown, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
+import { ToolbarActions } from "@/components/toolbar-actions";
 import { AutoForm } from "@/components/auto-form";
 import { ActionForm } from "@/components/action-form";
 import { DialogButton } from "@/components/dialog";
@@ -40,8 +41,8 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
         </DialogButton>) : null);
   return (
     <div className="space-y-4">
-      <Title>Thi đua</Title>
-      <Tabs right={canEdit && tab === "tieu-chi" ? sumBtn : undefined} current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
+      <Title right={canEdit ? sumBtn : undefined}>Thi đua</Title>
+      <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {/* ===================== XẾP HẠNG ===================== */}
       {tab === "xep-hang" && await (async () => {
@@ -60,20 +61,22 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
         return (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-            <AutoForm className="contents">
+            <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="xep-hang" />
-              <select name="term" defaultValue={term.id} className={inputCls} aria-label="Học kỳ">{terms.map((t) => <option key={t.id} value={t.id}>{t.termName} · {t.academicYear.yearName}</option>)}</select>
+
               <select name="period" defaultValue={period} className={inputCls + " min-w-0 flex-1 md:min-w-56 md:flex-none"} aria-label="Kỳ thi đua">{periods.length ? periods.map((p) => <option key={p} value={p}>{p}</option>) : <option value="">Chưa có kỳ nào</option>}</select>
-              <MobileCollapse active={sp.grade ? 1 : 0}>
+              <MobileCollapse active={[sp.grade, sp.term].filter(Boolean).length}>
+              <select name="term" defaultValue={term.id} className={inputCls} aria-label="Học kỳ">{terms.map((t) => <option key={t.id} value={t.id}>{t.termName} · {t.academicYear.yearName}</option>)}</select>
                 <select name="grade" defaultValue={sp.grade ?? ""} className={inputCls} aria-label="Khối"><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
                 {sp.grade && <Link href={`/thi-dua?tab=xep-hang&term=${term.id}&period=${encodeURIComponent(period)}`} className="inline-flex h-9 items-center rounded-md px-2 text-sm text-slate-500 hover:text-orange-700">Xoá lọc</Link>}
+                <ViewToggle path="/thi-dua" params={{ tab: "xep-hang", term: term.id, period, grade: sp.grade }} view={view} />
               </MobileCollapse>
-              <ViewToggle path="/thi-dua" params={{ tab: "xep-hang", term: term.id, period, grade: sp.grade }} view={view} />
-              {isAdmin && period && (
-                <ActionForm action={deletePeriod} submit="Xoá kỳ này" danger compact confirmText={`Xoá toàn bộ kết quả của kỳ "${period}"?`} className="inline-flex"><input type="hidden" name="termId" value={term.id} /><input type="hidden" name="label" value={period} /></ActionForm>
-              )}
+
             </AutoForm>
-            {canEdit && sumBtn && <div className="ml-auto flex items-center gap-2">{sumBtn}</div>}
+            {isAdmin && period && <ToolbarActions label="Thao tác kỳ thi đua">
+                <ActionForm action={deletePeriod} submit="Xoá kỳ này" danger compact confirmText={`Xoá toàn bộ kết quả của kỳ "${period}"?`} className="inline-flex"><input type="hidden" name="termId" value={term.id} /><input type="hidden" name="label" value={period} /></ActionForm>
+              </ToolbarActions>}
+
             </div>
 
             {rows.length > 0 && (
@@ -179,11 +182,11 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
         return (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-            <AutoForm className="contents">
+            <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="lich-su" />
               <select name="class" defaultValue={classId} className={inputCls + " min-w-0 flex-1 md:min-w-56 md:flex-none"} aria-label="Lớp">{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
             </AutoForm>
-            {canEdit && sumBtn && <div className="ml-auto flex items-center gap-2">{sumBtn}</div>}
+
             </div>
             {cls && <h2 className="font-semibold">Lịch sử thi đua lớp {cls.className} <span className="text-sm font-normal text-slate-500">· {cls.gradeLevel.gradeName}</span></h2>}
             {history.length > 0 && <Card className="space-y-2"><h3 className="text-sm font-semibold">Điểm thi đua qua các kỳ</h3><ColumnChart items={history.map((h) => ({ label: h.periodLabel.replace(/\s*\(.*\)$/, ""), value: Math.max(0, Math.round(h.totalScore)) }))} /></Card>}

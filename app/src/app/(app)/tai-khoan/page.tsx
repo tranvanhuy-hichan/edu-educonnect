@@ -78,21 +78,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     </>
   );
 
-  return (
-    <div className="space-y-4">
-      <Title>Tài khoản ({counts.all})</Title>
-      <Tabs current={tabHref(tab)} items={TABS.map(([k, l]) => [tabHref(k), `${l} (${counts[k] ?? 0})`] as [string, string])} />
-      <div className="flex flex-wrap items-center gap-2">
-      <AutoForm className="contents">
-        <input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} />
-        <input name="q" defaultValue={q} placeholder="Tìm theo email, tên, mã..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
-        <MobileCollapse active={[status, sort !== "az" ? sort : ""].filter(Boolean).length}>
-          <select name="status" defaultValue={status} className={inputCls}><option value="">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khoá</option></select>
-          <select name="sort" defaultValue={sort} className={inputCls}><option value="az">Email A-Z</option><option value="za">Email Z-A</option><option value="new">Mới nhất</option></select>
-        </MobileCollapse>
-        <div className="hidden md:block"><ViewToggle path="/tai-khoan" params={{ q, tab, status, sort, size: sp.size }} view={view} /></div>
-      </AutoForm>
-      <div className="ml-auto flex items-center gap-2"><DialogButton label="Nhập hàng loạt" title="Nhập tài khoản hàng loạt"><BulkAccounts action={importAccounts}><div className="grid grid-cols-2 gap-2">{CREATE_ROLES.map((role) => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" name="roles" value={role} />{ROLE_LABEL[role]}</label>)}</div></BulkAccounts></DialogButton><DialogButton label="+ Thêm tài khoản" title="Thêm tài khoản">
+  const accountActions = <><DialogButton label="Nhập hàng loạt" title="Nhập tài khoản hàng loạt"><BulkAccounts action={importAccounts}><div className="grid grid-cols-2 gap-2">{CREATE_ROLES.map((role) => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" name="roles" value={role} />{ROLE_LABEL[role]}</label>)}</div></BulkAccounts></DialogButton><DialogButton label="+ Thêm tài khoản" title="Thêm tài khoản">
         <ActionForm action={createAccount} submit="Tạo tài khoản" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Email đăng nhập"><input name="email" type="email" className={inputCls + " w-full"} required /></Field>
           <Field label="Họ tên (bắt buộc với vai trò giáo viên)"><input name="fullName" className={inputCls + " w-full"} /></Field>
@@ -102,7 +88,23 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
           </div>
           <p className="text-xs text-slate-500">Tài khoản học sinh được tạo ở mục Học sinh. Mật khẩu được sinh ngẫu nhiên, chỉ hiện một lần.</p>
         </ActionForm>
-      </DialogButton></div>
+      </DialogButton></>;
+  return (
+    <div className="space-y-4">
+      <Title right={accountActions}>Tài khoản ({counts.all})</Title>
+      <Tabs current={tabHref(tab)} items={TABS.map(([k, l]) => [tabHref(k), `${l} (${counts[k] ?? 0})`] as [string, string])} />
+      <div className="flex flex-wrap items-center gap-2">
+      <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
+        <input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} />
+        <input name="q" defaultValue={q} placeholder="Tìm theo email, tên, mã..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
+        <MobileCollapse active={[status, sort !== "az" ? sort : ""].filter(Boolean).length}>
+          <select name="status" defaultValue={status} className={inputCls}><option value="">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khoá</option></select>
+          <select name="sort" defaultValue={sort} className={inputCls}><option value="az">Email A-Z</option><option value="za">Email Z-A</option><option value="new">Mới nhất</option></select>
+          <ViewToggle path="/tai-khoan" params={{ q, tab, status, sort, size: sp.size }} view={view} />
+        </MobileCollapse>
+
+      </AutoForm>
+
       </div>
       {view !== "cards" && (
         <div className="space-y-2 md:hidden">

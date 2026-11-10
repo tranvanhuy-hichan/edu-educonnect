@@ -13,7 +13,7 @@ export function CardsSkeleton({ n = 9, cols = "md:grid-cols-2 xl:grid-cols-3" }:
   return (
     <div className={`grid grid-cols-1 gap-3 ${cols}`}>
       {Array.from({ length: n }).map((_, i) => (
-        <div key={i} className="space-y-2 rounded-lg border bg-white p-4">
+        <div key={i} className="item-card space-y-2 rounded-lg border bg-white p-4">
           <B className="h-3 w-16" /><B className="h-5 w-2/3" /><B className="h-3 w-full" /><B className="h-3 w-1/2" />
         </div>
       ))}
@@ -23,7 +23,7 @@ export function CardsSkeleton({ n = 9, cols = "md:grid-cols-2 xl:grid-cols-3" }:
 
 export function TableSkeleton({ rows = 8, cols = 5 }: { rows?: number; cols?: number }) {
   return (
-    <div className="overflow-hidden rounded-lg border bg-white">
+    <div className="item-card overflow-hidden rounded-lg border bg-white">
       <div className="flex gap-4 border-b bg-slate-50 px-3 py-3">{Array.from({ length: cols }).map((_, i) => <B key={i} className="h-3 flex-1" />)}</div>
       {Array.from({ length: rows }).map((_, r) => (
         <div key={r} className="flex gap-4 border-b px-3 py-3 last:border-0">{Array.from({ length: cols }).map((_, i) => <B key={i} className="h-4 flex-1" />)}</div>
@@ -44,7 +44,7 @@ export function FormSkeleton({ sections = 3 }: { sections?: number }) {
   return (
     <div className="space-y-4">
       {Array.from({ length: sections }).map((_, s) => (
-        <div key={s} className="rounded-lg border bg-white p-4">
+        <div key={s} className="item-card rounded-lg border bg-white p-4">
           <B className="mb-4 h-4 w-40" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => <div key={i} className="space-y-1.5"><B className="h-3 w-24" /><B className="h-9 w-full" /></div>)}
@@ -59,7 +59,7 @@ export function FormSkeleton({ sections = 3 }: { sections?: number }) {
 export function StatsSkeleton({ n = 6 }: { n?: number }) {
   return (
     <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {Array.from({ length: n }).map((_, i) => <div key={i} className="space-y-2 rounded-lg border bg-white p-4"><B className="h-3 w-24" /><B className="h-7 w-16" /></div>)}
+      {Array.from({ length: n }).map((_, i) => <div key={i} className="item-card space-y-2 rounded-lg border bg-white p-4"><B className="h-3 w-24" /><B className="h-7 w-16" /></div>)}
     </div>
   );
 }
@@ -68,7 +68,7 @@ export function WeekSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-2 md:grid-cols-7">
       {Array.from({ length: 7 }).map((_, d) => (
-        <div key={d} className="space-y-2 rounded-lg border bg-white p-2">
+        <div key={d} className="item-card space-y-2 rounded-lg border bg-white p-2">
           <B className="h-3 w-20" />
           {Array.from({ length: 2 + (d % 3) }).map((_, i) => <B key={i} className="h-14 w-full" />)}
         </div>
@@ -81,9 +81,9 @@ export function DetailSkeleton() {
   return (
     <div className="space-y-4">
       <HeadSkeleton />
-      <div className="rounded-lg border bg-white p-4 space-y-3"><B className="h-4 w-40" /><B className="h-9 w-full" /><B className="h-9 w-2/3" /></div>
+      <div className="item-card rounded-lg border bg-white p-4 space-y-3"><B className="h-4 w-40" /><B className="h-9 w-full" /><B className="h-9 w-2/3" /></div>
       <TableSkeleton rows={5} cols={4} />
-      <div className="rounded-lg border bg-white p-4 space-y-3"><B className="h-4 w-32" /><B className="h-24 w-full" /></div>
+      <div className="item-card rounded-lg border bg-white p-4 space-y-3"><B className="h-4 w-32" /><B className="h-24 w-full" /></div>
     </div>
   );
 }

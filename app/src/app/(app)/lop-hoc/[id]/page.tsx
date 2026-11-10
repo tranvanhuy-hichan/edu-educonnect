@@ -53,7 +53,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3">
+      <Card mobile="flat" className="space-y-3">
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -167,7 +167,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           db.classSubject.findMany({ where: { schoolClassId: id }, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: true, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } }),
           db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" } }),
         ]);
-        return <div className="overflow-hidden rounded-lg border bg-white"><p className="border-b p-4 text-sm text-slate-500">Môn đã chọn cho lớp · {term?.termName ?? "Chưa có học kỳ"}</p><ul className="divide-y">{curriculum.map((row) => <AssignmentRow key={row.subjectId} classId={id} className={c.className} termId={termId} subject={row.subject} assignment={row.assignments[0] ?? null} teachers={teachers} canEdit={canEdit && !!term} isAdmin={me.roles.includes("ADMIN")} />)}</ul>{!curriculum.length && <p className="p-4 text-sm text-slate-500">Chưa chọn môn học cho lớp. Vào tab Thông tin để chọn.</p>}</div>;
+        return <div className="content-panel overflow-hidden rounded-lg border bg-white"><p className="border-b p-4 text-sm text-slate-500">Môn đã chọn cho lớp · {term?.termName ?? "Chưa có học kỳ"}</p><ul className="divide-y">{curriculum.map((row) => <AssignmentRow key={row.subjectId} classId={id} className={c.className} termId={termId} subject={row.subject} assignment={row.assignments[0] ?? null} teachers={teachers} canEdit={canEdit && !!term} isAdmin={me.roles.includes("ADMIN")} />)}</ul>{!curriculum.length && <p className="p-4 text-sm text-slate-500">Chưa chọn môn học cho lớp. Vào tab Thông tin để chọn.</p>}</div>;
       })()}
 
       {tab === "timetable" && await (async () => {
@@ -176,7 +176,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         return (
           <div className="space-y-3">
             <div className="flex justify-end"><Link href={`/lich-hoc?class=${id}`} className="inline-flex h-9 items-center rounded-md border bg-white px-4 text-sm hover:bg-slate-50">Mở thời khóa biểu</Link></div>
-            <div className="overflow-x-auto rounded-lg border bg-white">
+            <div className="content-panel overflow-x-auto rounded-lg border bg-white">
               <table className="w-full min-w-[720px] text-sm">
                 <thead><tr className="bg-slate-50"><th className="w-16 border-b px-2 py-2">Tiết</th>{DAYS.map((d) => <th key={d} className="border-b px-2 py-2">{DAY_NAME[d]}</th>)}</tr></thead>
                 <tbody>{Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
@@ -217,7 +217,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }), db.academicYear.findMany({ orderBy: { startDate: "desc" } }), db.teacher.findMany({ orderBy: { fullName: "asc" } }), db.room.findMany({ orderBy: { roomName: "asc" } }), db.subject.findMany({ orderBy: { subjectName: "asc" } }),
         ]);
         return (
-          <Card>
+          <Card mobile="flat">
             <h2 className="mb-3 font-semibold">Thông tin lớp</h2>
             <ActionForm action={updateClass} submit="Lưu thông tin lớp" reset={false} className="flex flex-col gap-4 [&>button]:self-start">
               <input type="hidden" name="id" value={c.id} />

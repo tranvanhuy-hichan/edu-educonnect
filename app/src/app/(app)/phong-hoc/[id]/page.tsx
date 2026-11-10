@@ -93,7 +93,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
               <h2 className="mb-2 font-semibold">Thời khoá biểu tuần của phòng</h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                 {byDay.map(({ wd, items }) => (
-                  <div key={wd} className="rounded-lg border bg-white">
+                  <div key={wd} className="item-card rounded-lg border bg-white">
                     <div className="flex items-center justify-between border-b bg-slate-50 px-3 py-2 text-sm font-semibold">{DAY_NAME[wd]}<span className="text-xs font-normal text-slate-500">{items.length} tiết</span></div>
                     <div className="space-y-1.5 p-2">
                       {items.map((i) => {
@@ -156,7 +156,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
 
       {tab === "settings" && (
         <div className="space-y-4">
-          <Card>
+          <Card mobile="flat">
             <h2 className="mb-3 font-semibold">Thông tin phòng</h2>
             <ActionForm action={updateRoom} submit="Lưu thông tin" reset={false} className="grid max-w-2xl grid-cols-1 items-end gap-3 sm:grid-cols-2 [&>button]:justify-self-start">
               <input type="hidden" name="id" value={room.id} />
@@ -166,7 +166,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
             </ActionForm>
           </Card>
           {isAdmin && (
-            <Card className="space-y-2 border-red-300">
+            <Card mobile="flat" className="space-y-2 border-red-300">
               <h2 className="font-semibold text-red-600">Xoá phòng</h2>
               <p className="text-sm text-slate-600">Phòng đang được xếp trong thời khoá biểu ({slotCount} tiết) thì không xoá được. Hãy chuyển các tiết sang phòng khác trước.</p>
               <ActionForm action={deleteRoom} submit="Xoá phòng này" danger confirmText={`Xoá phòng ${room.roomName}?`} className="inline-flex"><input type="hidden" name="id" value={room.id} /></ActionForm>

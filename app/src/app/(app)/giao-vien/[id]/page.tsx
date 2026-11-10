@@ -38,7 +38,7 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
   return (
     <div className="space-y-4">
       {created && <div className="rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-800">Đã tạo giáo viên. Tài khoản <b>{created[0]}</b> · mật khẩu <b>{created[1]}</b> (chỉ hiện một lần, hãy ghi lại).</div>}
-      <Card className="flex flex-wrap items-center gap-4">
+      <Card mobile="flat" className="flex flex-wrap items-center gap-4">
         <span className="grid size-16 shrink-0 place-items-center rounded-full bg-orange-100 text-2xl font-bold text-orange-700">{t.fullName.split(" ").pop()?.[0]}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -75,7 +75,7 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
         </div>
       )}
 
-      {tab === "info" && <Card><ActionForm action={updateTeacher} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={t.id} /><TeacherFields t={{ fullName: t.fullName, phone: t.phone }} roles={t.user.roles} /></ActionForm></Card>}
+      {tab === "info" && <Card mobile="flat"><ActionForm action={updateTeacher} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={t.id} /><TeacherFields t={{ fullName: t.fullName, phone: t.phone }} roles={t.user.roles} /></ActionForm></Card>}
 
       {tab === "homeroom" && (
         <Table head={["Lớp", "Khối", "Năm học", "Sĩ số"]}>
@@ -92,7 +92,7 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
       )}
 
       {tab === "schedule" && (
-        <div className="overflow-x-auto rounded-lg border bg-white">
+        <div className="content-panel overflow-x-auto rounded-lg border bg-white">
           <table className="w-full min-w-[720px] text-sm">
             <thead><tr className="bg-slate-50"><th className="w-16 border-b px-2 py-2">Tiết</th>{DAYS.map((d) => <th key={d} className="border-b px-2 py-2">{DAY_NAME[d]}</th>)}</tr></thead>
             <tbody>{Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
@@ -104,7 +104,7 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
       )}
 
       {tab === "account" && (
-        <Card className="space-y-3 text-sm">
+        <Card mobile="flat" className="space-y-3 text-sm">
           <div className="flex justify-between"><span className="text-slate-500">Email đăng nhập</span><b>{t.user.email}</b></div>
           <div className="flex justify-between"><span className="text-slate-500">Mã giáo viên</span><b>{t.code ?? "-"}</b></div>
           <div className="flex justify-between"><span className="text-slate-500">Trạng thái</span><b>{t.user.isActive ? "Hoạt động" : "Đã khóa"}</b></div>

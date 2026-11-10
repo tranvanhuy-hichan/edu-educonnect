@@ -68,7 +68,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
 
       {tab === "settings" && (
         <div className="grid items-start gap-4 xl:grid-cols-3">
-          <Card className="xl:col-span-2">
+          <Card mobile="flat" className="xl:col-span-2">
             <h2 className="font-semibold">Thông tin môn học</h2>
             <p className="mb-4 text-sm text-slate-500">Số tiết mỗi tuần mặc định được dùng khi xếp thời khoá biểu tự động.</p>
             <ActionForm action={updateSubject} submit="Lưu thay đổi" reset={false} className="flex flex-col gap-4 [&>button]:self-start">
@@ -80,7 +80,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
             </ActionForm>
           </Card>
           {isAdmin && (
-            <Card className="space-y-3 border-red-300">
+            <Card mobile="flat" className="space-y-3 border-red-300">
               <h2 className="font-semibold text-red-600">Vùng nguy hiểm</h2>
               <p className="text-sm text-slate-600">Xoá môn học không thể hoàn tác. Chỉ xoá được khi chưa phân công cho lớp nào ({s.assignments.length} phân công hiện tại).</p>
               <ActionForm action={deleteSubject} submit="Xoá môn học" danger confirmText={`Xoá môn ${s.subjectName}?`} className="inline-flex"><input type="hidden" name="id" value={s.id} /></ActionForm>

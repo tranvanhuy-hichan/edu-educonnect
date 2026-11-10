@@ -4,7 +4,7 @@ const ic = inputCls + " w-full";
 export function TeacherFields({ t = {}, roles = ["SUBJECT_TEACHER"], create = false }: { t?: { fullName?: string; phone?: string | null; email?: string }; roles?: string[]; create?: boolean }) {
   return (
     <>
-      <fieldset className="w-full rounded-lg border p-4">
+      <fieldset className="content-panel w-full rounded-lg border p-4">
         <legend className="px-2 text-sm font-semibold">Thông tin giáo viên</legend>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           <Field label="Họ và tên *"><input name="fullName" defaultValue={t.fullName ?? ""} className={ic} required /></Field>
@@ -12,7 +12,7 @@ export function TeacherFields({ t = {}, roles = ["SUBJECT_TEACHER"], create = fa
           {create && <Field label="Email đăng nhập *"><input type="email" name="email" className={ic} required /></Field>}
         </div>
       </fieldset>
-      <fieldset className="w-full rounded-lg border p-4">
+      <fieldset className="content-panel w-full rounded-lg border p-4">
         <legend className="px-2 text-sm font-semibold">Vai trò (một tài khoản, menu tự gộp theo vai trò)</legend>
         <div className="flex flex-wrap gap-3 text-sm">
           {[["HOMEROOM_TEACHER", "Giáo viên chủ nhiệm (GVCN)"], ["SUBJECT_TEACHER", "Giáo viên bộ môn (GVBM)"]].map(([v, l]) => (

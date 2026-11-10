@@ -1,3 +1,4 @@
+import { ActionMenu } from "@/components/action-menu";
 import { BulkAccounts } from "@/components/bulk-accounts";
 import { DialogButton } from "@/components/dialog";
 import { importTeachers } from "./actions";
@@ -39,9 +40,12 @@ export default async function Teachers({ searchParams }: { searchParams: Promise
 
   return (
     <div className="space-y-4">
-      <Title>Giáo viên ({cnt[0]})</Title>
+      <Title actionsInline right={<div className="md:hidden"><ActionMenu label="Thao tác giáo viên">
+        <ViewToggle path="/giao-vien" params={{ q, tab, size: sp.size }} view={view} />
+        {canEdit && <div className="flex flex-col gap-1 [&>button]:w-full [&>button]:justify-start"><DialogButton variant="ghost" label="Nhập hàng loạt" title="Nhập giáo viên hàng loạt"><BulkAccounts action={importTeachers} /></DialogButton><Link href="/giao-vien/them" className="flex min-h-10 items-center rounded-md px-4 text-sm hover:bg-slate-50">Thêm giáo viên</Link></div>}
+      </ActionMenu></div>}>Giáo viên ({cnt[0]})</Title>
       <Tabs current={link(tab)} items={TABS.map(([k, l], i) => [link(k), `${l} (${cnt[i]})`] as [string, string])} />
-      <div className="flex flex-wrap items-center gap-2"><AutoForm className="contents"><input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} /><input name="q" defaultValue={q} placeholder="Tìm theo tên, SĐT, mã, email..." className={inputCls + " min-w-0 flex-1"} /><div className="hidden md:block"><ViewToggle path="/giao-vien" params={{ q, tab, size: sp.size }} view={view} /></div></AutoForm>{canEdit && <div className="ml-auto flex items-center gap-2"><DialogButton label="Nhập hàng loạt" title="Nhập giáo viên hàng loạt"><BulkAccounts action={importTeachers} /></DialogButton><Link href="/giao-vien/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm giáo viên</Link></div>}</div>
+      <div className="teacher-toolbar flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center"><AutoForm className="teacher-search flex w-full min-w-0 flex-1 gap-2 md:w-auto"><input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} /><input name="q" defaultValue={q} placeholder="Tìm theo tên, SĐT, mã, email..." className={inputCls + " min-w-0 w-full flex-1"} /><div className="hidden md:block"><ViewToggle path="/giao-vien" params={{ q, tab, size: sp.size }} view={view} /></div></AutoForm>{canEdit && <div className="ml-auto hidden items-center gap-2 md:flex"><DialogButton label="Nhập hàng loạt" title="Nhập giáo viên hàng loạt"><BulkAccounts action={importTeachers} /></DialogButton><Link href="/giao-vien/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm giáo viên</Link></div>}</div>
       {view !== "cards" && <div className="space-y-2 md:hidden">{list.map((t) => <PersonCard key={t.id} href={`/giao-vien/${t.id}`} name={t.fullName} tag={tags(t)} badge={badge(t)} phone={t.phone} email={t.user.email} stats={stats(t)} />)}{!list.length && <p className="py-8 text-center text-sm text-slate-500">Không tìm thấy giáo viên.</p>}</div>}
       {view === "cards" ? (
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3 2xl:grid-cols-4">{list.map((t) => <PersonCard key={t.id} href={`/giao-vien/${t.id}`} name={t.fullName} tag={tags(t)} badge={badge(t)} phone={t.phone} email={t.user.email} stats={stats(t)} />)}{!list.length && <p className="text-sm text-slate-500">Không tìm thấy giáo viên.</p>}</div>

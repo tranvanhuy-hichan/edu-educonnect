@@ -7,12 +7,10 @@ import { ChevronRight, AlertCircle, BarChart3, CalendarCheck, GraduationCap, Tro
 import { db } from "@/lib/db";
 import { ClassWeek } from "../so-dau-bai/class-week";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
-import { ActionForm } from "@/components/action-form";
+import { MobileCollapse } from "@/components/mobile-collapse";
 import { AutoForm } from "@/components/auto-form";
 import { Card, inputCls, Table, Tabs } from "@/components/ui";
-import { Pagination } from "@/components/pagination";
 import { ColumnChart } from "@/components/charts";
-import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
 import { bandOf } from "@/server/grades-stats";
 import { currentTermId, isManager } from "@/server/learning-scope";
@@ -28,7 +26,6 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
   const me = await requireRole("HOMEROOM_TEACHER", ...MANAGER_ROLES);
   const sp = await searchParams;
   const tab = SECTIONS.includes(sp.tab ?? "") ? sp.tab! : "overview";
-  const pg = getPaging(sp, 20);
 
   const classes = await db.schoolClass.findMany({
     where: isManager(me) ? {} : { homeroomTeacherId: me.teacherId ?? "-" },
@@ -75,7 +72,8 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         <AutoForm className="flex flex-wrap gap-2">
           <input type="hidden" name="tab" value={tab} />
           {classes.length > 1 && <select name="classId" defaultValue={cls.id} className={inputCls}>{classes.map((c) => <option key={c.id} value={c.id}>Lớp {c.className} · {c.academicYear.yearName}</option>)}</select>}
-          {terms.length > 0 && <select name="termId" defaultValue={term?.id ?? ""} className={inputCls}>{terms.map((t) => <option key={t.id} value={t.id}>{t.termName}</option>)}</select>}
+          <MobileCollapse active={sp.termId ? 1 : 0}>{terms.length > 0 && <select name="termId" defaultValue={term?.id ?? ""} className={inputCls}>{terms.map((t) => <option key={t.id} value={t.id}>{t.termName}</option>)}</select>}
+        </MobileCollapse>
         </AutoForm>
       </Card>
       {tab === "overview" || tab === "students"
@@ -89,7 +87,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         const days = [2, 3, 4, 5, 6, 7];
         if (!slots.length) return <Card className="py-10 text-center text-sm text-slate-500">Lớp chưa có thời khóa biểu trong học kỳ này.</Card>;
         return (
-          <div className="overflow-x-auto rounded-lg border bg-white">
+          <div className="content-panel overflow-x-auto rounded-lg border bg-white">
             <table className="w-full min-w-[720px] table-fixed text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="w-16 px-3 py-2.5 text-left font-semibold">Tiết</th>{days.map((d) => <th key={d} className="px-3 py-2.5 text-left font-semibold">Thứ {d}</th>)}</tr></thead>
               <tbody className="[&>tr]:border-t">

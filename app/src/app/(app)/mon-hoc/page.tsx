@@ -58,7 +58,7 @@ export default async function Subjects({ searchParams }: { searchParams: Promise
   );
   return (
     <div className="space-y-4">
-      <Title right={
+      <Title right={<>
         <DialogButton wide label="+ Thêm môn học" title="Thêm môn học">
           <ActionForm action={createSubject} submit="Tạo môn học" className="flex flex-col gap-3 [&>button]:self-start">
             <div className="grid gap-3 md:grid-cols-2">
@@ -67,7 +67,8 @@ export default async function Subjects({ searchParams }: { searchParams: Promise
             </div>
           </ActionForm>
         </DialogButton>
-      }>Môn học ({total})</Title>
+        <div className="md:hidden"><ViewToggle path="/mon-hoc" params={{ q: sp.q, size: sp.size }} view={view} /></div>
+      </>}>Môn học ({total})</Title>
       <AutoForm className="flex gap-2"><input type="hidden" name="v" value={view} /><input name="q" defaultValue={sp.q} placeholder="Tìm môn học..." className={inputCls + " min-w-0 flex-1"} /><div className="hidden md:block"><ViewToggle path="/mon-hoc" params={{ q: sp.q, size: sp.size }} view={view} /></div></AutoForm>
       {view !== "cards" && <div className="md:hidden">{cards}</div>}
       {view === "cards" ? cards : (

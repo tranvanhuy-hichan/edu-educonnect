@@ -1,5 +1,6 @@
 "use client";
 
+import { ToolbarActions } from "@/components/toolbar-actions";
 import { useState } from "react";
 import {
   Award,
@@ -146,7 +147,7 @@ export function ParentPortalView({
     <div className="space-y-6">
       {/* 1. CHỌN CON (NẾU CÓ NHIỀU CON CÙNG HỌC TRƯỜNG) */}
       {childrenData.length > 1 && (
-        <div className="no-print rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-xs">
+        <div className="content-panel no-print rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-xs">
           <div className="flex items-center gap-2 mb-2 px-1">
             <Users className="size-4 text-orange-600 dark:text-orange-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
@@ -186,7 +187,7 @@ export function ParentPortalView({
       )}
 
       {/* 2. THẺ HỒ SƠ HỌC SINH & LỚP CỦA CON */}
-      <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-xs">
+      <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7 shadow-xs">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="grid size-16 sm:size-20 shrink-0 place-items-center rounded-2xl bg-gradient-to-tr from-orange-600 to-amber-500 font-bold text-white text-2xl sm:text-3xl shadow-md shadow-orange-600/20 ring-4 ring-orange-500/10">
@@ -217,6 +218,7 @@ export function ParentPortalView({
           </div>
 
           <div className="no-print flex items-center gap-2 self-start sm:self-auto">
+            <ToolbarActions label="Tùy chọn sổ liên lạc">
             <button
               type="button"
               onClick={() => window.print()}
@@ -224,6 +226,7 @@ export function ParentPortalView({
             >
               <Printer className="size-3.5" /> In sổ liên lạc
             </button>
+            </ToolbarActions>
           </div>
         </div>
 
@@ -360,7 +363,7 @@ export function ParentPortalView({
       {activeTab === "grades" && (
         <div className="space-y-4">
           {/* Thanh công cụ: Chọn học kỳ */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="content-panel flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
             <div className="flex items-center gap-2">
               <Sparkles className="size-4 text-orange-600 dark:text-orange-400" />
               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -390,14 +393,14 @@ export function ParentPortalView({
             </div>
           </div>
 
-          {child.assessments.filter((review) => selectedTermId === "ALL" || review.academicTermId === selectedTermId).length > 0 && <div className="rounded-xl border bg-white p-4"><h3 className="mb-3 text-sm font-semibold">Kết quả nhận xét theo môn</h3><ul className="divide-y text-sm">{child.assessments.filter((review) => selectedTermId === "ALL" || review.academicTermId === selectedTermId).map((review) => <li key={review.id} className="py-2"><b>{review.subjectName}</b>: {review.isExempt ? "Miễn đánh giá" : review.outcome === "DAT" ? "Đạt" : review.outcome === "CHUA_DAT" ? "Chưa đạt" : "Chưa đánh giá"}{review.comment && <p className="mt-1 text-xs text-slate-500">{review.comment}</p>}</li>)}</ul></div>}
+          {child.assessments.filter((review) => selectedTermId === "ALL" || review.academicTermId === selectedTermId).length > 0 && <div className="content-panel rounded-xl border bg-white p-4"><h3 className="mb-3 text-sm font-semibold">Kết quả nhận xét theo môn</h3><ul className="divide-y text-sm">{child.assessments.filter((review) => selectedTermId === "ALL" || review.academicTermId === selectedTermId).map((review) => <li key={review.id} className="py-2"><b>{review.subjectName}</b>: {review.isExempt ? "Miễn đánh giá" : review.outcome === "DAT" ? "Đạt" : review.outcome === "CHUA_DAT" ? "Chưa đạt" : "Chưa đánh giá"}{review.comment && <p className="mt-1 text-xs text-slate-500">{review.comment}</p>}</li>)}</ul></div>}
           {/* Bảng điểm chi tiết */}
           {filteredAverages.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
+            <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
               Chưa có dữ liệu điểm môn học nào được ghi nhận cho học kỳ này.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+            <div className="content-panel overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase text-[11px] tracking-wider">
@@ -473,7 +476,7 @@ export function ParentPortalView({
       {/* TAB 2: THỜI KHÓA BIỂU CỦA CON */}
       {activeTab === "schedule" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="content-panel flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
             <div>
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Thời khóa biểu tuần của lớp {child.schoolClass?.className ?? ""}
@@ -490,11 +493,11 @@ export function ParentPortalView({
           </div>
 
           {filteredSchedule.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
+            <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
               Lớp của con chưa có thời khóa biểu được áp dụng trong học kỳ này.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+            <div className="content-panel overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[700px] text-xs table-fixed">
                   <thead className="border-b border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 uppercase text-[11px] tracking-wider">
@@ -549,7 +552,7 @@ export function ParentPortalView({
 
       {activeTab === "exams" && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="content-panel rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Lịch thi các kỳ thi chính thức</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Phụ huynh nhắc nhở con ôn tập và đi thi đúng giờ theo số báo danh và phòng thi quy định.
@@ -557,7 +560,7 @@ export function ParentPortalView({
           </div>
 
           {child.examSeats.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
+            <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
               Hiện tại học sinh chưa có lịch thi nào được công bố.
             </div>
           ) : (
@@ -565,7 +568,7 @@ export function ParentPortalView({
               {child.examSeats.map((seat) => (
                 <div
                   key={seat.id}
-                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-3"
+                  className="item-card rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-xs space-y-3"
                 >
                   <div className="flex items-center justify-between">
                     <span className="rounded-lg bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800/60 px-2.5 py-1 text-xs font-bold">
@@ -609,7 +612,7 @@ export function ParentPortalView({
       {/* TAB 5: MƯỢN SÁCH THƯ VIỆN */}
       {activeTab === "library" && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+          <div className="content-panel rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Tình hình mượn trả sách thư viện</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Theo dõi các đầu sách học sinh đang mượn từ thư viện nhà trường.
@@ -617,7 +620,7 @@ export function ParentPortalView({
           </div>
 
           {child.loans.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
+            <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
               Học sinh hiện không mượn sách thư viện nào hoặc đã hoàn trả đầy đủ.
             </div>
           ) : (

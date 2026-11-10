@@ -1,5 +1,6 @@
+import { ActionMenu } from "@/components/action-menu";
 import Link from "next/link";
-import { AlertTriangle, BarChart3, BookOpen, Calendar, CheckCircle2, Clock, Eye, FileText, Layers, Library, Plus, Search, Tag } from "lucide-react";
+import { BookOpen, Eye, Library, Plus } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireRole, LIBRARY_ROLES } from "@/lib/guard";
@@ -273,8 +274,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   ) : null;
 
   const search = (
-    <div className="flex flex-wrap items-center gap-2">
-      <AutoForm className="contents">
+    <div className="list-toolbar flex flex-wrap items-center gap-2">
+      <AutoForm className="min-w-0 flex-1 flex flex-wrap items-center gap-2">
         <input type="hidden" name="tab" value={tab} />
         <input type="hidden" name="v" value={view} />
         <input
@@ -291,12 +292,14 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
         />
 
         {tab === "titles" && (
-          <select name="category" defaultValue={sp.category ?? ""} className={inputCls}>
+          <MobileCollapse active={sp.category ? 1 : 0}>
+          <select name="category" aria-label="Thể loại sách" defaultValue={sp.category ?? ""} className={inputCls}>
             <option value="">Tất cả thể loại</option>
             {CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+          </MobileCollapse>
         )}
 
         {(tab === "copies" || tab === "loans") && (
@@ -314,9 +317,9 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
           </MobileCollapse>
         )}
 
-        {tab === "titles" && <ViewToggle path="/thu-vien" params={{ tab, q: sp.q, category: sp.category, size: sp.size }} view={view} />}
+        {tab === "titles" && <div className="hidden md:contents"><ViewToggle path="/thu-vien" params={{ tab, q: sp.q, category: sp.category, size: sp.size }} view={view} /></div>}
       </AutoForm>
-      {actionBtns && <div className="ml-auto flex items-center gap-2">{actionBtns}</div>}
+      {actionBtns && <div className="hidden md:contents"><div className="toolbar-actions ml-auto flex items-center gap-2">{actionBtns}</div></div>}
     </div>
   );
 
@@ -444,7 +447,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                                       <input name="code" defaultValue={t.code ?? ""} className={inputCls + " w-full uppercase"} />
                                     </Field>
                                     <Field label="Thể loại">
-                                      <select name="category" defaultValue={t.category ?? ""} className={inputCls + " w-full"}>
+                                      <select name="category" aria-label="Thể loại sách" defaultValue={t.category ?? ""} className={inputCls + " w-full"}>
                                         <option value="">-- Chọn --</option>
                                         {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                                       </select>
@@ -541,7 +544,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                                       <input name="code" defaultValue={t.code ?? ""} className={inputCls + " w-full uppercase"} />
                                     </Field>
                                     <Field label="Thể loại">
-                                      <select name="category" defaultValue={t.category ?? ""} className={inputCls + " w-full"}>
+                                      <select name="category" aria-label="Thể loại sách" defaultValue={t.category ?? ""} className={inputCls + " w-full"}>
                                         <option value="">-- Chọn --</option>
                                         {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                                       </select>
@@ -1183,7 +1186,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                     <ul className="mt-1 list-disc pl-4 space-y-1">
                       <li>Học sinh được mượn nhiều cuốn sách trong cùng 1 phiếu mượn.</li>
                       <li>Có thể nhận trả lẻ từng cuốn sách hoặc nhận trả toàn bộ phiếu cùng lúc.</li>
-                      <li>Khi học sinh có nhu cầu đọc thêm, thủ thư có thể bấm "Gia hạn" để tăng thêm ngày hẹn trả.</li>
+                      <li>Khi học sinh có nhu cầu đọc thêm, thủ thư có thể bấm &ldquo;Gia hạn&rdquo; để tăng thêm ngày hẹn trả.</li>
                     </ul>
                   </div>
                 </Card>
@@ -1204,7 +1207,10 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-4">
-      <Title>Thư viện</Title>
+      <Title actionsInline right={(actionBtns || tab === "titles") && <div className="md:hidden"><ActionMenu label="Tùy chọn thư viện" wide>
+        {tab === "titles" && <ViewToggle path="/thu-vien" params={{ tab, q: sp.q, category: sp.category, size: sp.size }} view={view} />}
+        {actionBtns && <div className="flex flex-col gap-2 [&>button]:w-full [&>button]:justify-start">{actionBtns}</div>}
+      </ActionMenu></div>}>Thư viện</Title>
       <Tabs current={`?tab=${tab}`} items={tabItems} />
       {tab !== "stats" && search}
       {tabContent}

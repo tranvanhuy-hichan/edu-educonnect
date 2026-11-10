@@ -82,20 +82,21 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
       </DialogButton>) : null);
   return (
     <div className="space-y-4">
-      <Title>Bài học ({nAll})</Title>
+      <Title right={postBtn}>Bài học ({nAll})</Title>
       <Tabs current={`?${tab === "all" ? "" : `tab=${tab}`}`} items={tabItems} />
 
       <div className="flex flex-wrap items-center gap-2">
-      <AutoForm className="contents">
+      <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
         {tab !== "all" && <input type="hidden" name="tab" value={tab} />}
         <input type="hidden" name="v" value={view} />
         <input name="q" defaultValue={sp.q} placeholder="Tìm bài học..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[sp.assignmentId].filter(Boolean).length}>
           <select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls}><option value="">Tất cả lớp · môn</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select>
+          <ViewToggle path="/bai-hoc" params={params} view={view} />
         </MobileCollapse>
-        <ViewToggle path="/bai-hoc" params={params} view={view} />
+
       </AutoForm>
-      {postBtn && <div className="ml-auto flex items-center gap-2">{postBtn}</div>}
+
       </div>
 
       {view === "table" ? (

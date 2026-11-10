@@ -36,7 +36,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3">
+      <Card mobile="flat" className="space-y-3">
         <div className="flex flex-wrap items-start gap-3">
           <span className="grid size-14 shrink-0 place-items-center rounded-full text-xl font-bold" style={{ background: `hsl(${hue} 70% 90%)`, color: `hsl(${hue} 60% 25%)` }}>{initialOf(s.fullName)}</span>
           <div className="min-w-0 flex-1">
@@ -81,7 +81,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
       )}
 
       {tab === "info" && isManager && (
-        <Card><ActionForm action={updateStudent} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={s.id} /><StudentFields editing s={{ fullName: s.fullName, dob: s.dob, guardianName: s.guardianName, guardianPhone: s.guardianPhone }} /></ActionForm></Card>
+        <Card mobile="flat"><ActionForm action={updateStudent} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={s.id} /><StudentFields editing s={{ fullName: s.fullName, dob: s.dob, guardianName: s.guardianName, guardianPhone: s.guardianPhone }} /></ActionForm></Card>
       )}
 
       {tab === "classes" && await (async () => {

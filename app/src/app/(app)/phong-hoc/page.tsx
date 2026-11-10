@@ -4,6 +4,8 @@ import { ViewToggle, pickView } from "@/components/view-toggle";
 import { DoorOpen, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
+import { ActionMenu } from "@/components/action-menu";
+import { AutoForm } from "@/components/auto-form";
 import { DialogButton } from "@/components/dialog";
 import { ActionForm } from "@/components/action-form";
 import { Card, Field, inputCls, Table, Title } from "@/components/ui";
@@ -40,20 +42,33 @@ export default async function Rooms({ searchParams }: { searchParams: Promise<{ 
     const classes = [...new Map(r.timetableSlots.map((s) => [s.schoolClass.id, s.schoolClass.className])).entries()];
     return { r, today, classes };
   });
-  return (
-    <div className="space-y-4">
-      <Title right={<>{canEdit && <DialogButton label="+ Thêm phòng" title="Thêm phòng học">
+  const roomForm = (
         <ActionForm action={createRoom} submit="Thêm phòng" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Loại phòng"><select name="roomType" defaultValue={sp.type ?? "THUONG"} className={inputCls + " w-full"}>{Object.entries(ROOM_TYPES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
           <Field label="Tên phòng"><input name="name" className={inputCls + " w-full"} required /></Field>
           <Field label="Sức chứa"><input name="capacity" defaultValue={40} className={inputCls + " w-full"} /></Field>
         </ActionForm>
-      </DialogButton>}</>}>Phòng học ({total})</Title>
+  );
+  return (
+    <div className="space-y-4">
+      <Title actionsInline right={<>
+        {canEdit && <div className="hidden md:block"><DialogButton label="+ Thêm phòng" title="Thêm phòng học">{roomForm}</DialogButton></div>}
+        <div className="md:hidden"><ActionMenu label="Tùy chọn phòng học" wide>
+          <ViewToggle path="/phong-hoc" params={{ type: sp.type, size: sp.size }} view={view} />
+          {canEdit && <div className="[&>button]:w-full [&>button]:justify-start"><DialogButton variant="ghost" label="Thêm phòng" title="Thêm phòng học">{roomForm}</DialogButton></div>}
+        </ActionMenu></div>
+      </>}>Phòng học ({total})</Title>
 
-      <div className="flex flex-wrap gap-2 text-sm">
-        <Link href={`/phong-hoc?v=${view}`} className={`rounded-full border px-3 py-1.5 ${!sp.type ? "border-orange-600 bg-orange-600 text-white" : "bg-white hover:bg-slate-50"}`}>Tất cả loại phòng</Link>
-        {Object.entries(ROOM_TYPES).map(([k, l]) => <Link key={k} href={`/phong-hoc?type=${k}&v=${view}`} className={`rounded-full border px-3 py-1.5 ${sp.type === k ? "border-orange-600 bg-orange-600 text-white" : "bg-white hover:bg-slate-50"}`}>{l}</Link>)}
-        <div className="ml-auto"><ViewToggle path="/phong-hoc" params={{ type: sp.type, size: sp.size }} view={view} /></div>
+      <div className="flex items-center gap-2">
+        <AutoForm className="min-w-0 w-full md:w-64">
+          <input type="hidden" name="v" value={view} />
+          <input type="hidden" name="size" value={pg.size} />
+          <select key={sp.type ?? ""} name="type" defaultValue={sp.type ?? ""} aria-label="Loại phòng học" className={inputCls + " col-span-full w-full min-w-0"}>
+            <option value="">Tất cả loại phòng</option>
+            {Object.entries(ROOM_TYPES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </AutoForm>
+        <div className="ml-auto hidden md:block"><ViewToggle path="/phong-hoc" params={{ type: sp.type, size: sp.size }} view={view} /></div>
       </div>
       {view === "cards" ? (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

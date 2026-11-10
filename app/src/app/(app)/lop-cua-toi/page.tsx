@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { Card, inputCls, Table, Title } from "@/components/ui";
+import { ActionMenu } from "@/components/action-menu";
 import { AutoForm } from "@/components/auto-form";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { ViewToggle, pickView } from "@/components/view-toggle";
@@ -36,7 +37,7 @@ export default async function MyClasses({ searchParams }: { searchParams: Promis
   ]);
   return (
     <div className="space-y-4">
-      <Title>{manager ? "Lớp - môn giảng dạy" : "Lớp của tôi"} ({total})</Title>
+      <Title actionsInline right={<div className="md:hidden"><ActionMenu label="Tùy chọn lớp giảng dạy"><ViewToggle path="/lop-cua-toi" params={{ q: sp.q, termId: sp.termId, all: sp.all, size: sp.size }} view={view} /></ActionMenu></div>}>{manager ? "Lớp - môn giảng dạy" : "Lớp của tôi"} ({total})</Title>
       <AutoForm className="flex flex-wrap gap-2">
         <input type="hidden" name="v" value={view} />
         <input name="q" defaultValue={sp.q} placeholder="Tìm lớp, môn..." className={inputCls + " min-w-48 flex-1"} />
@@ -44,7 +45,7 @@ export default async function MyClasses({ searchParams }: { searchParams: Promis
           <select name="termId" defaultValue={sp.termId ?? ""} className={inputCls}><option value="">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
           <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-white px-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!sp.all} /> Gồm học kỳ đã kết thúc</label>
         </MobileCollapse>
-        <ViewToggle path="/lop-cua-toi" params={{ q: sp.q, termId: sp.termId, all: sp.all, size: sp.size }} view={view} />
+        <div className="hidden md:contents"><ViewToggle path="/lop-cua-toi" params={{ q: sp.q, termId: sp.termId, all: sp.all, size: sp.size }} view={view} /></div>
       </AutoForm>
       {view === "table" ? (
         <Table head={["Lớp", "Môn", "Học kỳ", "Học sinh", "Bài đã đăng"]}>

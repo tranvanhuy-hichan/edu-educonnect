@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, X } from "lucide-react";
 import clsx from "clsx";
-import { buildNav, ROLE_LABEL, titleOf, type NavGroup, type NavItem } from "@/lib/nav";
+import { buildNav, buildMobileNav, ROLE_LABEL, titleOf, type NavGroup, type NavItem } from "@/lib/nav";
 import type { Role } from "@/lib/guard";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -30,12 +30,12 @@ const isActive = (path: string, href: string, tab: string | null = null) => {
   return path === href || path.startsWith(href + "/");
 };
 
-function Brand({ name, logo, sub = "Hệ thống quản lý giáo dục" }: { name: string; logo: string; sub?: string }) {
+function Brand({ name, logo, compact = false, sub = "Hệ thống quản lý giáo dục" }: { name: string; logo: string; compact?: boolean; sub?: string }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-4 border-b sb-line">
+    <div className={clsx("flex min-w-0 items-center gap-3 px-4 py-4", compact ? "border-b sb-line" : "flex-1")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       {logo ? <img src={logo} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" /> : <div className="h-9 w-9 rounded-full bg-white/20 grid place-items-center font-bold shrink-0">{name.slice(0, 1).toUpperCase()}</div>}
-      <div className="min-w-0 leading-tight hidden lg:block"><div className="text-[13px] font-semibold truncate">{name}</div><div className="text-xs sb-muted">{sub}</div></div>
+      <div className={clsx("min-w-0 leading-tight", compact && "hidden lg:block")}><div className="text-[13px] font-semibold truncate">{name}</div><div className="truncate text-xs sb-muted">{sub}</div></div>
     </div>
   );
 }
@@ -45,7 +45,11 @@ function Group({ it, path, onNavigate, compact }: { it: NavItem; path: string; o
   const kids = it.children!;
   const hasActive = kids.some((k) => isActive(path, k.href, tab));
   const [open, setOpen] = useState(hasActive);
-  useEffect(() => { if (hasActive) setOpen(true); }, [hasActive]);
+  const [previousActive, setPreviousActive] = useState(hasActive);
+  if (previousActive !== hasActive) {
+    setPreviousActive(hasActive);
+    if (hasActive) setOpen(true);
+  }
   return (
     <div>
       <button type="button" onClick={() => setOpen((o) => !o)} title={it.label} aria-expanded={open} data-active={hasActive && !open}
@@ -102,11 +106,26 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
   const groups = buildNav(roles);
   const roleLabel = roles.map((r) => ROLE_LABEL[r]).join(" · ");
   const badges: Record<string, number> = {};
-  const [drawer, setDrawer] = useState(false);
+  const [drawerState, setDrawerState] = useState({ path, open: false });
+  const drawer = drawerState.path === path && drawerState.open;
+  const setDrawer = (open: boolean) => setDrawerState({ path, open });
+  if (drawerState.path !== path) setDrawerState({ path, open: false });
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const locked = mustChange && path !== "/doi-mat-khau";
-  useEffect(() => setDrawer(false), [path]);
+  useEffect(() => {
+    if (!drawer) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerState({ path, open: false });
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = overflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [drawer, path]);
   useEffect(() => { if (locked) router.replace("/doi-mat-khau"); }, [locked, path, router]);
   useEffect(() => {
     const h = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setMenu(false);
@@ -116,13 +135,12 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
 
   const segs = path.split("/").filter(Boolean);
   const crumbs = segs.map((s, i) => ({ href: "/" + segs.slice(0, i + 1).join("/"), label: titleOf(s, roles) ?? (i > 0 ? "Chi tiết" : "") })).filter((c) => c.label);
-  const flat = groups.flatMap((g) => g.items).filter((i) => !i.children);
-  const mobile = flat.slice(0, 4);
+  const mobile = buildMobileNav(roles);
 
   return (
     <div className="min-h-screen">
       <aside className="no-print theme-sidebar fixed inset-y-0 left-0 z-30 hidden w-16 flex-col md:flex lg:w-60" style={{ color: "var(--sb-fg)" }}>
-        <Brand name={name} logo={logo}  />
+        <Brand name={name} logo={logo} compact />
         <nav className="flex-1 overflow-y-auto p-3" aria-label="Điều hướng chính"><Links groups={groups} path={path} badges={badges} compact /></nav>
         <div className="border-t sb-line p-3 text-xs sb-muted hidden lg:block truncate">{userName} · {roleLabel}</div>
       </aside>
@@ -175,20 +193,19 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
       </div>
 
       {/* Mobile: thanh dưới + ngăn kéo */}
-      <nav className="no-print fixed inset-x-0 bottom-0 z-30 flex border-t bg-white md:hidden">
+      <nav aria-label="Điều hướng nhanh" className="mobile-bottom-nav no-print fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t bg-white md:hidden">
         {mobile.map((it) => (
-          <Link key={it.href} href={it.href} className={clsx("flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[11px]", isActive(path, it.href, tab) ? "font-semibold text-orange-700" : "text-slate-500")}>
+          <Link key={it.href} href={it.href} aria-current={isActive(path, it.href, tab) ? "page" : undefined} className={clsx("flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 text-[10px]", isActive(path, it.href, tab) ? "font-semibold text-orange-700" : "text-slate-500")}>
             <it.icon className="size-[22px]" strokeWidth={isActive(path, it.href, tab) ? 2.4 : 1.8} /><span className="truncate max-w-full px-0.5">{it.label}</span>
           </Link>
         ))}
-        <button onClick={() => setDrawer(true)} className="flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[11px] text-slate-500"><Menu className="size-[22px]" strokeWidth={1.8} />Thêm</button>
       </nav>
       {drawer && (
         <div className="fixed inset-0 z-40 md:hidden" onClick={() => setDrawer(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <aside onClick={(e) => e.stopPropagation()} className="theme-sidebar absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col" style={{ color: "var(--sb-fg)" }}>
-            <div className="flex items-center justify-between pr-2"><Brand name={name} logo={logo}  /><button onClick={() => setDrawer(false)} className="p-2"><X className="size-5" /></button></div>
-            <nav className="flex-1 overflow-y-auto p-3"><Links groups={groups} path={path} badges={badges} onNavigate={() => setDrawer(false)} /></nav>
+            <div className="flex shrink-0 items-center border-b sb-line pr-2"><Brand name={name} logo={logo} /><button onClick={() => setDrawer(false)} className="grid size-10 shrink-0 place-items-center rounded-md" aria-label="Đóng menu"><X className="size-5" /></button></div>
+            <nav className="min-h-0 flex-1 overflow-y-auto p-3" aria-label="Điều hướng trên điện thoại"><Links groups={groups} path={path} badges={badges} onNavigate={() => setDrawer(false)} /></nav>
           </aside>
         </div>
       )}

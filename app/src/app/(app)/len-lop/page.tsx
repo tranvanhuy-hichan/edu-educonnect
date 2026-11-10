@@ -122,7 +122,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
               </select>
             </AutoForm>
 
-            <div className="rounded-xl border bg-white p-4">
+            <div className="content-panel rounded-xl border bg-white p-4">
               <h3 className="text-base font-semibold text-slate-800">Danh sách học sinh thi lại trong hè</h3>
               <p className="mt-1 text-xs text-slate-500">
                 Sau khi tổ chức kiểm tra lại trong dịp hè, nhập điểm thi lại và quyết định công nhận &ldquo;Lên lớp&rdquo; hoặc &ldquo;Ở lại lớp&rdquo; trước khi chạy chuyển lớp.

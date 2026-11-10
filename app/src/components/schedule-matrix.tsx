@@ -12,7 +12,7 @@ export function ScheduleMatrix({ preview }: { preview: Preview }) {
   return <div className="space-y-4">
     {classes.length > 0 && SESSIONS.filter((session) => session.periods[0] === 1 || (result.placements.some((slot) => slot.periodNo > 5) || activities.some((activity) => activity.periodNo > 5))).map((session) => <section key={session.label} className="space-y-2">
       <h2 className="text-sm font-semibold">{session.label}</h2>
-      <div className="overflow-x-auto rounded-lg border bg-white">
+      <div className="content-panel overflow-x-auto rounded-lg border bg-white">
       <table className="w-full border-separate border-spacing-0 text-center text-xs">
         <caption className="sr-only">Xem trước thời khóa biểu: mỗi hàng là một thứ, mỗi lớp gồm 5 cột tiết</caption>
         <thead>

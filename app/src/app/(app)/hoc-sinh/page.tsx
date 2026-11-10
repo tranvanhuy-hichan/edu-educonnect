@@ -1,3 +1,4 @@
+import { ActionMenu } from "@/components/action-menu";
 import Link from "next/link";
 import { ViewToggle, pickView } from "@/components/view-toggle";
 import { AutoForm } from "@/components/auto-form";
@@ -52,20 +53,21 @@ export default async function Students({ searchParams }: { searchParams: Promise
 
   return (
     <div className="space-y-4">
-      <Title>Danh sách Học sinh</Title>
+      <Title actionsInline right={<div className="md:hidden"><ActionMenu label="Thao tác học sinh"><Link href="/hoc-sinh/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm học sinh</Link></ActionMenu></div>}>Danh sách Học sinh</Title>
       <Tabs current={link(tab)} items={TABS.map(([k, l]) => [link(k), `${l} (${counts[k] ?? 0})`] as [string, string])} />
       <div className="flex flex-wrap items-center gap-2">
-      <AutoForm className="contents">
+      <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
         <input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} />
         <input name="q" defaultValue={q} placeholder="Tìm theo tên, mã, email..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[grade, classId, sort !== "az" ? sort : ""].filter(Boolean).length}>
           <select name="grade" defaultValue={grade} className={inputCls}><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
           <select name="classId" defaultValue={classId} className={inputCls + " max-w-56"}><option value="">Tất cả lớp</option>{classes.filter((c) => !grade || c.gradeLevelId === grade).map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
           <select name="sort" defaultValue={sort} className={inputCls}><option value="az">Tên A-Z</option><option value="za">Tên Z-A</option><option value="new">Mới nhất</option></select>
+          <ViewToggle path="/hoc-sinh" params={{ q, tab, sort, grade, classId, size: sp.size }} view={view} />
         </MobileCollapse>
-        <div className="hidden md:block"><ViewToggle path="/hoc-sinh" params={{ q, tab, sort, grade, classId, size: sp.size }} view={view} /></div>
+
       </AutoForm>
-      <div className="ml-auto flex items-center gap-2"><Link href="/hoc-sinh/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm học sinh</Link></div>
+      <div className="ml-auto hidden items-center gap-2 md:flex"><Link href="/hoc-sinh/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm học sinh</Link></div>
       </div>
       {view !== "cards" && <div className="space-y-2 md:hidden">{shown.map((s) => <Card key={s.id} s={s} />)}{!shown.length && <p className="py-8 text-center text-sm text-slate-500">Không có học sinh phù hợp.</p>}</div>}
       {view === "table" ? (

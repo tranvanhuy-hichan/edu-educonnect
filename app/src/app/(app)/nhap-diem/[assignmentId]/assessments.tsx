@@ -6,7 +6,7 @@ import { saveAssessment } from "../assessment-actions";
 export async function Assessments({ assignmentId, students, commentOnly, readOnly, manager }: { assignmentId: string; students: { id: string; name: string; code: string }[]; commentOnly: boolean; readOnly: boolean; manager: boolean }) {
   const reviews = await db.studentAssessment.findMany({ where: { assignmentId } });
   const byStudent = new Map(reviews.map((review) => [review.studentId, review]));
-  return <details open={commentOnly} className="rounded-xl border bg-white p-4">
+  return <details open={commentOnly} className="content-panel rounded-xl border bg-white p-4">
     <summary className="cursor-pointer font-semibold">{commentOnly ? "Đánh giá Đạt / Chưa đạt" : "Nhận xét, miễn và điều chỉnh đánh giá"}</summary>
     <p className="my-3 text-xs text-slate-500">Kết quả theo học kỳ. Miễn/điều chỉnh cần căn cứ và quyền quản lý; không tự quy đổi thành điểm số.</p>
     <div className="space-y-3">{students.map((student) => { const review = byStudent.get(student.id); return <div key={student.id} className="rounded-lg border p-3">

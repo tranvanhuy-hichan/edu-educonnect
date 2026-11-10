@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActionMenu } from "@/components/action-menu";
 import { AutoForm } from "@/components/auto-form";
 import { db } from "@/lib/db";
 import { MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
@@ -38,7 +39,7 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="space-y-4">
-      <Title right={canEdit ? <Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm lớp học</Link> : undefined}>Danh sách Lớp học ({total})</Title>
+      <Title actionsInline right={canEdit ? <><div className="hidden md:block"><Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm lớp học</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lớp học"><Link href="/lop-hoc/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm lớp học</Link></ActionMenu></div></> : undefined}>Danh sách Lớp học ({total})</Title>
       <AutoForm className="flex flex-wrap items-center gap-2">
         <input type="hidden" name="v" value={v} />
         <input name="q" defaultValue={q} placeholder="Tìm lớp học..." className={inputCls + " min-w-48 flex-1 max-md:w-full max-md:basis-full"} />
@@ -46,9 +47,11 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
           <select name="grade" defaultValue={grade ?? ""} className={inputCls}><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
           <select name="year" defaultValue={year ?? ""} className={inputCls}><option value="">Năm học hiện tại</option>{years.map((y) => <option key={y.id} value={y.id}>{y.yearName}</option>)}</select>
           <select name="teacher" defaultValue={teacher ?? ""} className={inputCls + " max-w-56"}><option value="">Tất cả GVCN</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>
-        </MobileCollapse>
         <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 text-sm max-md:flex-1 max-md:justify-center has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!all} /> Gồm lớp năm học cũ</label>
-        <div className="hidden md:block"><ViewToggle path="/lop-hoc" params={{ q, all, grade, year, teacher, size: sp.size }} view={v === "cards" ? "cards" : "table"} /></div>
+          <ViewToggle path="/lop-hoc" params={{ q, all, grade, year, teacher, size: sp.size }} view={v === "cards" ? "cards" : "table"} />
+        </MobileCollapse>
+
+
       </AutoForm>
 
       {v !== "cards" && (

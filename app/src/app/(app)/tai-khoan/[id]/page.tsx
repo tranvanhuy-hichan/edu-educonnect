@@ -52,7 +52,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
   return (
     <div className="space-y-4">
       {/* ===== Đầu trang: hồ sơ tóm tắt + thao tác ===== */}
-      <Card className="flex flex-wrap items-center gap-4">
+      <Card mobile="flat" className="flex flex-wrap items-center gap-4">
         <span className="grid size-16 shrink-0 place-items-center rounded-full text-2xl font-bold" style={{ background: `hsl(${hue} 70% 90%)`, color: `hsl(${hue} 60% 25%)` }}>{name.split(" ").pop()?.[0]?.toUpperCase()}</span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -113,7 +113,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
 
       {/* ===== Vai trò ===== */}
       {tab === "roles" && (
-        <Card>
+        <Card mobile="flat">
           <h2 className="mb-1 font-semibold">Vai trò của tài khoản</h2>
           <p className="mb-3 text-sm text-slate-600">Một người có thể giữ nhiều vai trò (vd GVCN kiêm GVBM) và sẽ thấy gộp menu của các vai trò đó. Vai trò giáo viên cần có hồ sơ giáo viên; vai trò học sinh gắn với hồ sơ học sinh nên không đổi ở đây.</p>
           <ActionForm action={updateAccountRoles} submit="Lưu vai trò" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
@@ -139,13 +139,13 @@ export default async function AccountDetail({ params, searchParams }: { params: 
       {/* ===== Bảo mật ===== */}
       {tab === "security" && (
         <div className="grid gap-4 xl:grid-cols-2">
-          <Card className="space-y-3">
+          <Card mobile="flat" className="space-y-3">
             <h2 className="font-semibold">Đặt lại mật khẩu</h2>
             <p className="text-sm text-slate-600">Hệ thống sinh mật khẩu ngẫu nhiên và chỉ hiện <b>một lần</b>. Người dùng bị bắt đổi mật khẩu khi đăng nhập kế tiếp.</p>
             <ActionForm action={resetAccountPassword} submit="Cấp lại mật khẩu" reset={false} confirmText="Cấp lại mật khẩu cho tài khoản này?" className="flex flex-col gap-2 [&>button]:self-start"><input type="hidden" name="userId" value={u.id} /></ActionForm>
             <div className="border-t pt-3 text-sm text-slate-600">Trạng thái mật khẩu: <b>{u.mustChangePwd ? "Chưa đổi (đang dùng mật khẩu được cấp)" : "Người dùng đã tự đổi"}</b></div>
           </Card>
-          <Card className="space-y-3">
+          <Card mobile="flat" className="space-y-3">
             <h2 className="font-semibold">Khoá / mở khoá tài khoản</h2>
             <p className="text-sm text-slate-600">Tài khoản bị khoá không thể đăng nhập và phiên đang mở bị vô hiệu ngay. Dữ liệu và hồ sơ được giữ nguyên.</p>
             <ActionForm action={toggleAccount} submit={u.isActive ? "Khoá tài khoản" : "Mở khoá tài khoản"} danger={u.isActive} confirmText={u.isActive ? "Khoá tài khoản này?" : undefined} className="flex flex-col gap-2 [&>button]:self-start">

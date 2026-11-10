@@ -7,12 +7,12 @@ type Opt = { id: string; label: string };
 const ic = "h-10 w-full rounded-md border bg-white px-3 text-sm";
 
 const Section = ({ icon: I, title, hint, children }: { icon: typeof GraduationCap; title: string; hint?: string; children: React.ReactNode }) => (
-  <section className="rounded-lg border bg-white">
-    <div className="flex items-center gap-3 border-b px-5 py-3">
+  <section className="content-panel space-y-4 rounded-lg border bg-white md:space-y-0">
+    <div className="flex items-start gap-3 border-b-0 px-0 md:items-center md:border-b md:px-5 md:py-3">
       <span className="grid size-8 place-items-center rounded-lg bg-orange-100 text-orange-700"><I className="size-4" /></span>
       <div><h2 className="font-semibold leading-tight">{title}</h2>{hint && <p className="text-xs text-slate-500">{hint}</p>}</div>
     </div>
-    <div className="p-5">{children}</div>
+    <div className="p-0 md:p-5">{children}</div>
   </section>
 );
 const F = ({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) => (
@@ -59,7 +59,7 @@ export function NewClassForm({ grades, years, teachers, rooms, subjects, default
         </Section>
 
         <Section icon={GraduationCap} title="Giáo viên chủ nhiệm" hint="Có thể chọn sau. Giáo viên được giao chủ nhiệm tự có thêm chức năng chủ nhiệm trong cùng một tài khoản">
-          <div className="rounded-lg border bg-slate-50 p-3">
+          <div className="content-panel rounded-lg border bg-slate-50 p-0 md:p-3">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><GraduationCap className="size-4 text-orange-700" /> GVCN</div>
             <select name="homeroomTeacherId" value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={ic}><option value="">-- chưa phân công --</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
             <p className="mt-1.5 text-xs text-slate-500">GVCN quản lý danh sách học sinh, bảng điểm, thi đua và sổ đầu bài của lớp mình chủ nhiệm.</p>
@@ -69,7 +69,7 @@ export function NewClassForm({ grades, years, teachers, rooms, subjects, default
 
       {/* ===== Tóm tắt (cột phải) ===== */}
       <aside className="xl:sticky xl:top-20 xl:self-start">
-        <div className="space-y-3 rounded-lg border bg-white p-5">
+        <div className="content-panel space-y-3 rounded-lg border bg-white p-0 md:p-5">
           <h2 className="font-semibold">Tóm tắt lớp</h2>
           <div className="rounded-md bg-slate-50 p-3">
             <div className="text-xs text-slate-500">Tên lớp</div>

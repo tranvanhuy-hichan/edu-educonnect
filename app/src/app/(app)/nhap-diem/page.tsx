@@ -41,7 +41,7 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
         <p className="text-xs text-slate-500">
           Khi khóa sổ điểm, giáo viên bộ môn sẽ không thể sửa đổi điểm. Hệ thống cũng tự động khóa sau khi học kỳ kết thúc quá 15 ngày (chỉ Ban Giám hiệu mới có quyền mở khóa).
         </p>
-        <div className="divide-y rounded-lg border bg-white">
+        <div className="content-panel divide-y rounded-lg border bg-white">
           {terms.map((t) => {
             const isPast15 = termIsLocked({ ...t, isLocked: false });
             return (
@@ -88,8 +88,9 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
                 <select name="termId" defaultValue={sp.termId ?? ""} className={inputCls}><option value="">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
                 <select name="subjectId" defaultValue={sp.subjectId ?? ""} className={inputCls}><option value="">Tất cả môn</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.subjectName}</option>)}</select>
                 <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-white px-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!sp.all} /> Gồm học kỳ đã kết thúc</label>
+                <ViewToggle path="/nhap-diem" params={{ tab: "classes", q: sp.q, termId: sp.termId, subjectId: sp.subjectId, all: sp.all, size: sp.size }} view={view} />
               </MobileCollapse>
-              <div className="hidden md:block"><ViewToggle path="/nhap-diem" params={{ tab: "classes", q: sp.q, termId: sp.termId, subjectId: sp.subjectId, all: sp.all, size: sp.size }} view={view} /></div>
+
             </AutoForm>
             {/* Điện thoại: thẻ lớp-môn gọn thay cho bảng */}
             <div className={view === "cards" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "space-y-2 md:hidden"}>

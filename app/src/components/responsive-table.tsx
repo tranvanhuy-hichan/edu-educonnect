@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
  * - Hàng nào có liên kết đánh dấu data-row thì bấm vào chỗ nào của hàng cũng mở được chi tiết
  *   (trừ khi bấm vào nút, ô nhập, liên kết khác).
  */
-export function ResponsiveTable({ children }: { children: React.ReactNode }) {
+export function ResponsiveTable({ children, mobileLayout = "grid" }: { children: React.ReactNode; mobileLayout?: "grid" | "stack" }) {
   const ref = useRef<HTMLTableElement>(null);
   const router = useRouter();
   useEffect(() => {
@@ -16,7 +16,11 @@ export function ResponsiveTable({ children }: { children: React.ReactNode }) {
     const label = () => {
       const heads = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent?.trim() ?? "");
       table.querySelectorAll("tbody tr").forEach((tr) => {
-        Array.from(tr.children).forEach((td, i) => { if (td.getAttribute("data-label") !== (heads[i] ?? "")) td.setAttribute("data-label", heads[i] ?? ""); });
+        Array.from(tr.children).forEach((td, i) => {
+          const heading = heads[i] ?? "";
+          if (td.getAttribute("data-label") !== heading) td.setAttribute("data-label", heading);
+          td.toggleAttribute("data-actions", heading === "" || heading.toLocaleLowerCase("vi-VN") === "thao tác");
+        });
         const has = !!tr.querySelector("a[data-row]");
         if (has !== tr.hasAttribute("data-clickable")) { if (has) tr.setAttribute("data-clickable", ""); else tr.removeAttribute("data-clickable"); }
       });
@@ -37,5 +41,5 @@ export function ResponsiveTable({ children }: { children: React.ReactNode }) {
     else router.push(a.getAttribute("href")!);
   }
 
-  return <table ref={ref} onClick={onClick} className="rtable w-full text-left text-sm">{children}</table>;
+  return <table ref={ref} onClick={onClick} className={`rtable w-full text-left text-sm ${mobileLayout === "stack" ? "rtable-stack" : ""}`}>{children}</table>;
 }

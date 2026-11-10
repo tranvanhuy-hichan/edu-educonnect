@@ -2,7 +2,7 @@ import { Field, inputCls } from "@/components/ui";
 import { isoDate } from "@/lib/format";
 
 const Sec = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <fieldset className="w-full rounded-lg border p-4">
+  <fieldset className="content-panel w-full rounded-lg border p-4">
     <legend className="px-2 text-sm font-semibold">{title}</legend>
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{children}</div>
   </fieldset>

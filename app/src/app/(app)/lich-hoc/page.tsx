@@ -20,6 +20,7 @@ import {
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { AutoForm } from "@/components/auto-form";
+import { ActionMenu } from "@/components/action-menu";
 import { DialogTrigger } from "@/components/dialog";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { Card, inputCls, Title } from "@/components/ui";
@@ -339,11 +340,11 @@ export default async function Schedule({
   const tab = (v: string, text: React.ReactNode, Icon: typeof Table2) => (
     <Link
       href={q({ view: v })}
-      className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-md border px-3 text-sm md:flex-none ${
+      className={`inline-flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-xs sm:text-sm md:h-9 md:flex-none md:px-3 ${
         view === v ? "border-orange-600 bg-orange-600 text-white" : "bg-white hover:bg-slate-50"
       }`}
     >
-      <Icon className="size-4" />
+      <Icon className="size-4 shrink-0" />
       {text}
     </Link>
   );
@@ -376,7 +377,7 @@ export default async function Schedule({
     : null;
 
   const btnPrimary =
-    "inline-flex h-9 items-center rounded-md bg-orange-600 px-3 font-medium text-white hover:bg-orange-700";
+    "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-orange-600 px-3 text-sm font-medium text-white hover:bg-orange-700 sm:h-9";
 
   if (!term) {
     return (
@@ -455,7 +456,7 @@ export default async function Schedule({
               </Link>
             </div>
 
-            <Link className={btnPrimary} href={q({ w: isoDate(today) })}>
+            <Link className={`${btnPrimary} schedule-today`} href={q({ w: isoDate(today) })}>
               Hôm nay
             </Link>
 
@@ -606,7 +607,7 @@ export default async function Schedule({
 
         {/* ================= BẢNG THỜI KHÓA BIỂU MA TRẬN (DESKTOP) ================= */}
         {/* Hàng = Tiết 1..10 (sáng 1-5, chiều 6-10), Cột = Thứ 2 .. Thứ 7 */}
-        <div className="hidden overflow-hidden rounded-xl border bg-white shadow-sm md:block">
+        <div className="content-panel hidden overflow-hidden rounded-xl border bg-white shadow-sm md:block">
           <table className="w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b bg-slate-100/80 text-xs font-semibold text-slate-700">
@@ -771,8 +772,9 @@ export default async function Schedule({
   return (
     <div className="space-y-4">
       <Title
+        mobileActions="visible"
         right={
-          <div className="flex w-full flex-wrap items-center gap-2 text-sm sm:w-auto">
+          <div className="schedule-week-toolbar grid w-full grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 text-sm md:flex md:w-auto md:flex-wrap">
             <Link
               className="inline-flex size-9 items-center justify-center rounded-md border bg-white hover:bg-slate-50"
               href={q({ w: isoDate(step(-1)) })}
@@ -780,7 +782,7 @@ export default async function Schedule({
             >
               <ChevronLeft className="size-4" />
             </Link>
-            <span className="min-w-0 flex-1 text-center font-medium sm:min-w-44 sm:flex-none">
+            <span className="min-w-0 whitespace-nowrap text-center text-xs font-medium tabular-nums sm:min-w-44 sm:text-sm">
               {label}
             </span>
             <Link
@@ -790,11 +792,13 @@ export default async function Schedule({
             >
               <ChevronRight className="size-4" />
             </Link>
-            <Link className={btnPrimary} href={q({ w: isoDate(today) })}>
+            <div className="hidden md:contents">
+            <Link className={`${btnPrimary} schedule-today`} href={q({ w: isoDate(today) })}>
               Hôm nay
             </Link>
-            {staff && <Link className={btnPrimary} href={`/lich-hoc/tu-dong?term=${term.id}&w=${isoDate(start)}`}>+ Tạo thời khóa biểu mới</Link>}
-            {excelHref && <a href={excelHref} download title="Tải thời khóa biểu Excel" aria-label="Tải thời khóa biểu Excel" className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border bg-white hover:bg-slate-50"><Download className="size-4" /></a>}
+            {staff && <Link className={`${btnPrimary} schedule-create`} href={`/lich-hoc/tu-dong?term=${term.id}&w=${isoDate(start)}`}>+ Tạo thời khóa biểu mới</Link>}
+            {excelHref && <a href={excelHref} download title="Tải thời khóa biểu Excel" aria-label="Tải thời khóa biểu Excel" className="schedule-download inline-flex size-10 shrink-0 items-center justify-center rounded-md border bg-white hover:bg-slate-50 sm:size-9"><Download className="size-4" /></a>}
+            </div>
           </div>
         }
       >
@@ -803,9 +807,9 @@ export default async function Schedule({
 
       {sp.created === "1" && <p role="status" className="text-sm text-green-700">Đã tạo thời khóa biểu mới. Lịch cũ vẫn được giữ lại cho các tuần trước.</p>}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="schedule-view-toolbar grid grid-cols-[minmax(0,1fr)_2.25rem] items-start gap-2 md:flex md:flex-wrap md:items-center">
         {hasMine && (
-          <div className="mr-2 flex overflow-hidden rounded-md border bg-white text-sm">
+          <div className="col-span-2 flex overflow-hidden rounded-md border bg-white text-sm md:mr-2">
             <Link
               href={q({ scope: "mine" })}
               className={`inline-flex h-9 items-center px-3 ${
@@ -824,6 +828,7 @@ export default async function Schedule({
             </Link>
           </div>
         )}
+        <div className="hidden md:contents">
         {tab(
           "class",
           <>
@@ -839,12 +844,18 @@ export default async function Schedule({
           </>
         )}
         {tab("list", "Danh sách", LayoutList)}
+        </div>
         {canFilter && (
           <AutoForm
-            className="contents md:ml-auto md:flex md:flex-wrap md:items-center md:gap-2"
+            className="min-w-0 md:ml-auto md:flex md:flex-wrap md:items-center md:gap-2"
             resets={{ grade: ["class"] }}
           >
-            <input type="hidden" name="view" value={view} />
+            <select key={view} name="view" defaultValue={view} className={`${inputCls} md:hidden`} aria-label="Kiểu xem thời khóa biểu">
+              <option value="class">Theo ngày</option>
+              <option value="teacher">Theo giáo viên</option>
+              <option value="room">Theo phòng</option>
+              <option value="list">Danh sách</option>
+            </select>
             {terms.length <= 1 && <input type="hidden" name="term" value={term.id} />}
             <input type="hidden" name="w" value={isoDate(base)} />
             {hasMine && <input type="hidden" name="scope" value={scope} />}
@@ -911,6 +922,13 @@ export default async function Schedule({
             </MobileCollapse>
           </AutoForm>
         )}
+        <div className="md:hidden">
+          <ActionMenu label="Thao tác thời khóa biểu">
+            <Link href={q({ w: isoDate(today) })} className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Về hôm nay</Link>
+            {staff && <Link href={`/lich-hoc/tu-dong?term=${term.id}&w=${isoDate(start)}`} className="flex min-h-10 items-center rounded-md px-3 text-sm text-orange-700 hover:bg-slate-50">Tạo thời khóa biểu</Link>}
+            {excelHref && <a href={excelHref} download className="flex min-h-10 items-center gap-2 rounded-md px-3 text-sm hover:bg-slate-50"><Download className="size-4 shrink-0" />Tải Excel</a>}
+          </ActionMenu>
+        </div>
       </div>
 
       {/* ===== LƯỚI TUẦN: hàng = lớp / giáo viên / phòng, cột = Thứ 2–7 ===== */}
@@ -1155,7 +1173,7 @@ export default async function Schedule({
             if (!list.length) return null;
             const isToday = d.getTime() === today.getTime();
             return (
-              <div key={d.getTime()} className="overflow-hidden rounded-lg border bg-white">
+              <div key={d.getTime()} className="item-card overflow-hidden rounded-lg border bg-white">
                 <div
                   className={`flex items-center justify-between px-4 py-2 text-sm font-semibold ${
                     isToday ? "bg-orange-100 text-orange-800" : "bg-slate-50"
