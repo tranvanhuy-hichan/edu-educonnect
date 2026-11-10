@@ -5,7 +5,15 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   const brand = await getSchoolSetting();
-  return { title: `Đăng nhập · ${brand.schoolName}` };
+  const icon = brand.logoUrl || "/favicon.svg";
+  return {
+    title: `Đăng nhập · ${brand.schoolName}`,
+    icons: {
+      icon: [{ url: icon }],
+      shortcut: [icon],
+      apple: [{ url: icon }],
+    },
+  };
 }
 
 export default async function Login() {
