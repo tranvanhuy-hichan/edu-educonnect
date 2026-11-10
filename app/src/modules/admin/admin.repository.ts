@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
 import { genTeacherCode } from "@/lib/password";
 import type { CreateUserInput } from "@/modules/admin/admin.schema";
 
@@ -102,6 +103,15 @@ export function createActivityLog(
 
 export function listActivityLog(take = 100) {
   return prisma.activityLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
+/** Dashboard summaries do not need the full audit payload. */
+export function recentActivitySummaries(take: number, context?: DatabaseContext) {
+  return databaseFor(context).activityLog.findMany({
+    select: { id: true, actorEmail: true, action: true, targetType: true, targetId: true, createdAt: true },
     orderBy: { createdAt: "desc" },
     take,
   });

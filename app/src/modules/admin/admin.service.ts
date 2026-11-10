@@ -118,3 +118,8 @@ export function listActivityLog(user: SessionUser) {
   assertSystemAdmin(user);
   return adminRepository.listActivityLog();
 }
+
+export function listRecentActivitySummaries(user: SessionUser) {
+  assertSystemAdmin(user);
+  return adminRepository.recentActivitySummaries(6);
+}

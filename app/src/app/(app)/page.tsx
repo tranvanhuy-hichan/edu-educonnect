@@ -1,4 +1,5 @@
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
+import { listRecentActivitySummaries } from "@/modules/admin/admin.service";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
 import { Activity, AlertTriangle, ArrowUpRight, BookOpen, CalendarClock, CheckCircle2, ChevronDown, ClipboardList, DoorOpen, GraduationCap, Library, Presentation, School, Settings2, ShieldCheck, Users } from "lucide-react";
@@ -94,7 +95,7 @@ export default async function Home() {
       }),
       db.schoolClass.count({ where: { ...yearWhere, homeroomTeacherId: null } }),
       db.schoolClass.findMany({ where: { ...yearWhere, homeroomTeacherId: null }, orderBy: { className: "asc" }, take: 6, select: { id: true, className: true, gradeLevel: { select: { gradeName: true } } } }),
-      isAdmin ? db.activityLog.findMany({ orderBy: { createdAt: "desc" }, take: 6 }) : Promise.resolve([]),
+      isAdmin ? listRecentActivitySummaries(me) : Promise.resolve([]),
     ]);
     const logged = slots.length ? new Set((await db.classPeriodLog.findMany({ where: { timetableSlotId: { in: slots.map((s) => s.id) }, logDate: today }, select: { timetableSlotId: true } })).map((l) => l.timetableSlotId)) : new Set<string>();
     const unlogged = slots.filter((s) => s.kind !== "activity" && !logged.has(s.id));
