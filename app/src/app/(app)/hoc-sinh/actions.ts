@@ -114,11 +114,24 @@ export const resetParentPassword = wrap(async (fd) => {
   const phone = str(fd, "phone").replace(/\D/g, "");
   if (!phone) throw new Error("Không có số điện thoại phụ huynh");
   const defaultHash = await bcrypt.hash("123456", 10);
-  await db.parentAccount.upsert({
-    where: { phone },
-    update: { passwordHash: defaultHash },
-    create: { phone, passwordHash: defaultHash, fullName: opt(fd, "fullName") ?? "Phụ huynh" },
-  });
+  const p = db as unknown as { parentAccount?: { upsert: (q: unknown) => Promise<unknown> } };
+  if (p.parentAccount?.upsert) {
+    await p.parentAccount.upsert({
+      where: { phone },
+      update: { passwordHash: defaultHash },
+      create: { phone, passwordHash: defaultHash, fullName: opt(fd, "fullName") ?? "Phụ huynh" },
+    });
+  } else {
+    const existing = await db.$queryRaw<Array<{ id: string }>>`SELECT id FROM "ParentAccount" WHERE phone = ${phone} LIMIT 1`;
+    const now = new Date();
+    if (existing && existing.length > 0) {
+      await db.$executeRaw`UPDATE "ParentAccount" SET "passwordHash" = ${defaultHash}, "updatedAt" = ${now} WHERE phone = ${phone}`;
+    } else {
+      const id = "pa_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      const fullName = opt(fd, "fullName") ?? "Phụ huynh";
+      await db.$executeRaw`INSERT INTO "ParentAccount" ("id", "phone", "fullName", "passwordHash", "createdAt", "updatedAt") VALUES (${id}, ${phone}, ${fullName}, ${defaultHash}, ${now}, ${now})`;
+    }
+  }
   await audit(me.email, "reset_parent_password", "ParentAccount", phone);
   return `Mật khẩu Sổ liên lạc của phụ huynh (SĐT: ${phone}) đã được đặt lại về mặc định: 123456`;
 });

@@ -19,6 +19,77 @@ function normalizePhone(raw: string): string {
   return cleaned;
 }
 
+type ParentAccountRecord = {
+  id: string;
+  phone: string;
+  fullName: string | null;
+  passwordHash: string;
+};
+
+async function dbFindParentAccount(phones: string[]): Promise<ParentAccountRecord | null> {
+  const p = prisma as unknown as { parentAccount?: { findFirst: (q: unknown) => Promise<ParentAccountRecord | null> } };
+  if (p.parentAccount?.findFirst) {
+    try {
+      const res = await p.parentAccount.findFirst({
+        where: { phone: { in: phones } },
+      });
+      if (res) return res;
+    } catch {
+      // fallback dưới
+    }
+  }
+
+  // Fallback an toàn qua raw SQL nếu dev server chưa nạp model mới
+  for (const phone of phones) {
+    const rows = await prisma.$queryRaw<ParentAccountRecord[]>`
+      SELECT id, phone, "fullName", "passwordHash"
+      FROM "ParentAccount"
+      WHERE phone = ${phone}
+      LIMIT 1
+    `;
+    if (rows && rows.length > 0) return rows[0];
+  }
+  return null;
+}
+
+async function dbCreateParentAccount(data: { phone: string; fullName: string; passwordHash: string }): Promise<ParentAccountRecord> {
+  const p = prisma as unknown as { parentAccount?: { create: (q: unknown) => Promise<ParentAccountRecord> } };
+  if (p.parentAccount?.create) {
+    try {
+      return await p.parentAccount.create({ data });
+    } catch {
+      // fallback dưới
+    }
+  }
+
+  const id = "pa_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const now = new Date();
+  await prisma.$executeRaw`
+    INSERT INTO "ParentAccount" ("id", "phone", "fullName", "passwordHash", "createdAt", "updatedAt")
+    VALUES (${id}, ${data.phone}, ${data.fullName}, ${data.passwordHash}, ${now}, ${now})
+  `;
+  return { id, phone: data.phone, fullName: data.fullName, passwordHash: data.passwordHash };
+}
+
+async function dbUpdateParentPassword(id: string, passwordHash: string): Promise<void> {
+  const p = prisma as unknown as { parentAccount?: { update: (q: unknown) => Promise<unknown> } };
+  if (p.parentAccount?.update) {
+    try {
+      await p.parentAccount.update({ where: { id }, data: { passwordHash } });
+      return;
+    } catch {
+      // fallback dưới
+    }
+  }
+
+  const now = new Date();
+  await prisma.$executeRaw`
+    UPDATE "ParentAccount"
+    SET "passwordHash" = ${passwordHash}, "updatedAt" = ${now}
+    WHERE "id" = ${id}
+  `;
+}
+
 export async function parentLogin(formData: FormData) {
   const input = String(formData.get("phone") ?? "").trim();
   const password = String(formData.get("password") ?? "");
@@ -73,16 +144,8 @@ export async function parentLogin(formData: FormData) {
   const guardianName =
     matchedStudent.guardianName ?? `Phụ huynh em ${matchedStudent.fullName}`;
 
-  // 2. Tìm hoặc khởi tạo tài khoản phụ huynh
-  let account = await prisma.parentAccount.findFirst({
-    where: {
-      OR: [
-        { phone },
-        { phone: normalized },
-        { phone: input },
-      ],
-    },
-  });
+  // 2. Tìm hoặc khởi tạo tài khoản phụ huynh (an toàn chống lỗi undefined findFirst)
+  let account = await dbFindParentAccount([phone, normalized, input]);
 
   if (!account) {
     // Tài khoản chưa từng đăng nhập -> yêu cầu mật khẩu mặc định 123456
@@ -95,12 +158,10 @@ export async function parentLogin(formData: FormData) {
     }
 
     const passwordHash = await bcrypt.hash("123456", 10);
-    account = await prisma.parentAccount.create({
-      data: {
-        phone,
-        fullName: guardianName,
-        passwordHash,
-      },
+    account = await dbCreateParentAccount({
+      phone,
+      fullName: guardianName,
+      passwordHash,
     });
   } else {
     // Đã có tài khoản -> đối chiếu mật khẩu
@@ -152,9 +213,24 @@ export async function parentChangePassword(formData: FormData) {
     return { success: false, error: "Mật khẩu mới và xác nhận mật khẩu không khớp." };
   }
 
-  const account = await prisma.parentAccount.findUnique({
-    where: { id: parent.id },
-  });
+  let account: ParentAccountRecord | null = null;
+  const p = prisma as unknown as { parentAccount?: { findUnique: (q: unknown) => Promise<ParentAccountRecord | null> } };
+  if (p.parentAccount?.findUnique) {
+    try {
+      account = await p.parentAccount.findUnique({ where: { id: parent.id } });
+    } catch {
+      // fallback
+    }
+  }
+  if (!account) {
+    const rows = await prisma.$queryRaw<ParentAccountRecord[]>`
+      SELECT id, phone, "fullName", "passwordHash"
+      FROM "ParentAccount"
+      WHERE id = ${parent.id}
+      LIMIT 1
+    `;
+    account = rows[0] ?? null;
+  }
 
   if (!account) {
     return { success: false, error: "Không tìm thấy thông tin tài khoản." };
@@ -166,10 +242,7 @@ export async function parentChangePassword(formData: FormData) {
   }
 
   const newHash = await bcrypt.hash(newPassword, 10);
-  await prisma.parentAccount.update({
-    where: { id: parent.id },
-    data: { passwordHash: newHash },
-  });
+  await dbUpdateParentPassword(parent.id, newHash);
 
   return { success: true, message: "Đổi mật khẩu thành công!" };
 }

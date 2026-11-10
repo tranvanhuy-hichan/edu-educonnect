@@ -49,11 +49,21 @@ export async function getParentSession(): Promise<ParentMe | null> {
   if (!payload || !payload.parentId) return null;
 
   try {
-    const parent = await prisma.parentAccount.findUnique({
-      where: { id: payload.parentId },
-      select: { id: true, phone: true, fullName: true, createdAt: true },
-    });
-    return parent;
+    const p = prisma as unknown as { parentAccount?: { findUnique: (q: unknown) => Promise<ParentMe | null> } };
+    if (p.parentAccount?.findUnique) {
+      const parent = await p.parentAccount.findUnique({
+        where: { id: payload.parentId },
+        select: { id: true, phone: true, fullName: true, createdAt: true },
+      });
+      if (parent) return parent;
+    }
+    const rows = await prisma.$queryRaw<ParentMe[]>`
+      SELECT id, phone, "fullName", "createdAt"
+      FROM "ParentAccount"
+      WHERE id = ${payload.parentId}
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
   } catch {
     return null;
   }
