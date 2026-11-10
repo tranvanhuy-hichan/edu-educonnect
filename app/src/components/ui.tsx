@@ -19,7 +19,7 @@ export function Field({ label, children }: { label: string; children: React.Reac
 }
 export { Tabs } from "@/components/tabs";
 /** `bare`: dùng khi bảng đã nằm trong một Card — bỏ khung ngoài để không bị khung lồng khung. */
-export function Table({ head, children, bare = false, mobileLayout = "grid" }: { head: string[]; children: React.ReactNode; bare?: boolean; mobileLayout?: "grid" | "stack" }) {
+export function Table({ head, children, bare = false, mobileLayout = "grid" }: { head: string[]; children: React.ReactNode; bare?: boolean; mobileLayout?: "grid" | "stack" | "compact" }) {
   return (
     <div className={bare ? "-mx-1 overflow-x-auto" : "content-panel overflow-x-auto rounded-lg border bg-white"}>
       <ResponsiveTable mobileLayout={mobileLayout}>

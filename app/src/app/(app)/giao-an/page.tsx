@@ -36,7 +36,7 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
   if (canEdit) for (const p of plans) if (await canManageClassSubjectAssignment(me, p.assignmentId)) editable.add(p.id);
 
   return (
-    <div className="space-y-4">
+    <div className="lesson-plan-list space-y-4">
       <Title right={canEdit && assignments.length > 0 && <DialogButton label="+ Đăng giáo án" title="Đăng giáo án" wide>
         <ActionForm action={createPlan} submit="Đăng giáo án" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Lớp · môn"><select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls + " w-full"} required><option value="">-- chọn lớp · môn --</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select></Field>
@@ -53,7 +53,7 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
         </MobileCollapse>
       </AutoForm>
 
-      <Table head={["Giáo án", "Lớp · môn", "Ngày đăng", ""]}>
+      <Table mobileLayout="compact" head={["Giáo án", "Lớp · môn", "Ngày đăng", ""]}>
         {plans.map((p) => (
           <tr key={p.id} className="align-middle [&>td]:!py-3">
             <td className="min-w-48">

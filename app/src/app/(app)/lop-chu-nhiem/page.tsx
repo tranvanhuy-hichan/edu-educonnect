@@ -33,7 +33,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
     include: { gradeLevel: true, academicYear: true, homeroomTeacher: true },
   });
   if (!classes.length) {
-    return <div className="space-y-4"><h1 className="text-xl font-semibold">Lớp chủ nhiệm</h1><Card className="py-10 text-center text-sm text-slate-500">Bạn chưa được phân công chủ nhiệm lớp nào. Liên hệ Hiệu trưởng/Hiệu phó để được phân công.</Card></div>;
+    return <div className="space-y-4"><h1 className="text-base font-semibold sm:text-xl">Lớp chủ nhiệm</h1><Card className="py-10 text-center text-sm text-slate-500">Bạn chưa được phân công chủ nhiệm lớp nào. Liên hệ Hiệu trưởng/Hiệu phó để được phân công.</Card></div>;
   }
   const cls = classes.find((c) => c.id === sp.classId) ?? classes[0];
   const terms = await db.academicTerm.findMany({ where: { academicYearId: cls.academicYearId }, orderBy: { startDate: "desc" } });
@@ -60,11 +60,11 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
 
   return (
     <div className="space-y-4">
-      <Card className="flex flex-wrap items-center gap-4">
-        <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><GraduationCap className="size-7" /></span>
+      <Card className="homeroom-heading flex flex-wrap items-center gap-2.5 sm:gap-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-orange-100 text-orange-700 sm:size-14 sm:rounded-xl"><GraduationCap className="size-5 sm:size-7" /></span>
         <div className="min-w-0 flex-1">
           <h1 className="text-xl font-semibold">Lớp {cls.className}</h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 sm:gap-x-4 sm:text-sm">
             <span>{cls.gradeLevel.gradeName}</span><span>Năm học {cls.academicYear.yearName}</span>
             <span>GVCN: {cls.homeroomTeacher?.fullName ?? "Chưa phân công"}</span><span>{roster.length} học sinh</span>
           </div>
@@ -87,8 +87,9 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         const days = [2, 3, 4, 5, 6, 7];
         if (!slots.length) return <Card className="py-10 text-center text-sm text-slate-500">Lớp chưa có thời khóa biểu trong học kỳ này.</Card>;
         return (
-          <div className="content-panel overflow-x-auto rounded-lg border bg-white">
+          <div className="class-timetable overflow-x-auto bg-white" role="region" aria-label="Thời khóa biểu lớp — vuốt ngang để xem đủ các ngày" tabIndex={0}>
             <table className="w-full min-w-[720px] table-fixed text-sm">
+              <caption className="sr-only">Thời khóa biểu lớp: hàng là tiết học, cột là ngày trong tuần</caption>
               <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="w-16 px-3 py-2.5 text-left font-semibold">Tiết</th>{days.map((d) => <th key={d} className="px-3 py-2.5 text-left font-semibold">Thứ {d}</th>)}</tr></thead>
               <tbody className="[&>tr]:border-t">
                 {periods.map((p) => (
@@ -124,7 +125,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               <Card className="p-0"><div className="border-b px-4 py-3"><h2 className="font-semibold">Giáo viên bộ môn</h2></div>
-                <Table bare head={["Môn", "Giáo viên", "Điểm TB"]}>
+                <Table bare mobileLayout="compact" head={["Môn", "Giáo viên", "Điểm TB"]}>
                   {assignments.map((a) => { const v = averages.filter((x) => x.assignmentId === a.id).map((x) => x.averageValue); const m = v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; return <tr key={a.id} className="align-middle"><td className="font-medium">{a.subject.subjectName}</td><td>{a.teacher.fullName}</td><td><b style={{ color: m != null ? bandOf(m).color : undefined }}>{fmt(m)}</b></td></tr>; })}
                   {!assignments.length && <tr><td colSpan={3} className="py-8 text-center text-slate-500">Chưa phân công giáo viên bộ môn cho học kỳ này.</td></tr>}
                 </Table></Card>
@@ -140,7 +141,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
 
       {/* ===================== HỌC SINH ===================== */}
       {tab === "students" && (
-        <Table head={["Học sinh", "Ngày sinh", "Phụ huynh", "SĐT phụ huynh", "Điểm TB"]}>
+        <Table mobileLayout="compact" head={["Học sinh", "Ngày sinh", "Phụ huynh", "SĐT phụ huynh", "Điểm TB"]}>
           {roster.map((s) => { const avg = studentAvg(s.id); const band = avg != null ? bandOf(avg) : null; return (
             <tr key={s.id} className="align-middle [&>td]:!py-3">
               <td><Link data-row href={`/hoc-sinh/${s.id}`} className="font-semibold text-orange-700 hover:underline">{s.fullName}</Link><div className="text-xs text-slate-500">{s.code}</div></td>
@@ -157,7 +158,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
           <Tabs current={sp.sub === "mon" ? q("scores", "&sub=mon") : q("scores", "")} items={[[q("scores", ""), "Bảng điểm tổng kết"], [q("scores", "&sub=mon"), "Điểm theo môn"]]} />
           {sp.sub !== "mon" && (
         <div className="[&_table]:table-fixed [&_th:first-child]:w-[30%] [&_th:not(:first-child)]:text-center">
-          <Table head={["Học sinh", ...assignments.map((a) => a.subject.subjectName), "TB chung"]}>
+          <Table mobileLayout="compact" head={["Học sinh", ...assignments.map((a) => a.subject.subjectName), "TB chung"]}>
             {roster.map((s) => { const avg = studentAvg(s.id); return (
               <tr key={s.id} className="align-middle [&>td]:!py-2.5">
                 <td className="whitespace-nowrap"><Link data-row href={`/hoc-sinh/${s.id}`} className="font-semibold text-orange-700 hover:underline">{s.fullName}</Link></td>
@@ -170,7 +171,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
             )}
           {sp.sub === "mon" && !assignments.some((x) => x.id === sp.a) && (
             <div className="[&_table]:table-fixed [&_th:nth-child(1)]:w-[34%] [&_th:nth-child(2)]:w-[34%] [&_th:nth-child(3)]:w-[24%] [&_th:last-child]:text-right [&_td:last-child]:text-right">
-              <Table head={["Môn học", "Giáo viên", "Điểm TB lớp", ""]}>
+              <Table mobileLayout="compact" head={["Môn học", "Giáo viên", "Điểm TB lớp", ""]}>
                 {assignments.map((x) => { const v = averages.filter((y) => y.assignmentId === x.id).map((y) => y.averageValue); const m = v.length ? v.reduce((t, n) => t + n, 0) / v.length : null; return (
                   <tr key={x.id} className="align-middle [&>td]:!py-3">
                     <td><Link data-row href={q("scores", `&sub=mon&a=${x.id}`)} className="font-semibold hover:text-orange-700">{x.subject.subjectName}</Link></td>
@@ -191,7 +192,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
               <div className="space-y-2">
                 <div className="text-sm text-slate-600"><b className="text-base text-slate-900">{asg.subject.subjectName}</b> · GV {asg.teacher.fullName}</div>
                 <div className="[&_table]:table-fixed [&_th:first-child]:w-[26%] [&_th:not(:first-child)]:text-center [&_td:not(:first-child)]:text-center">
-                  <Table head={["Học sinh", ...Array.from({ length: nTx }, (_, i) => `TX${i + 1}`), "Giữa kỳ", "Cuối kỳ", "TB môn"]}>
+                  <Table mobileLayout="compact" head={["Học sinh", ...Array.from({ length: nTx }, (_, i) => `TX${i + 1}`), "Giữa kỳ", "Cuối kỳ", "TB môn"]}>
                     {roster.map((st) => (
                       <tr key={st.id} className="align-middle [&>td]:!py-2.5">
                         <td><Link data-row href={`/hoc-sinh/${st.id}`} className="font-semibold hover:text-orange-700">{st.fullName}</Link></td>
@@ -215,7 +216,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         return (
           <div className="space-y-4">
             {list.length > 0 && <Card><h2 className="mb-4 font-semibold">Điểm thi đua qua các kỳ</h2><ColumnChart items={[...list].reverse().slice(-12).map((x) => ({ label: x.periodLabel.replace(/\s*\(.*\)$/, ""), value: Math.max(0, x.totalScore) }))} /></Card>}
-            <Table head={["Kỳ thi đua", "Học kỳ", "Điểm thi đua", "Hạng toàn trường"]}>
+            <Table mobileLayout="compact" head={["Kỳ thi đua", "Học kỳ", "Điểm thi đua", "Hạng toàn trường"]}>
               {list.map((x) => <tr key={x.id}><td className="font-medium">{x.periodLabel}</td><td>{x.academicTerm.termName}</td><td><b>{x.totalScore}</b></td><td>{x.rank ? `#${x.rank}` : "-"}</td></tr>)}
               {!list.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Chưa có dữ liệu thi đua cho lớp này.</td></tr>}
             </Table>

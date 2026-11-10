@@ -355,3 +355,78 @@ tr[data-clickable] { cursor: pointer; }
   .class-timetable :is(th, td):first-child { width: 2.5rem; }
   .class-timetable td { padding: 0.375rem; }
 }
+
+/* First design samples: management overview and class directory. */
+.design-sample .sample-surface {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: var(--surface);
+  box-shadow: 0 2px 6px -3px rgb(15 35 24 / 0.12);
+}
+.design-sample .sample-muted { color: var(--text-muted); }
+.design-sample .sample-brand-link { color: var(--brand-text); }
+.design-sample .sample-brand-icon { color: var(--brand-text); background: var(--brand-soft); }
+.design-sample .sample-warning { color: var(--warning-text); background: var(--warning-bg); }
+.design-sample .sample-danger { color: var(--danger-text); background: var(--danger-bg); }
+.design-sample .sample-info { color: var(--info-text); background: var(--info-bg); }
+.design-sample :is(.sample-filter-tag, .sample-count, .sample-progress-track) { background: var(--surface-muted); }
+.design-sample .sample-filter-tag { color: var(--text-muted); }
+.design-sample .sample-count { padding: 0.2rem 0.5rem; border-radius: 0.375rem; font-weight: 500; color: var(--text-muted); }
+.design-sample :is(.sample-class-card, .dashboard-stat):hover { border-color: var(--primary); background: var(--surface-raised); }
+.design-sample :is(a, button, input, select, summary):focus-visible { outline: 2px solid var(--brand-text); outline-offset: 3px; }
+.design-sample .sample-task-link:hover { color: var(--brand-text); }
+.design-sample .sample-toolbar { padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; background: var(--surface-muted); }
+.manager-dashboard { display: flex; flex-direction: column; gap: 1.25rem; }
+.manager-dashboard > * { order: 4; }
+.manager-dashboard > .dashboard-heading { order: 0; }
+.manager-dashboard > .dashboard-stats { order: 2; }
+.manager-dashboard > .dashboard-operations { display: contents; }
+.manager-dashboard .dashboard-attention { order: 1; }
+.manager-dashboard .dashboard-operations > :last-child { order: 3; }
+.dashboard-heading { border-left: 3px solid var(--primary); padding-left: 0.875rem; }
+:root[data-dark="1"] .design-sample .sample-surface { box-shadow: 0 2px 8px -4px rgb(0 0 0 / 0.4); }
+@media screen and (min-width: 768px) {
+  .manager-dashboard > .dashboard-stats { order: 1; }
+  .manager-dashboard > .dashboard-operations { display: grid; order: 2; }
+}
+@media screen and (max-width: 767px) {
+  .design-sample .sample-surface { border-radius: 0.5rem; box-shadow: none; }
+  .design-sample .sample-toolbar { padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .manager-dashboard { gap: 0.875rem; }
+  .manager-dashboard .item-card > .border-b { padding: 0.75rem; }
+}
+
+/* Important Tailwind row utilities (e.g. [&>td]:!py-3) live in the
+   utilities layer. Reset them in that same layer: unlayered !important
+   rules have lower priority than layered !important declarations. */
+@layer utilities {
+  @media screen and (max-width: 767px) {
+    .rtable tbody tr > td { padding: 0 !important; }
+  }
+}
+@media screen and (max-width: 767px) {
+  .rtable-compact tbody tr { gap: 0.375rem 0.75rem; padding: 0.625rem 0.75rem; }
+  .rtable-compact tbody td { text-align: left; font-size: 0.8125rem; line-height: 1.5; }
+  .rtable-compact tbody td:first-child { font-size: 0.875rem; font-weight: 500; }
+  .rtable-compact tbody td::before {
+    display: inline;
+    margin: 0 0.375rem 0 0;
+    font-size: 0.6875rem;
+    letter-spacing: 0;
+    text-transform: none;
+    font-weight: 400;
+  }
+  .rtable-compact tbody td[data-actions] { padding-top: 0.25rem !important; }
+  .lesson-plan-list .rtable-compact tbody td:first-child > button {
+    min-height: 2rem;
+    height: auto;
+    max-width: 100%;
+    justify-content: flex-start;
+    padding: 0;
+    text-align: left;
+    white-space: normal;
+    font-size: 0.875rem;
+  }
+  .homeroom-heading > .filter-form { width: 100%; }
+}

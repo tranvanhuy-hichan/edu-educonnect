@@ -38,12 +38,13 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
   const params = { q, all, v, grade, year, teacher, size: sp.size };
 
   return (
-    <div className="space-y-4">
-      <Title actionsInline right={canEdit ? <><div className="hidden md:block"><Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm lớp học</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lớp học"><Link href="/lop-hoc/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm lớp học</Link></ActionMenu></div></> : undefined}>Danh sách Lớp học ({total})</Title>
-      <AutoForm className="flex flex-wrap items-center gap-2">
+    <div className="design-sample class-directory space-y-4">
+      <Title actionsInline right={canEdit ? <><div className="hidden md:block"><Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm lớp học</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lớp học"><Link href="/lop-hoc/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm lớp học</Link></ActionMenu></div></> : undefined}>Danh sách lớp <span className="sample-count ml-1 inline-flex align-middle text-sm">{total}</span></Title>
+      <p className="sample-muted text-sm">Quản lý lớp học, sĩ số và giáo viên chủ nhiệm.</p>
+      <AutoForm className="sample-toolbar flex flex-wrap items-center gap-2">
         <input type="hidden" name="v" value={v} />
         <input name="q" defaultValue={q} placeholder="Tìm lớp học..." className={inputCls + " min-w-48 flex-1 max-md:w-full max-md:basis-full"} />
-        <MobileCollapse active={[grade, year, teacher].filter(Boolean).length}>
+        <MobileCollapse active={[grade, year, teacher, all].filter(Boolean).length}>
           <select name="grade" defaultValue={grade ?? ""} className={inputCls}><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
           <select name="year" defaultValue={year ?? ""} className={inputCls}><option value="">Năm học hiện tại</option>{years.map((y) => <option key={y.id} value={y.id}>{y.yearName}</option>)}</select>
           <select name="teacher" defaultValue={teacher ?? ""} className={inputCls + " max-w-56"}><option value="">Tất cả GVCN</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>
@@ -53,6 +54,12 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
 
 
       </AutoForm>
+
+      {(q || grade || year || teacher || all) && <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs" aria-label="Bộ lọc đang áp dụng">
+        <span className="sample-muted">Đang lọc:</span>
+        {[q && `“${q}”`, grades.find((g) => g.id === grade)?.gradeName, years.find((y) => y.id === year)?.yearName, teachers.find((t) => t.id === teacher)?.fullName, all && "Gồm năm cũ"].filter(Boolean).map((label, index) => <span key={index} className="sample-filter-tag rounded px-2 py-1">{label}</span>)}
+        <Link href={`/lop-hoc?v=${v === "cards" ? "cards" : "table"}`} className="sample-brand-link inline-flex min-h-9 items-center px-1 font-medium hover:underline">Xóa bộ lọc</Link>
+      </div>}
 
       {v !== "cards" && (
         <div className="grid grid-cols-1 gap-3 md:hidden">

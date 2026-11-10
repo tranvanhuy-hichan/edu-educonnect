@@ -100,7 +100,7 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
       </div>
 
       {view === "table" ? (
-        <Table head={student ? ["Bài học", "Lớp · môn", "Bài tập", "Ngày đăng"] : ["Bài học", "Lớp · môn", "Bài tập", "Đã xem", "Ngày đăng"]}>
+        <Table mobileLayout="compact" head={student ? ["Bài học", "Lớp · môn", "Bài tập", "Ngày đăng"] : ["Bài học", "Lớp · môn", "Bài tập", "Đã xem", "Ngày đăng"]}>
           {posts.map((p) => {
             const n = sizeOf.get(p.assignment.schoolClassId) ?? 0;
             return (

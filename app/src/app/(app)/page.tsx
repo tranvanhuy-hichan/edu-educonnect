@@ -49,7 +49,7 @@ export default async function Home() {
   const me = await requireRole();
   const today = todayUTC();
   const dow = today.getUTCDay() === 0 ? null : today.getUTCDay() + 1; // Thứ 2 = 2 … Thứ 7 = 7; Chủ nhật nghỉ
-  const term = (await db.academicTerm.findFirst({ where: { startDate: { lte: today }, endDate: { gte: today } } })) ?? (await db.academicTerm.findFirst({ orderBy: { startDate: "desc" } }));
+  const term = (await db.academicTerm.findFirst({ where: { startDate: { lte: today }, endDate: { gte: today } }, include: { academicYear: { select: { yearName: true } } } })) ?? (await db.academicTerm.findFirst({ orderBy: { startDate: "desc" }, include: { academicYear: { select: { yearName: true } } } }));
   const yearWhere = term ? { academicYearId: term.academicYearId } : {};
   const todaySlots = (where: object): Promise<TodaySlot[]> =>
     term && dow ? loadScheduleSlots({ academicTermId: term.id, dayOfWeek: dow, ...where, ...effectiveSlots(today) }) : Promise.resolve([]);
@@ -102,20 +102,20 @@ export default async function Home() {
     const lessonCount = slots.filter((slot) => slot.kind !== "activity").length;
     const completion = lessonCount ? Math.round((lessonCount - unlogged.length) / lessonCount * 100) : null;
     blocks.push(
-      <div key="manager" className="manager-dashboard space-y-6">
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-          <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-orange-700">{isAdmin ? "Quản trị hệ thống" : "Điều hành nhà trường"}</p>
-            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Tổng quan nhà trường</h1>
-            <p className="mt-2 text-sm text-slate-500">Xin chào, {me.name}. Theo dõi hoạt động và công việc trong ngày.</p>
+      <div key="manager" className="design-sample manager-dashboard">
+        <header className="dashboard-heading flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="min-w-0">
+            <p className="sample-brand-link mb-1 text-xs font-semibold">{isAdmin ? "Quản trị hệ thống" : "Điều hành nhà trường"}</p>
+            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Tổng quan nhà trường</h1>
+            <p className="sample-muted mt-1 text-sm">Xin chào, {me.name}.</p>
           </div>
-          <div className="flex shrink-0 items-center gap-3 rounded-xl border bg-white px-4 py-3">
-            <CalendarClock className="size-5 text-orange-700" />
-            <div><p className="text-xs text-slate-500">{today.toLocaleDateString("vi-VN", { weekday: "long", timeZone: "UTC" })}</p><p className="text-sm font-semibold tabular-nums">{fmtDate(today)}</p></div>
+          <div className="sample-muted flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:justify-end">
+            <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-3.5" />{fmtDate(today)}</span>
+            {term && <span className="sample-filter-tag rounded-md px-2 py-1">{term.termName} · {term.academicYear.yearName}</span>}
           </div>
         </header>
 
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="dashboard-stats grid grid-cols-2 gap-2.5 xl:grid-cols-4">
           {[
             { icon: GraduationCap, label: "Học sinh", value: students, href: "/hoc-sinh" },
             { icon: Users, label: "Giáo viên", value: teachers, href: "/giao-vien" },
@@ -125,35 +125,41 @@ export default async function Home() {
             <Link
               key={href}
               href={href}
-              className="group flex items-center justify-between gap-3 rounded-xl border bg-white px-4 py-5 transition-colors hover:border-orange-300 hover:bg-orange-50/40 sm:px-5"
+              className="sample-surface dashboard-stat group flex min-w-0 items-center justify-between gap-2 p-3 transition-colors sm:p-4"
             >
               <div>
                 <p className="text-xs font-medium text-slate-500 sm:text-sm">{label}</p>
-                <p className="mt-1.5 text-3xl font-semibold tracking-tight tabular-nums">{value.toLocaleString("vi-VN")}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{value.toLocaleString("vi-VN")}</p>
               </div>
-              <span className="grid size-11 shrink-0 place-items-center rounded-full bg-orange-50 text-orange-700 transition-colors group-hover:bg-orange-100">
+              <span className="sample-brand-icon grid size-8 shrink-0 place-items-center rounded-lg sm:size-10">
                 <Icon className="size-5" strokeWidth={1.75} />
               </span>
             </Link>
           ))}
         </div>
 
-        <section className="grid gap-4 xl:grid-cols-3" aria-label="Điều hành trong ngày">
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5 xl:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="flex items-center gap-2 font-semibold"><ClipboardList className="size-4 text-orange-700" /> Sổ đầu bài hôm nay</h2><Link href="/so-dau-bai" className="inline-flex items-center gap-1 text-xs font-semibold text-orange-700 hover:underline">Xem chi tiết <ArrowUpRight className="size-3.5" /></Link></div>
-            <div className="mt-5 flex items-end justify-between gap-4"><div><span className="text-3xl font-bold tabular-nums">{lessonCount - unlogged.length}</span><span className="ml-2 text-sm text-slate-500">/ {lessonCount} tiết đã ghi</span></div><span className="text-sm font-semibold text-orange-700">{completion === null ? "—" : `${completion}%`}</span></div>
-            <div className="mt-3 h-2 overflow-hidden rounded-full bg-orange-200" role="progressbar" aria-label="Tỷ lệ tiết đã ghi sổ đầu bài" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion ?? undefined}><div className="h-full rounded-full bg-orange-600" style={{ width: `${completion ?? 0}%` }} /></div>
-            <p className="mt-3 text-xs text-slate-500">{lessonCount ? "Tính trên toàn bộ tiết học trong thời khóa biểu hôm nay, bao gồm các tiết chưa diễn ra." : "Hôm nay chưa có tiết học trong thời khóa biểu."}</p>
-          </div>
-          <div className="content-panel rounded-2xl border bg-white p-5">
-            <h2 className="flex items-center gap-2 font-semibold"><CheckCircle2 className="size-4 text-orange-700" /> Cần theo dõi</h2>
-            <div className="mt-3 divide-y">
-              {[
-                { label: "Tiết chưa ghi sổ", count: unlogged.length, href: "/so-dau-bai" },
-                { label: "Lớp chưa có GVCN", count: noHomeroomCount, href: "/lop-hoc" },
-                { label: "Phiếu mượn quá hạn", count: loanCount, href: "/thu-vien" },
-              ].map((item) => <Link key={item.href} href={item.href} className="flex items-center justify-between gap-2 py-3 text-sm hover:text-orange-700"><span>{item.label}</span><span className={`min-w-7 rounded-md px-2 py-0.5 text-center text-xs font-semibold tabular-nums ${item.count ? "bg-amber-100 text-amber-800" : "bg-orange-50 text-orange-700"}`}>{item.count}</span></Link>)}
+        <section className="dashboard-operations grid gap-3 xl:grid-cols-3" aria-label="Điều hành trong ngày">
+          <div className="sample-surface dashboard-attention overflow-hidden xl:col-span-2">
+            <div className="flex items-start gap-2.5 border-b px-3 py-3 sm:px-4">
+              <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${noHomeroomCount || loanCount ? "sample-warning" : "sample-brand-icon"}`}>
+                {noHomeroomCount || loanCount ? <AlertTriangle className="size-4" /> : <CheckCircle2 className="size-4" />}
+              </span>
+              <div><h2 className="text-sm font-semibold">{noHomeroomCount || loanCount ? "Cần xử lý" : "Công việc trong ngày"}</h2><p className="sample-muted mt-0.5 text-xs">{noHomeroomCount || loanCount ? "Những mục cần kiểm tra và bổ sung." : "Không có lớp thiếu GVCN hoặc phiếu mượn quá hạn."}</p></div>
             </div>
+            <div className="divide-y px-3 sm:px-4">
+              {[
+                { label: "Lớp chưa có GVCN", count: noHomeroomCount, href: "/lop-hoc", tone: "sample-warning" },
+                { label: "Phiếu mượn quá hạn", count: loanCount, href: "/thu-vien?tab=overdue", tone: "sample-danger" },
+              ].map((item) => <Link key={item.href} href={item.href} className="sample-task-link flex min-h-11 items-center gap-3 py-2 text-[13px]"><span className="min-w-0 flex-1">{item.label}</span><span className={`min-w-7 rounded px-2 py-0.5 text-center text-xs font-semibold tabular-nums ${item.count ? item.tone : "sample-filter-tag"}`}>{item.count}</span><ArrowUpRight className="sample-muted size-3.5 shrink-0" /></Link>)}
+              <Link href="/so-dau-bai" className="sample-task-link flex min-h-11 items-center gap-3 py-2 text-[13px]"><span className="min-w-0 flex-1">Tiết hôm nay chưa ghi sổ <span className="sample-muted text-xs">· gồm tiết chưa diễn ra</span></span><span className="sample-info min-w-7 rounded px-2 py-0.5 text-center text-xs font-semibold tabular-nums">{unlogged.length}</span><ArrowUpRight className="sample-muted size-3.5 shrink-0" /></Link>
+            </div>
+          </div>
+          <div className="sample-surface p-3 sm:p-4">
+            <div className="flex items-center justify-between gap-2"><h2 className="flex items-center gap-2 text-sm font-semibold"><ClipboardList className="sample-brand-link size-4" /> Sổ đầu bài hôm nay</h2></div>
+            <div className="mt-4 flex items-end justify-between gap-3"><div><span className="text-2xl font-semibold tabular-nums">{lessonCount - unlogged.length}</span><span className="sample-muted ml-1.5 text-xs">/ {lessonCount} tiết đã ghi</span></div><span className="sample-brand-link text-sm font-semibold">{completion === null ? "—" : `${completion}%`}</span></div>
+            <div className="sample-progress-track mt-3 h-1.5 overflow-hidden rounded-full" role="progressbar" aria-label="Tỷ lệ tiết đã ghi sổ đầu bài" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion ?? undefined}><div className="h-full rounded-full bg-orange-600" style={{ width: `${completion ?? 0}%` }} /></div>
+            <p className="sample-muted mt-3 text-xs leading-relaxed">{lessonCount ? "Tính trên tất cả tiết hôm nay, gồm các tiết chưa diễn ra." : "Hôm nay chưa có tiết học trong thời khóa biểu."}</p>
+            <Link href="/so-dau-bai" className="sample-brand-link mt-2 inline-flex min-h-9 items-center gap-1 text-xs font-semibold hover:underline">Xem sổ đầu bài <ArrowUpRight className="size-3.5" /></Link>
           </div>
         </section>
 

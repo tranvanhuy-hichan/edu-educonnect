@@ -16,7 +16,7 @@ export type Theme = {
 export const PRIMARY_COLOR = "#30794B";
 
 export const DEFAULT_THEME: Theme = {
-  primary: PRIMARY_COLOR, background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0",
+  primary: PRIMARY_COLOR, background: "#f3f6f5", surface: "#ffffff", text: "#0f172a", line: "#dce5df",
   sidebar: PRIMARY_COLOR, font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 10, logo: "", dark: false,
 };
 
@@ -80,7 +80,7 @@ function lum(hex: string) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-const LIGHT_COLORS = { background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0", sidebar: PRIMARY_COLOR };
+const LIGHT_COLORS = { background: "#f3f6f5", surface: "#ffffff", text: "#0f172a", line: "#dce5df", sidebar: PRIMARY_COLOR };
 const DARK_COLORS = { background: "#090d16", surface: "#111827", text: "#f8fafc", line: "#1f2937", sidebar: "#0d1c13" };
 
 function block(t: Theme, dark: boolean) {
@@ -89,7 +89,8 @@ function block(t: Theme, dark: boolean) {
   const c = own ? t : dark ? { ...DARK_COLORS, sidebar: mix(t.primary, "#0f172a", 0.65) } : LIGHT_COLORS;
   const pal = palette(t.primary, dark);
   const vars = Object.entries(pal).map(([k, v]) => `--color-orange-${k}:${v};`).join("");
-  return `${vars}--primary:${t.primary};--bg:${c.background};--surface:${c.surface};--fg:${c.text};--line:${c.line};--sidebar:${c.sidebar};--sb-fg:${lum(c.sidebar) > 0.6 ? "#1f2937" : "#ffffff"};color-scheme:${dark ? "dark" : "light"};`;
+  const surfaces = `--surface-muted:${mix(c.surface, c.text, dark ? 0.06 : 0.035)};--surface-raised:${mix(c.surface, "#ffffff", dark ? 0.045 : 0)};--text-muted:${mix(c.text, c.surface, dark ? 0.3 : 0.32)};--brand-soft:${pal[50]};--brand-text:${pal[700]};--warning-bg:${dark ? "#302719" : "#fff6e5"};--warning-text:${dark ? "#f6cc82" : "#875514"};--danger-bg:${dark ? "#382027" : "#fff0f1"};--danger-text:${dark ? "#f5afb9" : "#a82c40"};--info-bg:${dark ? "#172b3b" : "#edf5fc"};--info-text:${dark ? "#a0cef5" : "#285e87"};`;
+  return `${vars}${surfaces}--primary:${t.primary};--bg:${c.background};--surface:${c.surface};--fg:${c.text};--line:${c.line};--sidebar:${c.sidebar};--sb-fg:${lum(c.sidebar) > 0.6 ? "#1f2937" : "#ffffff"};color-scheme:${dark ? "dark" : "light"};`;
 }
 
 /** Sinh CSS cho cả hai chế độ: :root là sáng, [data-dark="1"] là tối. */

@@ -119,7 +119,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
                     <span className="font-normal text-slate-500">{list.length ? `${done}/${list.length} tiết đã ghi` : "Không có tiết"}</span>
                   </div>
                   {list.length > 0 && (
-                    <Table bare head={["Tiết", "Môn", "GVBM", "Đánh giá", "Xếp loại", "HS vắng"]}>
+                    <Table bare mobileLayout="compact" head={["Tiết", "Môn", "GVBM", "Đánh giá", "Xếp loại", "HS vắng"]}>
                       {list.map((s) => {
                         const log = logOf.get(`${s.id}|${iso}`);
                         const rt = log?.conductRating ? RATING[log.conductRating] : null;

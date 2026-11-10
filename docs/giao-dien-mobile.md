@@ -24,3 +24,12 @@ Các thao tác thêm mới/nhập hàng loạt của giáo viên, học sinh, l�
 Bài học, Giáo án, Thư viện, Tài khoản, Giáo viên, Học sinh, Lớp học, Phân công, Thi đua, Lớp chủ nhiệm, Nhập điểm và Sổ đầu bài đã được rà soát. Nút Bảng/Thẻ nằm trong Bộ lọc hoặc menu tùy chọn trên mobile. Thể loại Thư viện, ngày lọc Sổ đầu bài và các bộ lọc nâng cao được thu gọn. Các trường vẫn nằm trong đúng form khi đóng để không mất giá trị đã chọn.
 
 Đã kiểm tra tương tác bằng React và Chromium với dữ liệu giả lập: mở/đóng bộ lọc, chọn thể loại, giữ giá trị khi đóng, mở menu kiểu xem, mở hộp nhập hàng loạt và đổi tuần giữ đúng lớp. Các fixture chạy ở 320, 390 và 1280px không tràn ngang, không có ngoại lệ JavaScript. Router trong fixture là giả lập để kiểm tra tham số điều hướng; chưa kiểm tra các luồng này trên production.
+
+
+### Sửa card bảng bị giãn trên mobile
+
+Các utility Tailwind như `[&>td]:!py-3` có `!important` trong layer `utilities`; chúng thắng quy tắc `padding: 0 !important` ngoài layer. Điều này khiến các thẻ từ bảng vẫn bị đệm trên/dưới ở từng ô. Reset mobile nay nằm trong cùng layer với selector cụ thể hơn, áp dụng cho các bảng responsive dùng chung.
+
+`Table` và `ResponsiveTable` bổ sung `mobileLayout="compact"`: nhãn ngắn đặt cùng dòng giá trị, chữ căn trái, gap nhỏ. Đã áp dụng cho bảng điểm/Lớp chủ nhiệm, sổ đầu bài theo ngày, danh sách bài học dạng bảng và giáo án. Nội dung và nút hành động vẫn giữ đủ; dialog giáo án mở bằng tiêu đề căn trái, cho phép xuống dòng. Thời khóa biểu ở Lớp chủ nhiệm dùng cùng khung lưới có đường chia cột và cột tiết cố định như chi tiết lớp.
+
+Kiểm tra browser với cấu trúc Table/row utility tương ứng và dữ liệu minh họa: ở 390px, hàng điểm 182→83px, dòng sổ đầu bài 254→103px, bài học 202→108px, giáo án 199→107px. Đây là số đo fixture, không phải cam kết chiều cao cố định cho nội dung dài. Kiểm tra 320/390/768/1280px, sáng/tối; desktop giữ padding cũ, mobile padding ô bằng 0 và không tràn ngang toàn trang.

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
  * - Hàng nào có liên kết đánh dấu data-row thì bấm vào chỗ nào của hàng cũng mở được chi tiết
  *   (trừ khi bấm vào nút, ô nhập, liên kết khác).
  */
-export function ResponsiveTable({ children, mobileLayout = "grid" }: { children: React.ReactNode; mobileLayout?: "grid" | "stack" }) {
+export function ResponsiveTable({ children, mobileLayout = "grid" }: { children: React.ReactNode; mobileLayout?: "grid" | "stack" | "compact" }) {
   const ref = useRef<HTMLTableElement>(null);
   const router = useRouter();
   useEffect(() => {
@@ -41,5 +41,5 @@ export function ResponsiveTable({ children, mobileLayout = "grid" }: { children:
     else router.push(a.getAttribute("href")!);
   }
 
-  return <table ref={ref} onClick={onClick} className={`rtable w-full text-left text-sm ${mobileLayout === "stack" ? "rtable-stack" : ""}`}>{children}</table>;
+  return <table ref={ref} onClick={onClick} className={`rtable w-full text-left text-sm ${mobileLayout === "stack" ? "rtable-stack" : mobileLayout === "compact" ? "rtable-compact" : ""}`}>{children}</table>;
 }
