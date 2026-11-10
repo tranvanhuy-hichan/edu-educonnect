@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <circle cx="100" cy="100" r="95" fill="none" stroke="#0b63b8" stroke-width="6"/>
+  <text x="100" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700" fill="#0b63b8">THPT</text>
+  <text x="100" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" font-weight="700" fill="#0b63b8">SON HA</text>
+</svg>

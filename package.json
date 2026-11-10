@@ -1,0 +1,22 @@
+{
+  "name": "educonnect",
+  "private": true,
+  "workspaces": [
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=app",
+    "build": "npm run build --workspace=app",
+    "prisma:generate": "npm run prisma:generate --workspace=app",
+    "prisma:migrate": "npm run prisma:migrate --workspace=app",
+    "seed": "npm run seed --workspace=app"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

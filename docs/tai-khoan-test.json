@@ -1,0 +1,90 @@
+{
+  "ghiChu": "Tất cả tài khoản dùng chung mật khẩu test123. Dữ liệu được tạo từ app/prisma/seed.ts, chạy lại bằng lệnh `make seed`.",
+  "matKhauChung": "test123",
+  "taiKhoan": [
+    {
+      "email": "admin@sonha.edu.vn",
+      "vaiTro": [
+        "ADMIN"
+      ],
+      "moTa": "Quản trị hệ thống — quản lý tài khoản, cấu hình, nhật ký; tách biệt hoàn toàn với Hiệu trưởng"
+    },
+    {
+      "email": "hieutruong@sonha.edu.vn",
+      "vaiTro": [
+        "PRINCIPAL"
+      ],
+      "moTa": "Hiệu trưởng — toàn quyền hệ thống"
+    },
+    {
+      "email": "hieupho@sonha.edu.vn",
+      "vaiTro": [
+        "VICE_PRINCIPAL"
+      ],
+      "moTa": "Hiệu phó — gần như toàn quyền trừ cấu hình gốc"
+    },
+    {
+      "email": "thuthu@sonha.edu.vn",
+      "vaiTro": [
+        "LIBRARIAN"
+      ],
+      "moTa": "Thủ thư — quản lý thư viện"
+    },
+    {
+      "email": "gvcn.toan@sonha.edu.vn",
+      "vaiTro": [
+        "HOMEROOM_TEACHER",
+        "SUBJECT_TEACHER"
+      ],
+      "moTa": "1 tài khoản duy nhất, vừa là GVCN lớp 10A1 vừa là GVBM dạy Toán — đúng mô hình 1 người nhiều vai trò"
+    },
+    {
+      "email": "gvbm.van@sonha.edu.vn",
+      "vaiTro": [
+        "SUBJECT_TEACHER"
+      ],
+      "moTa": "GVBM dạy Ngữ văn lớp 10A1"
+    },
+    {
+      "email": "giaovien@sonha.edu.vn",
+      "vaiTro": [
+        "HOMEROOM_TEACHER",
+        "SUBJECT_TEACHER"
+      ],
+      "moTa": "Giáo viên đầy đủ dữ liệu demo — GVCN lớp 11A1 (18 học sinh, có lớp trưởng) + GVBM Toán (11A1, 11A2), Vật lý (11A1, 11A2), Hóa học (11A2); có TKB, sổ đầu bài nhiều tuần, điểm, bài học/bài tập/bài nộp, giáo án, kết quả cuối năm, thi đua. Học sinh: hs11.01–hs11.26@sonha.edu.vn"
+    },
+    {
+      "email": "hocsinh1@sonha.edu.vn",
+      "vaiTro": [
+        "STUDENT"
+      ],
+      "moTa": "Học sinh lớp 10A1 — Lê Văn Cường"
+    },
+    {
+      "email": "hocsinh2@sonha.edu.vn",
+      "vaiTro": [
+        "STUDENT"
+      ],
+      "moTa": "Học sinh lớp 10A1 — Phạm Thị Dung"
+    },
+    {
+      "email": "hocsinh3@sonha.edu.vn",
+      "vaiTro": [
+        "STUDENT"
+      ],
+      "moTa": "Học sinh lớp 10A1 — Hoàng Văn Em"
+    }
+  ],
+  "duLieuMauDaCo": {
+    "namHoc": "2026-2027",
+    "hocKy": "HK1",
+    "khoi": "Khối 10",
+    "lop": "10A1",
+    "monHoc": [
+      "Toán",
+      "Ngữ văn"
+    ],
+    "phong": "P101",
+    "sach": "Toán học phổ thông (1 bản, mã SEED-001-01)"
+  }
+}
