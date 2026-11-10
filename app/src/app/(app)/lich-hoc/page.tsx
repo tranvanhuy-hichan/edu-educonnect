@@ -1039,12 +1039,10 @@ export default async function Schedule({
                           className="block w-full overflow-hidden rounded-lg border bg-white text-left"
                           style={{ borderLeft: `4px solid ${bar}` }}
                           trigger={
-                            <span className="flex items-start justify-between gap-2 p-3">
+                            <span className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1 p-2.5">
+                              <span className="text-xs font-semibold tabular-nums">Tiết {s.slot.periodNo}</span>
                               <span className="min-w-0">
-                                <span className="block text-sm font-semibold tabular-nums">
-                                  Tiết {s.slot.periodNo}
-                                </span>
-                                <span className="block font-medium">
+                                <span className="block text-sm font-medium">
                                   {s.slot.schoolClass.className} · {s.slot.assignment.subject.subjectName}
                                 </span>
                                 <span className="block text-xs text-slate-500">
@@ -1052,7 +1050,7 @@ export default async function Schedule({
                                 </span>
                               </span>
                               <span
-                                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${stTone}`}
+                                className={`col-start-2 justify-self-start rounded px-1.5 py-0.5 text-[11px] font-medium ${stTone}`}
                               >
                                 {stLabel}
                               </span>

@@ -121,16 +121,16 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
             const n = sizeOf.get(p.assignment.schoolClassId) ?? 0;
             return (
               <Link key={p.id} href={`/bai-hoc/${p.id}`}>
-                <Card className="flex h-full flex-col gap-3 transition-colors hover:border-orange-400">
+                <Card className="lesson-card flex h-full flex-col gap-3 transition-colors hover:border-orange-400">
                   <div className="flex items-start gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-orange-100 text-orange-700"><BookOpen className="size-5" /></span>
+                    <span className="lesson-icon grid size-10 shrink-0 place-items-center rounded-lg bg-orange-100 text-orange-700"><BookOpen className="size-5" /></span>
                     <div className="min-w-0">
-                      <div className="text-base font-semibold leading-tight">{p.title}</div>
+                      <div className="lesson-title text-base font-semibold leading-tight">{p.title}</div>
                       <div className="text-xs text-slate-500">{p.assignment.schoolClass.className} · {p.assignment.subject.subjectName} · {p.assignment.academicTerm.termName}</div>
                     </div>
                   </div>
                   <p className="line-clamp-2 text-sm text-slate-600">{p.content}</p>
-                  <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-slate-500">
+                  <div className="lesson-footer mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-slate-500">
                     <ExBadge p={p} />
                     <span>{fmtDate(p.createdAt)}</span>
                     {!student && <span>Xem {p._count.views}/{n}</span>}

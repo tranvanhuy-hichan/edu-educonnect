@@ -18,11 +18,11 @@ export async function YearResults({ classId, academicYearId, manager }: { classI
     return { student: row.student, saved, subjects: subjects[index], evaluation: suggestPromotion(subjects[index], saved?.conductRank, saved?.absenceDays) };
   });
   const writable = rows.filter((row) => row.saved?.reviewStatus !== "APPROVED");
-  return <div className="space-y-4">
+  return <div className="year-results space-y-4">
     <p className="text-sm text-slate-500">Điểm cả năm từng môn = (HK1 + HK2 × 2) / 3. Thiếu điểm/nhận xét sẽ chưa đủ điều kiện xét. TB các môn chỉ để tham khảo; kết quả học tập xét theo từng môn.</p>
     <ActionForm action={saveClassResults} submit="Tổng hợp và trình duyệt" reset={false} className="flex flex-col gap-3 [&>button]:self-end">
       <input type="hidden" name="academicYearId" value={academicYearId} /><input type="hidden" name="ids" value={writable.map((row) => row.student.id).join(",")} />
-      <Table mobileLayout="stack" head={["Học sinh", "Kết quả theo môn", "Rèn luyện cả năm", "Buổi nghỉ cả năm", "Đề xuất / trạng thái"]}>
+      <Table head={["Học sinh", "Kết quả theo môn", "Rèn luyện cả năm", "Buổi nghỉ cả năm", "Đề xuất / trạng thái"]}>
         {rows.map(({ student, saved, subjects, evaluation }) => <tr key={student.id}>
           <td><Link href={`/hoc-sinh/${student.id}`} className="font-semibold hover:text-orange-700">{student.fullName}</Link><p className="text-xs text-slate-500">{student.code}</p></td>
           <td><details><summary className="cursor-pointer text-xs text-orange-700">{subjects.length} môn · TB tham khảo {evaluation.overallAverage?.toFixed(1) ?? "—"}</summary><ul className="mt-2 space-y-1 text-xs">{subjects.map((subject) => <li key={subject.subjectId}><b>{subject.name}</b>: {subject.exempt ? "Miễn đánh giá" : subject.type === "COMMENT" ? subject.outcome === "DAT" ? "Đạt" : subject.outcome === "CHUA_DAT" ? "Chưa đạt" : "Chưa đánh giá" : `${subject.first ?? "—"} / ${subject.second ?? "—"} → ${subject.average ?? "—"}`}{subject.missing.length > 0 && <p className="text-amber-700">{subject.missing.join("; ")}</p>}</li>)}</ul></details></td>

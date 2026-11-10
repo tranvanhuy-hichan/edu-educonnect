@@ -113,7 +113,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
               const isToday = iso === isoDate(today);
               const past = d.getTime() < today.getTime();
               return (
-                <div key={iso} className="item-card overflow-hidden rounded-lg border bg-white [&_table]:table-fixed [&_th:nth-child(1)]:w-[9%] [&_th:nth-child(2)]:w-[16%] [&_th:nth-child(3)]:w-[20%] [&_th:nth-child(4)]:w-[27%] [&_th:nth-child(5)]:w-[16%] [&_th:nth-child(6)]:w-[12%]">
+                <div key={iso} className="diary-day item-card overflow-hidden rounded-lg border bg-white [&_table]:table-fixed [&_th:nth-child(1)]:w-[9%] [&_th:nth-child(2)]:w-[16%] [&_th:nth-child(3)]:w-[20%] [&_th:nth-child(4)]:w-[27%] [&_th:nth-child(5)]:w-[16%] [&_th:nth-child(6)]:w-[12%]">
                   <div className="flex items-center justify-between bg-slate-50 px-4 py-2 text-sm font-semibold">
                     <span>{WEEKDAYS[d.getUTCDay()]} · {fmtDate(d)}{isToday && <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Hôm nay</span>}</span>
                     <span className="font-normal text-slate-500">{list.length ? `${done}/${list.length} tiết đã ghi` : "Không có tiết"}</span>

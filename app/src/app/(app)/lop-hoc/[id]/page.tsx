@@ -176,9 +176,11 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         return (
           <div className="space-y-3">
             <div className="flex justify-end"><Link href={`/lich-hoc?class=${id}`} className="inline-flex h-9 items-center rounded-md border bg-white px-4 text-sm hover:bg-slate-50">Mở thời khóa biểu</Link></div>
-            <div className="content-panel overflow-x-auto rounded-lg border bg-white">
+            <p className="text-xs text-slate-500 md:hidden">Vuốt ngang để xem đủ các ngày · Cột tiết được cố định.</p>
+            <div className="class-timetable overflow-x-auto bg-white" role="region" aria-label="Thời khóa biểu lớp — cuộn ngang để xem các ngày" tabIndex={0}>
               <table className="w-full min-w-[720px] text-sm">
-                <thead><tr className="bg-slate-50"><th className="w-16 border-b px-2 py-2">Tiết</th>{DAYS.map((d) => <th key={d} className="border-b px-2 py-2">{DAY_NAME[d]}</th>)}</tr></thead>
+                <caption className="sr-only">Thời khóa biểu lớp: hàng là tiết học, cột là ngày trong tuần</caption>
+                <thead><tr className="bg-slate-50"><th scope="col" className="w-16 border-b px-2 py-2">Tiết</th>{DAYS.map((d) => <th key={d} scope="col" className="border-b px-2 py-2">{DAY_NAME[d]}</th>)}</tr></thead>
                 <tbody>{Array.from({ length: 10 }, (_, i) => i + 1).map((p) => (
                   <tr key={p}><td className="border-b px-2 py-2 text-center text-slate-500">{p}</td>
                     {DAYS.map((d) => { const s = at(d, p); return <td key={d} className="border-b border-l px-2 py-1.5 align-top">{s ? <><div className="font-medium text-orange-700">{s.assignment.subject.subjectName}</div><div className="text-xs text-slate-500">{s.assignment.teacher.fullName} · {s.room.roomName}</div></> : null}</td>; })}

@@ -217,7 +217,7 @@ export function ParentPortalView({
             </div>
           </div>
 
-          <div className="no-print flex items-center gap-2 self-start sm:self-auto">
+          <div className="no-print flex items-center gap-2 self-end sm:self-auto">
             <ToolbarActions label="Tùy chọn sổ liên lạc">
             <button
               type="button"
