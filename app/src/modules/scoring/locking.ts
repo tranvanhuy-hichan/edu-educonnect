@@ -13,6 +13,6 @@ export async function assertScoreWrite(user: SessionUser, assignmentId: string, 
   const assignment = await repository.assignment(assignmentId);
   await repository.lockTermRow(assignment.academicTermId);
   const term = await repository.term(assignment.academicTermId);
-  if (termIsLocked(term) && !await activeUnlock(user, assignmentId, context)) throw new Error("Sổ điểm đã khóa. Cần yêu cầu và phê duyệt mở quyền sửa đúng lớp-môn, có thời hạn; quản lý cũng không được sửa trực tiếp.");
+  if (termIsLocked(term) && !await activeUnlock(user, assignmentId, context)) throw new Error("Sổ điểm đã khóa. Cần yêu cầu và phê duyệt mở quyền sửa đúng lớp và môn, có thời hạn; quản lý cũng không được sửa trực tiếp.");
   return assignment;
 }

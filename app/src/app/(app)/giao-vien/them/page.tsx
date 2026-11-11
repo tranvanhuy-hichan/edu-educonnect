@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { db } from "@/lib/db";
 import { MANAGER_ROLES, requireRole } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { Title } from "@/components/ui";
@@ -7,10 +8,11 @@ import { createTeacher } from "../actions";
 
 export default async function NewTeacher() {
   await requireRole(...MANAGER_ROLES);
+  const subjects = await db.subject.findMany({ orderBy: { subjectName: "asc" } });
   return (
     <div className="space-y-4">
       <Title>Thêm giáo viên</Title>
-      <ActionForm action={createTeacher} submit="Lưu giáo viên & tạo tài khoản" className="w-full space-y-4"><TeacherFields create /></ActionForm>
+      <ActionForm action={createTeacher} submit="Lưu giáo viên & tạo tài khoản" className="w-full space-y-4"><TeacherFields create subjects={subjects} /></ActionForm>
     </div>
   );
 }

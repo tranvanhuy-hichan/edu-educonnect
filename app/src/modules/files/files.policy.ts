@@ -9,7 +9,7 @@ export class FileAccessError extends Error {}
 export async function requireUploadAccess(user: SessionUser, assignmentId: string, purpose: string, exerciseId: string | null = null) {
   if (!FILE_PURPOSES.includes(purpose as FilePurpose)) throw new FileAccessError("Loại tài liệu không hợp lệ");
   if (purpose !== "SUBMISSION") {
-    if (!await canManageClassSubjectAssignment(user, assignmentId)) throw new FileAccessError("Không có quyền tải tệp cho lớp-môn này");
+    if (!await canManageClassSubjectAssignment(user, assignmentId)) throw new FileAccessError("Không có quyền tải tệp cho lớp và môn này");
     // Quản lý cũng phải cung cấp assignment tồn tại.
     if (!await repository.findAssignment(assignmentId)) throw new FileAccessError("Lớp-môn không tồn tại");
     return;
@@ -27,12 +27,16 @@ export async function validateFileReferences(user: SessionUser, urls: string[], 
   const paths = urls.filter((url) => FILE_PATH.test(url));
   if (!paths.length) return;
   const files = await repository.findFiles(paths.map((path) => path.split("/").pop()!));
-  if (files.length !== paths.length || files.some((file) => file.assignmentId !== assignmentId || file.purpose !== purpose || (purpose === "SUBMISSION" && (file.uploadedBy !== user.userId || file.exerciseId !== exerciseId)))) throw new FileAccessError("Tệp không thuộc đúng lớp-môn hoặc bài làm đang lưu");
+  if (files.length !== paths.length) throw new FileAccessError("Tệp không thuộc đúng lớp và môn hoặc bài làm đang lưu");
+  // Một bài học có thể đăng cho nhiều lớp: tệp do chính người dùng tải lên ở lớp khác vẫn dùng được nếu họ quản lý lớp và môn đích.
+  const sharedPost = purpose === "LESSON_POST" && files.some((file) => file.assignmentId !== assignmentId) && await canManageClassSubjectAssignment(user, assignmentId);
+  if (files.some((file) => file.purpose !== purpose || (file.assignmentId !== assignmentId && !(sharedPost && file.uploadedBy === user.userId)) || (purpose === "SUBMISSION" && (file.uploadedBy !== user.userId || file.exerciseId !== exerciseId)))) throw new FileAccessError("Tệp không thuộc đúng lớp và môn hoặc bài làm đang lưu");
 }
 export async function canDownloadFile(user: SessionUser, file: { id: string; uploadedBy: string; assignmentId: string; purpose: string }) {
   if (file.uploadedBy === user.userId) return true;
   if (await canManageClassSubjectAssignment(user, file.assignmentId)) return true;
   if (!user.studentId || !user.roles.includes("STUDENT") || !["LESSON_PLAN", "LESSON_POST", "EXERCISE"].includes(file.purpose)) return false;
+  if (file.purpose === "LESSON_POST") return repository.isLessonPostFileVisibleToStudent(user.studentId, `/api/files/${file.id}`);
   const assignment = await repository.findAssignment(file.assignmentId);
   if (!assignment) return false;
   const enrollment = await repository.findEnrollment(user.studentId, assignment.academicTerm.academicYearId);

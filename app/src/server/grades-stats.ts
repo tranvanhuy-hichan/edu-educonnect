@@ -27,7 +27,7 @@ export type AssignmentStat = {
   rows: { studentId: string; name: string; code: string; norm: number | null }[];
 };
 
-/** Thống kê điểm theo lớp-môn (điểm TB môn đã ở thang 10 nên so sánh trực tiếp giữa các môn). */
+/** Thống kê điểm theo lớp và môn (điểm TB môn đã ở thang 10 nên so sánh trực tiếp giữa các môn). */
 export async function gradeStats(opts: { where?: Prisma.ClassSubjectAssignmentWhereInput; termId?: string; subjectId?: string; schoolClassId?: string; q?: string; includePast?: boolean } = {}): Promise<AssignmentStat[]> {
   const where: Prisma.ClassSubjectAssignmentWhereInput = {
     AND: [

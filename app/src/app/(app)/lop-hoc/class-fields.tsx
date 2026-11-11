@@ -1,4 +1,5 @@
 import { Field, inputCls } from "@/components/ui";
+import { SearchableSelect } from "@/components/searchable-select";
 
 type Opt = { id: string; label: string };
 const ic = inputCls + " w-full";
@@ -8,16 +9,16 @@ export function ClassFormFields({ grades, years, teachers, rooms, subjects, defa
   return (
     <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <Field label="Tên lớp *"><input name="name" defaultValue={defaults.name} className={ic} required /></Field>
-      <Field label="Khối *"><select name="gradeLevelId" defaultValue={defaults.gradeLevelId ?? ""} className={ic} required><option value="">-- chọn khối --</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></Field>
-      <Field label="Năm học *"><select name="academicYearId" defaultValue={defaults.academicYearId ?? ""} className={ic} required><option value="">-- chọn năm học --</option>{years.map((y) => <option key={y.id} value={y.id}>{y.label}</option>)}</select></Field>
+      <Field label="Khối *"><SearchableSelect name="gradeLevelId" defaultValue={defaults.gradeLevelId ?? ""} emptyLabel="-- chọn khối --" ariaLabel="Khối" className="w-full" options={grades.map((g) => ({ value: g.id, label: g.label }))} /></Field>
+      <Field label="Năm học *"><SearchableSelect name="academicYearId" defaultValue={defaults.academicYearId ?? ""} emptyLabel="-- chọn năm học --" ariaLabel="Năm học" className="w-full" options={years.map((y) => ({ value: y.id, label: y.label }))} /></Field>
       <Field label="Ca học *">
         <select name="shift" defaultValue={defaults.shift ?? "MORNING"} className={ic} required>
           <option value="MORNING">Ca sáng (Tiết 1 – 5)</option>
           <option value="AFTERNOON">Ca chiều (Tiết 6 – 10)</option>
         </select>
       </Field>
-      <Field label="Phòng học cố định *"><select name="roomId" defaultValue={defaults.roomId ?? ""} className={ic} required><option value="">-- chọn phòng --</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.label}</option>)}</select></Field>
-      <Field label="Giáo viên chủ nhiệm"><select name="homeroomTeacherId" defaultValue={defaults.homeroomTeacherId ?? ""} className={ic}><option value="">-- chưa phân công --</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select></Field>
+      <Field label="Phòng học cố định *"><SearchableSelect name="roomId" defaultValue={defaults.roomId ?? ""} placeholder="-- chọn phòng --" required className="w-full" options={rooms.map((room) => ({ value: room.id, label: room.label }))} /></Field>
+      <Field label="Giáo viên chủ nhiệm"><SearchableSelect name="homeroomTeacherId" defaultValue={defaults.homeroomTeacherId ?? ""} emptyLabel="-- chưa phân công --" ariaLabel="Giáo viên chủ nhiệm" className="w-full" options={teachers.map((t) => ({ value: t.id, label: t.label }))} /></Field>
       <p className="col-span-full text-xs text-slate-500">
         💡 Mỗi phòng học có thể dùng chung giữa 1 lớp ca sáng và 1 lớp ca chiều. Trong cùng một ca học (buổi học), hệ thống đảm bảo không bao giờ có 2 lớp học chung một phòng.
       </p>

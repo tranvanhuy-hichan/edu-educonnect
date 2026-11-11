@@ -5,10 +5,13 @@ import { DialogButton } from "@/components/dialog";
 import { ActionForm } from "@/components/action-form";
 import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { fmtDate, isoDate } from "@/lib/format";
+import { NewYearFields, TermDatesFields } from "@/components/term-period";
+import { PolicyForm } from "./policy-form";
+import { getPolicy } from "@/lib/policy";
 import { getSchoolSetting } from "@/lib/school-setting";
-import { addAcademicTerm, addAcademicYear, addGradeLevel, deleteAcademicTerm, deleteAcademicYear, deleteGradeLevel, removeSchoolLogo, saveScoreWeights, updateAcademicYear, updateGradeLevel, updateSchoolBrand } from "./actions";
+import { addAcademicTerm, addAcademicYear, addGradeLevel, deleteAcademicTerm, deleteAcademicYear, deleteGradeLevel, removeSchoolLogo, saveScoreWeights, updateAcademicTerm, updateAcademicYear, updateGradeLevel, updateSchoolBrand } from "./actions";
 
-const TABS = [["years", "Năm học & học kỳ"], ["grades", "Khối lớp"], ["weights", "Hệ số điểm"], ["brand", "Giao diện"]] as const;
+const TABS = [["years", "Năm học & học kỳ"], ["grades", "Khối lớp"], ["weights", "Hệ số điểm"], ["policy", "Quy chế"], ["brand", "Giao diện"]] as const;
 
 export default async function Settings({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await requireRole(...ADMIN_ROLES);
@@ -16,7 +19,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "years";
 
   const [yearCount, gradeCount, termCount] = await Promise.all([db.academicYear.count(), db.gradeLevel.count(), db.academicTerm.count()]);
-  const counts: Record<string, number> = { years: yearCount, grades: gradeCount, weights: termCount, brand: 0 };
+  const counts: Record<string, number> = { years: yearCount, grades: gradeCount, weights: termCount, policy: 0, brand: 0 };
   const [years, grades, terms] = await Promise.all([
     tab === "years" ? db.academicYear.findMany({
       orderBy: { startDate: "desc" },
@@ -29,7 +32,9 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   return (
     <div className="space-y-4">
       <Title>Cấu hình</Title>
-      <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "brand" ? l : `${l} (${counts[k]})`] as [string, string])} />
+      <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "brand" || k === "policy" ? l : `${l} (${counts[k]})`] as [string, string])} />
+
+      {tab === "policy" && <PolicyForm initial={await getPolicy()} />}
 
       {tab === "years" && (
         <div className="space-y-4">
@@ -37,11 +42,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
             <h2 className="font-semibold">Năm học</h2>
             <ToolbarActions label="Thao tác cấu hình"><DialogButton label="+ Thêm năm học" title="Thêm năm học">
               <ActionForm action={addAcademicYear} submit="Thêm năm học" className="flex flex-col gap-3 [&>button]:self-start">
-                <Field label="Tên năm học"><input name="yearName" className={inputCls + " w-full"} placeholder="vd: 2027-2028" required /></Field>
-                <Field label="Ngày bắt đầu"><input type="date" name="startDate" className={inputCls + " w-full"} required /></Field>
-                <p className="text-xs text-slate-500">Tuần 1 của Sổ đầu bài tính từ tuần chứa ngày bắt đầu này; sang năm học mới, số tuần đếm lại từ đầu.</p>
-                <Field label="Ngày kết thúc"><input type="date" name="endDate" className={inputCls + " w-full"} required /></Field>
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="createTerms" defaultChecked className="size-4" /> Tạo luôn HK1 và HK2 (chia đôi thời gian năm học)</label>
+                <NewYearFields />
               </ActionForm>
             </DialogButton></ToolbarActions>
           </div>
@@ -57,9 +58,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
                     <ActionForm action={addAcademicTerm} submit="Thêm học kỳ" className="flex flex-col gap-3 [&>button]:self-start">
                       <input type="hidden" name="academicYearId" value={y.id} />
                       <Field label="Học kỳ"><select name="termName" className={inputCls + " w-full"}><option value="HK1">HK1</option><option value="HK2">HK2</option></select></Field>
-                      <Field label="Ngày bắt đầu"><input type="date" name="startDate" defaultValue={isoDate(y.startDate)} className={inputCls + " w-full"} required /></Field>
-                <p className="text-xs text-slate-500">Tuần 1 của Sổ đầu bài tính từ tuần chứa ngày bắt đầu này; sang năm học mới, số tuần đếm lại từ đầu.</p>
-                      <Field label="Ngày kết thúc"><input type="date" name="endDate" defaultValue={isoDate(y.endDate)} className={inputCls + " w-full"} required /></Field>
+                      <TermDatesFields />
                     </ActionForm>
                   </DialogButton>
                   <DialogButton label="Sửa" title={`Sửa năm học ${y.yearName}`} variant="secondary" size="sm">
@@ -74,17 +73,27 @@ export default async function Settings({ searchParams }: { searchParams: Promise
                   <ActionForm action={deleteAcademicYear} submit="Xoá" compact danger confirmText={`Xoá năm học ${y.yearName}?`} className="inline-flex"><input type="hidden" name="id" value={y.id} /></ActionForm>
                 </div>
               </div>
-              <Table bare head={["Học kỳ", "Thời gian", "Phân công", "Tiết TKB", ""]}>
+              <Table bare head={["Học kỳ", "Thời gian", "Số tuần", "Phân công", "Tiết TKB", ""]}>
                 {y.terms.map((t) => (
                   <tr key={t.id} className="align-middle">
                     <td className="font-semibold">{t.termName}</td>
                     <td>{fmtDate(t.startDate)} – {fmtDate(t.endDate)}</td>
+                    <td>{Math.ceil(((t.endDate.getTime() - t.startDate.getTime()) / 86400_000 + 1) / 7)} tuần</td>
                     <td>{t._count.assignments}</td>
                     <td>{t._count.timetableSlots}</td>
-                    <td><ActionForm action={deleteAcademicTerm} submit="Xoá" compact danger confirmText={`Xoá ${t.termName}?`} className="inline-flex"><input type="hidden" name="id" value={t.id} /></ActionForm></td>
+                    <td><div className="flex items-center gap-2">
+                      <DialogButton label="Sửa" title={`Sửa ${t.termName} · ${y.yearName}`} variant="secondary" size="sm">
+                        <ActionForm action={updateAcademicTerm} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
+                          <input type="hidden" name="id" value={t.id} />
+                          <TermDatesFields defaultStart={isoDate(t.startDate)} defaultEnd={isoDate(t.endDate)} />
+                          {(t._count.assignments > 0 || t._count.timetableSlots > 0) && <p className="text-xs text-amber-700">Học kỳ đã có phân công/thời khóa biểu. Đổi ngày sẽ không xóa dữ liệu nhưng hãy kiểm tra lại lịch.</p>}
+                        </ActionForm>
+                      </DialogButton>
+                      <ActionForm action={deleteAcademicTerm} submit="Xoá" compact danger confirmText={`Xoá ${t.termName}?`} className="inline-flex"><input type="hidden" name="id" value={t.id} /></ActionForm>
+                    </div></td>
                   </tr>
                 ))}
-                {!y.terms.length && <tr><td colSpan={5} className="py-6 text-center text-slate-500">Chưa có học kỳ. Bấm &quot;+ Học kỳ&quot; để thêm HK1/HK2.</td></tr>}
+                {!y.terms.length && <tr><td colSpan={6} className="py-6 text-center text-slate-500">Chưa có học kỳ. Bấm &quot;+ Học kỳ&quot; để thêm HK1/HK2.</td></tr>}
               </Table>
             </Card>
           ))}

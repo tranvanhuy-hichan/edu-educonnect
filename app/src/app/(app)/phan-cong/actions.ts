@@ -1,5 +1,5 @@
 "use server";
-import { createClassSubjectAssignment } from "@/modules/academic/academic.service";
+import { assertTeacherTeachesSubject, createClassSubjectAssignment } from "@/modules/academic/academic.service";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { ADMIN_ROLES, MANAGER_ROLES, assertRole } from "@/lib/guard";
@@ -56,6 +56,7 @@ export const changeTeacher = wrap(async (fd) => {
   if (!teacherId) throw new Error("Chọn giáo viên");
   const a = await db.classSubjectAssignment.findUniqueOrThrow({ where: { id }, include: { timetableSlots: true } });
   if (a.teacherId === teacherId) throw new Error("Giáo viên này đang được phân công");
+  await assertTeacherTeachesSubject(teacherId, a.subjectId);
   const clash = await busyConflict(teacherId, a.academicTermId, id, a.timetableSlots);
   if (clash) throw new Error(`Giáo viên bị trùng lịch: ${clash}`);
   await db.classSubjectAssignment.update({ where: { id }, data: { teacherId } });

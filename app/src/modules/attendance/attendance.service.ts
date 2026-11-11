@@ -3,6 +3,7 @@ import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { todayUTC } from "@/lib/format";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
+import { getPolicy } from "@/lib/policy";
 import * as attendanceRepository from "@/modules/attendance/attendance.repository";
 import type { CreateClassPeriodLogInput } from "@/modules/attendance/attendance.schema";
 
@@ -68,6 +69,14 @@ export async function saveClassPeriodLog(user: SessionUser, input: CreateClassPe
   const term = await attendanceRepository.findTermOfSlot(slot.academicTermId);
   if (term && (d < term.startDate || d > term.endDate)) throw new ConflictError("Ngày đã chọn nằm ngoài học kỳ của tiết này");
 
+  if (input.conductRating && !(await getPolicy()).diaryRatings.some((r) => r.code === input.conductRating)) throw new ConflictError("Xếp loại tiết học không hợp lệ");
+  if (input.absences) {
+    const enrolled = await attendanceRepository.enrolledStudentIds(slot.schoolClassId);
+    const ids = input.absences.map((a) => a.studentId);
+    if (new Set(ids).size !== ids.length) throw new ConflictError("Danh sách vắng có học sinh bị trùng");
+    if (ids.some((id) => !enrolled.has(id))) throw new ConflictError("Có học sinh không thuộc lớp này trong danh sách vắng");
+    input = { ...input, attendanceAbsentCount: ids.length };
+  }
   const size = await attendanceRepository.countEnrollmentsOfClass(slot.schoolClassId);
   if (input.attendanceAbsentCount > size) throw new ConflictError(`Số học sinh vắng không thể lớn hơn sĩ số lớp (${size})`);
 

@@ -1,4 +1,5 @@
 import { YearResults } from "@/components/academic/year-results";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
@@ -61,7 +62,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
           <div className="space-y-3">
             <AutoForm className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="results" />
-              <select name="yearId" defaultValue={yearId} className={inputCls}>{years.map((y) => <option key={y.id} value={y.id}>Năm học {y.yearName}</option>)}</select>
+              <SearchableSelect key={yearId} name="yearId" defaultValue={yearId} ariaLabel="Năm học" className="w-full md:w-56" options={years.map((y) => ({ value: y.id, label: `Năm học ${y.yearName}` }))} />
               <input name="q" defaultValue={sp.q} placeholder="Tìm lớp..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
             </AutoForm>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
@@ -117,9 +118,7 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
           <div className="space-y-3">
             <AutoForm className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="re-exam" />
-              <select name="yearId" defaultValue={yearId} className={inputCls}>
-                {years.map((y) => <option key={y.id} value={y.id}>Năm học {y.yearName}</option>)}
-              </select>
+              <SearchableSelect key={yearId} name="yearId" defaultValue={yearId} ariaLabel="Năm học" className="w-full md:w-56" options={years.map((y) => ({ value: y.id, label: `Năm học ${y.yearName}` }))} />
             </AutoForm>
 
             <div className="content-panel rounded-xl border bg-white p-4">
@@ -200,8 +199,8 @@ export default async function Promotion({ searchParams }: { searchParams: Promis
           <div className="space-y-4">
             <AutoForm className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="run" />
-              <select name="yearId" defaultValue={yearId} className={inputCls}>{years.map((y) => <option key={y.id} value={y.id}>Từ năm học {y.yearName}</option>)}</select>
-              <select name="toYearId" defaultValue={toYearId} className={inputCls}><option value="">-- năm học đích --</option>{years.filter((y) => y.id !== yearId).map((y) => <option key={y.id} value={y.id}>Sang năm học {y.yearName}</option>)}</select>
+              <SearchableSelect key={yearId} name="yearId" defaultValue={yearId} ariaLabel="Năm học" className="w-full md:w-56" options={years.map((y) => ({ value: y.id, label: `Từ năm học ${y.yearName}` }))} />
+              <SearchableSelect key={toYearId} name="toYearId" defaultValue={toYearId} emptyLabel="-- năm học đích --" ariaLabel="Năm học đích" className="w-full md:w-56" options={years.filter((y) => y.id !== yearId).map((y) => ({ value: y.id, label: `Sang năm học ${y.yearName}` }))} />
             </AutoForm>
             {!toYearId ? <Card className="py-10 text-center text-sm text-slate-500">Chọn năm học đích để chọn lớp đích cho từng lớp.</Card>
               : !toClasses.length ? <Card className="py-10 text-center text-sm text-slate-500">Năm học {yearName(toYearId)} chưa có lớp nào. Tạo các lớp mới ở mục Lớp học trước khi chạy lên lớp.</Card>

@@ -6,7 +6,7 @@ import { requireYearStudentWriter } from "./permission";
 import { loadAnnualSubjects } from "@/modules/scoring/annual-query";
 import { suggestPromotion } from "@/modules/scoring/annual";
 import { createYearEndResultSchema } from "./promotion.schema";
-import { CLASS_CAPACITY } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as promotionRepository from "@/modules/promotion/promotion.repository";
 import type {
@@ -27,7 +27,7 @@ export async function createYearEndResult(
     const previous = await promotionRepository.yearResultRepository(tx).find(data.studentId, data.academicYearId);
     if (previous?.reviewStatus === "APPROVED") throw new Error("Kết quả đã duyệt. Cần mở lại hồ sơ trước khi sửa");
     const subjects = await loadAnnualSubjects(data.studentId, data.academicYearId, tx);
-    const evaluation = suggestPromotion(subjects, data.conductRank, data.absenceDays);
+    const evaluation = suggestPromotion(subjects, data.conductRank, data.absenceDays, await getPolicy());
     const update = {
       overallAverage: evaluation.overallAverage, conductRank: data.conductRank ?? null,
       absenceDays: data.absenceDays ?? null, result: evaluation.result,
@@ -85,7 +85,7 @@ export async function runClassPromotionJob(
           if (existing.schoolClassId !== target.id) throw new Error("Học sinh đã được xếp vào một lớp đích khác");
           continue;
         }
-        if (await records.countClassEnrollments(target.id, tx) >= CLASS_CAPACITY) throw new Error(`Lớp ${target.className} đã đủ sĩ số`);
+        if (await records.countClassEnrollments(target.id, tx) >= (await getPolicy()).promotion.classCapacity) throw new Error(`Lớp ${target.className} đã đủ sĩ số`);
         await records.createEnrollment({ studentId: row.studentId, schoolClassId: target.id, academicYearId: to.id, currentClassSince: to.startDate }, tx);
         created++;
       }
@@ -112,7 +112,7 @@ export async function reviewYearResult(user: SessionUser, studentId: string, aca
     if (approve) {
       if (previous.reviewStatus !== "SUBMITTED") throw new Error("Chỉ duyệt hồ sơ đã trình và đủ dữ liệu");
       const subjects = await loadAnnualSubjects(studentId, academicYearId, tx);
-      const evaluation = suggestPromotion(subjects, previous.conductRank, previous.absenceDays);
+      const evaluation = suggestPromotion(subjects, previous.conductRank, previous.absenceDays, await getPolicy());
       if (evaluation.missing.length || evaluation.result !== previous.result || evaluation.overallAverage !== previous.overallAverage || !isDeepStrictEqual((previous.evaluation as { subjects?: unknown })?.subjects, subjects)) throw new Error("Dữ liệu môn học đã thay đổi hoặc chưa đủ. Hãy tổng hợp và trình lại");
     } else if (previous.reviewStatus !== "APPROVED") throw new Error("Hồ sơ chưa được duyệt");
     const result = await promotionRepository.yearResultRepository(tx).update(studentId, academicYearId, { reviewStatus: approve ? "APPROVED" : "DRAFT", approvedBy: approve ? user.email : null, approvedAt: approve ? new Date() : null });

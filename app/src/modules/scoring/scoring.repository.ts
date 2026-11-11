@@ -104,6 +104,6 @@ export function gradingRepository(context?: DatabaseContext) {
     average: (studentId: string, assignmentId: string, academicTermId: string, averageValue: number) => db.subjectTermAverage.upsert({ where: { studentId_assignmentId_academicTermId: { studentId, assignmentId, academicTermId } }, create: { studentId, assignmentId, academicTermId, averageValue }, update: { averageValue } }),
     removeAverage: (studentId: string, assignmentId: string, academicTermId: string) => db.subjectTermAverage.deleteMany({ where: { studentId, assignmentId, academicTermId } }),
     enrollmentCurriculum: (studentId: string, academicYearId: string) => db.studentClassEnrollment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId } }, include: { schoolClass: { include: { subjects: { include: { subject: true }, orderBy: { subjectId: "asc" } } } } } }),
-    annualAssignments: (studentId: string, academicYearId: string, schoolClassId: string) => db.classSubjectAssignment.findMany({ where: { schoolClassId, academicTerm: { academicYearId } }, include: { academicTerm: true, scoreEntries: { where: { studentId } }, assessments: { where: { studentId } } } }),
+    annualAssignments: (studentId: string, academicYearId: string, schoolClassId: string) => db.classSubjectAssignment.findMany({ where: { schoolClassId, academicTerm: { academicYearId } }, include: { academicTerm: { include: { scoreWeightConfig: true } }, scoreEntries: { where: { studentId } }, assessments: { where: { studentId } } } }),
   };
 }

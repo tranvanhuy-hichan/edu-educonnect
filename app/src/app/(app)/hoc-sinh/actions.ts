@@ -7,7 +7,7 @@ import { MANAGER_ROLES, assertRole } from "@/lib/guard";
 import { wrap, str, opt } from "@/lib/action";
 import { parseDate } from "@/lib/format";
 import { audit } from "@/lib/audit";
-import { CLASS_CAPACITY } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 import { createStudentWithAccount } from "@/server/students";
 import { resetPassword } from "@/server/accounts";
 
@@ -21,7 +21,17 @@ function readStudent(fd: FormData) {
   if (email && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Email không hợp lệ");
   const gp = opt(fd, "guardianPhone")?.replace(/\s/g, "") ?? null;
   if (gp && !/^[0-9+]{8,15}$/.test(gp)) throw new Error("SĐT phụ huynh không hợp lệ");
-  return { fullName, dob, email, guardianName: opt(fd, "guardianName"), guardianPhone: gp };
+  const gender = opt(fd, "gender");
+  if (gender && !["MALE", "FEMALE", "OTHER"].includes(gender)) throw new Error("Giới tính không hợp lệ");
+  const phone = opt(fd, "phone")?.replace(/\s/g, "") ?? null;
+  if (phone && !/^[0-9+]{8,15}$/.test(phone)) throw new Error("SĐT học sinh không hợp lệ");
+  const contactEmail = opt(fd, "contactEmail"), guardianEmail = opt(fd, "guardianEmail");
+  for (const e of [contactEmail, guardianEmail]) if (e && !/^\S+@\S+\.\S+$/.test(e)) throw new Error("Email không hợp lệ");
+  return {
+    fullName, dob, email, guardianName: opt(fd, "guardianName"), guardianPhone: gp,
+    gender, phone, contactEmail, guardianEmail, birthPlace: opt(fd, "birthPlace"), ethnicity: opt(fd, "ethnicity"), idNumber: opt(fd, "idNumber"),
+    address: opt(fd, "address"), guardianRelation: opt(fd, "guardianRelation"), guardianJob: opt(fd, "guardianJob"), note: opt(fd, "note"),
+  };
 }
 
 export const createStudent = wrap(async (fd) => {
@@ -32,7 +42,7 @@ export const createStudent = wrap(async (fd) => {
   if (classId) {
     const cls = await db.schoolClass.findUnique({ where: { id: classId } });
     const s = await db.student.findUniqueOrThrow({ where: { code: c.code } });
-    if (cls && (await db.studentClassEnrollment.count({ where: { schoolClassId: classId } })) < CLASS_CAPACITY) {
+    if (cls && (await db.studentClassEnrollment.count({ where: { schoolClassId: classId } })) < (await getPolicy()).promotion.classCapacity) {
       await db.studentClassEnrollment.create({ data: { studentId: s.id, schoolClassId: classId, academicYearId: cls.academicYearId } });
       extra = ` · đã xếp lớp ${cls.className}`;
     } else extra = " · lớp đã đủ sĩ số, chưa xếp lớp";
@@ -46,7 +56,7 @@ export const updateStudent = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
   const id = str(fd, "id");
   const d = readStudent(fd);
-  await db.student.update({ where: { id }, data: { fullName: d.fullName, dob: d.dob, guardianName: d.guardianName, guardianPhone: d.guardianPhone } });
+  await db.student.update({ where: { id }, data: { fullName: d.fullName, dob: d.dob, guardianName: d.guardianName, guardianPhone: d.guardianPhone, gender: d.gender, phone: d.phone, contactEmail: d.contactEmail, guardianEmail: d.guardianEmail, birthPlace: d.birthPlace, ethnicity: d.ethnicity, idNumber: d.idNumber, address: d.address, guardianRelation: d.guardianRelation, guardianJob: d.guardianJob, note: d.note } });
   await audit(me.email, "update_student", "Student", id);
   revalidatePath(`/hoc-sinh/${id}`); revalidatePath("/hoc-sinh");
 });

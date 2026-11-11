@@ -6,7 +6,9 @@ import { isAdmin } from "@/lib/auth/session";
 import { ActionForm } from "@/components/action-form";
 import { PrintButton } from "@/components/print-button";
 import { Card, Title } from "@/components/ui";
-import { getExamEvent, EXAM_STATUS, EXAM_CATEGORY } from "@/modules/exams/queries";
+import { labelOf } from "@/lib/policy-schema";
+import { getPolicy } from "@/lib/policy";
+import { getExamEvent, EXAM_STATUS } from "@/modules/exams/queries";
 import { examStaff } from "@/modules/exams/service";
 import { examTime } from "@/modules/exams/planning";
 import { changeExamStatus } from "../actions";
@@ -15,11 +17,12 @@ export default async function ExamDetail({ params }: { params: Promise<{ id: str
   const user = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES, "STUDENT");
   const { id } = await params;
   const event = await getExamEvent(user, id);
+  const categories = (await getPolicy()).examCategories;
   if (!event) notFound();
   const manager = isAdmin(user), staff = examStaff(user);
   return <div className="space-y-4">
     <Title right={<div className="no-print flex gap-2"><PrintButton /><a href={`/lich-thi/${id}/xuat-excel`} className="inline-flex items-center gap-2 rounded-md border bg-white px-3 py-2 text-sm" title={staff ? "Tải Excel danh sách phòng thi" : "Tải lịch thi cá nhân"}><Download className="size-4" />{staff ? "Excel" : "Lịch cá nhân"}</a></div>}>{event.title}</Title>
-    <Card className="space-y-2"><p className="font-medium">{event.gradeLevel.gradeName} · {EXAM_CATEGORY[event.category as keyof typeof EXAM_CATEGORY] ?? event.category} · {event.academicTerm.termName} · {event.academicTerm.academicYear.yearName}</p><p className="text-sm text-slate-500">Trạng thái: {EXAM_STATUS[event.status]}</p>{event.notes && <p className="whitespace-pre-line text-sm">{event.notes}</p>}</Card>
+    <Card className="space-y-2"><p className="font-medium">{event.gradeLevel.gradeName} · {labelOf(categories, event.category)} · {event.academicTerm.termName} · {event.academicTerm.academicYear.yearName}</p><p className="text-sm text-slate-500">Trạng thái: {EXAM_STATUS[event.status]}</p>{event.notes && <p className="whitespace-pre-line text-sm">{event.notes}</p>}</Card>
     {event.status === "CANCELLED" && <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-4 font-semibold text-red-600">Lịch thi này đã bị hủy. Không tham dự theo lịch bên dưới.</p>}
     {manager && event.status !== "CANCELLED" && <Card mobile="flat" className="no-print flex flex-wrap gap-3">
       {event.status === "DRAFT" && <><Link href={`/lich-thi/${id}/sua`} className="rounded-md border px-3 py-2 text-sm">Sửa bản nháp</Link><ActionForm action={changeExamStatus} submit="Công bố lịch thi" confirmText="Công bố lịch này cho giáo viên và các học sinh có tên?" className="flex flex-wrap items-center gap-2"><input type="hidden" name="id" value={id} /><input type="hidden" name="operation" value="publish" /></ActionForm></>}

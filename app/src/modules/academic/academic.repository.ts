@@ -134,3 +134,7 @@ export function createTeacherWithUser(
     });
   });
 }
+
+export async function teacherHasSubject(teacherId: string, subjectId: string) {
+  return (await prisma.teacherSubject.count({ where: { teacherId, subjectId } })) > 0;
+}

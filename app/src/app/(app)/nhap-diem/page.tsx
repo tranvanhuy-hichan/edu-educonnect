@@ -1,4 +1,5 @@
 import { termIsLocked } from "@/modules/scoring/locking";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { AutoForm } from "@/components/auto-form";
 import { ActionForm } from "@/components/action-form";
@@ -26,7 +27,7 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
   const view = sp.v === "table" ? "table" : "cards";
   const pg = getPaging(sp, 12);
 
-  // giáo viên chỉ thấy lớp-môn mình phụ trách
+  // giáo viên chỉ thấy lớp và môn mình phụ trách
   const scope = assignmentWhere(me);
   const [terms, subjects] = await Promise.all([termOptions(), db.subject.findMany({ orderBy: { subjectName: "asc" } })]);
   const stats = await gradeStats({
@@ -85,14 +86,14 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
               <input type="hidden" name="tab" value="classes" /><input type="hidden" name="v" value={view} />
               <input name="q" defaultValue={sp.q} placeholder="Tìm lớp, môn..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
               <MobileCollapse active={[sp.termId, sp.subjectId, sp.all].filter(Boolean).length}>
-                <select name="termId" defaultValue={sp.termId ?? ""} className={inputCls}><option value="">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
-                <select name="subjectId" defaultValue={sp.subjectId ?? ""} className={inputCls}><option value="">Tất cả môn</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.subjectName}</option>)}</select>
+                <SearchableSelect key={sp.termId ?? ""} name="termId" defaultValue={sp.termId ?? ""} emptyLabel="Tất cả học kỳ" ariaLabel="Học kỳ" className="w-full md:w-56" options={terms.map((t) => ({ value: t.id, label: t.label }))} />
+                <SearchableSelect key={sp.subjectId ?? ""} name="subjectId" defaultValue={sp.subjectId ?? ""} emptyLabel="Tất cả môn" ariaLabel="Môn" className="w-full md:w-44" options={subjects.map((s) => ({ value: s.id, label: s.subjectName }))} />
                 <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-white px-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!sp.all} /> Gồm học kỳ đã kết thúc</label>
                 <ViewToggle path="/nhap-diem" params={{ tab: "classes", q: sp.q, termId: sp.termId, subjectId: sp.subjectId, all: sp.all, size: sp.size }} view={view} />
               </MobileCollapse>
 
             </AutoForm>
-            {/* Điện thoại: thẻ lớp-môn gọn thay cho bảng */}
+            {/* Điện thoại: thẻ lớp và môn gọn thay cho bảng */}
             <div className={view === "cards" ? "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "space-y-2 md:hidden"}>
               {page.map((c) => {
                 const pct = c.expected ? Math.round((c.filled / c.expected) * 100) : 0;
@@ -157,7 +158,7 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
         const top = [...rows].sort((a, b) => b.norm! - a.norm!).slice(0, 8);
         const low = [...rows].filter((r) => r.norm! < 5).sort((a, b) => a.norm! - b.norm!).slice(0, 8);
         const classes = [...new Map(stats.map((c) => [c.schoolClassId, c.className])).entries()];
-        // một lớp-môn cụ thể: hiện điểm TB từng nhóm cột (thường xuyên / giữa kỳ / cuối kỳ)
+        // một lớp và môn cụ thể: hiện điểm TB từng nhóm cột (thường xuyên / giữa kỳ / cuối kỳ)
         const one = sp.classId && sp.subjectId && scopeStats.length === 1 ? scopeStats[0] : null;
 
         const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }: { icon: typeof Users; label: string; value: React.ReactNode; tone?: string }) => (
@@ -168,9 +169,9 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
             <AutoForm className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="stats" />
               <MobileCollapse active={[sp.classId, sp.termId, sp.subjectId].filter(Boolean).length}>
-                <select name="classId" defaultValue={sp.classId ?? ""} className={inputCls}><option value="">Tất cả lớp</option>{classes.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select>
-                <select name="termId" defaultValue={sp.termId ?? ""} className={inputCls}><option value="">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
-                <select name="subjectId" defaultValue={sp.subjectId ?? ""} className={inputCls}><option value="">Tất cả môn</option>{subjects.map((s) => <option key={s.id} value={s.id}>{s.subjectName}</option>)}</select>
+                <SearchableSelect key={sp.classId ?? ""} name="classId" defaultValue={sp.classId ?? ""} emptyLabel="Tất cả lớp" ariaLabel="Lớp" className="w-full md:w-44" options={classes.map(([id, name]) => ({ value: id, label: name }))} />
+                <SearchableSelect key={sp.termId ?? ""} name="termId" defaultValue={sp.termId ?? ""} emptyLabel="Tất cả học kỳ" ariaLabel="Học kỳ" className="w-full md:w-56" options={terms.map((t) => ({ value: t.id, label: t.label }))} />
+                <SearchableSelect key={sp.subjectId ?? ""} name="subjectId" defaultValue={sp.subjectId ?? ""} emptyLabel="Tất cả môn" ariaLabel="Môn" className="w-full md:w-44" options={subjects.map((s) => ({ value: s.id, label: s.subjectName }))} />
               </MobileCollapse>
             </AutoForm>
 
@@ -194,10 +195,10 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
                       <BarList max={10} items={one.cats.filter((c) => c.avg != null).map((c) => ({ label: c.name, value: c.avg!, hint: `(${c.filled} điểm)`, color: bandOf(c.avg!).color }))} />
                       <p className="mt-2 text-xs text-slate-500">Điểm các nhóm cột đều trên thang 10.</p></Card>
                   ) : (
-                    <Card><h2 className="mb-4 font-semibold">Điểm trung bình theo lớp-môn</h2>
+                    <Card><h2 className="mb-4 font-semibold">Điểm trung bình theo lớp và môn</h2>
                       <BarList max={10} items={byClass.map((c) => ({ label: `${c.className} · ${c.subjectName}`, value: c.avgNorm!, color: bandOf(c.avgNorm!).color }))} /></Card>
                   )}
-                  <Card><h2 className="mb-4 font-semibold">Tiến độ nhập điểm theo lớp-môn</h2>
+                  <Card><h2 className="mb-4 font-semibold">Tiến độ nhập điểm theo lớp và môn</h2>
                     <BarList max={100} unit="%" items={scopeStats.map((c) => ({ label: `${c.className} · ${c.subjectName}`, value: c.expected ? Math.round((c.filled / c.expected) * 100) : 0, color: c.expected && c.filled >= c.expected ? "#22c55e" : undefined }))} /></Card>
                 </div>
 

@@ -1,4 +1,5 @@
 import { effectiveSlots } from "@/modules/scheduling/effective";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { db } from "@/lib/db";
@@ -11,10 +12,10 @@ import { Field, inputCls, Table } from "@/components/ui";
 import { WEEKDAYS, addDays, fmtDate, isoDate, todayUTC } from "@/lib/format";
 import { clampWeek, shortDate, weekCount, weekNumber, weekStart } from "@/lib/week";
 import { TEACHER_EDIT_DAYS } from "@/modules/attendance/attendance.service";
+import { getPolicy } from "@/lib/policy";
+import { ratingTone } from "@/lib/policy-schema";
 import { saveLogPick } from "./actions";
 
-export const RATING: Record<string, [string, string]> = { TOT: ["Tốt", "bg-green-100 text-green-800"], KHA: ["Khá", "bg-sky-100 text-sky-800"], TB: ["Trung bình", "bg-yellow-100 text-yellow-800"], YEU: ["Yếu", "bg-red-100 text-red-600"] };
-export const GRADE_LETTER: Record<string, string> = { TOT: "A", KHA: "B", TB: "C", YEU: "D" };
 
 type ClassLite = { id: string; className: string; academicYear: { id: string; yearName: string; startDate: Date; endDate: Date }; _count?: { enrollments: number } };
 
@@ -26,6 +27,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
   me: { roles: Role[]; teacherId?: string | null }; cls: ClassLite; classes?: ClassLite[]; teachers?: { id: string; fullName: string }[]; w?: string; fTeacher?: string; base: Record<string, string>;
 }) {
   const staff = me.roles.some((r) => MANAGER_ROLES.includes(r));
+  const ratings = (await getPolicy()).diaryRatings;
   const today = todayUTC();
   const size = cls._count?.enrollments ?? (await db.studentClassEnrollment.count({ where: { schoolClassId: cls.id } }));
   const ownsSlot = (s: { assignment: { teacherId: string } }) => staff || (!!me.teacherId && s.assignment.teacherId === me.teacherId);
@@ -65,7 +67,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
                 </select>
               </Field>
               <Field label={`Số học sinh vắng (sĩ số ${size})`}><input type="number" name="absent" min={0} max={size} defaultValue={0} className={inputCls + " w-full"} /></Field>
-              <Field label="Xếp loại tiết học"><select name="conductRating" defaultValue="" className={inputCls + " w-full"}><option value="">-- chưa xếp loại --</option>{Object.entries(RATING).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+              <Field label="Xếp loại tiết học"><select name="conductRating" defaultValue="" className={inputCls + " w-full"}><option value="">-- chưa xếp loại --</option>{ratings.map((r) => <option key={r.code} value={r.code}>{r.symbol} · {r.label}</option>)}</select></Field>
               <Field label="Nhận xét"><textarea name="note" rows={3} className={inputCls + " h-auto w-full py-2"} /></Field>
             </ActionForm>
           </DialogButton>
@@ -76,7 +78,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
             <select name="w" defaultValue={String(wk)} className={inputCls + " w-full min-w-0 xl:w-auto"} aria-label="Tuần">{weeks.map((n) => <option key={n} value={n}>Tuần {n} · {shortDate(weekStart(year.startDate, n))} – {shortDate(addDays(weekStart(year.startDate, n), 6))}</option>)}</select>
           </label>
           {staff && <label className="flex min-w-0 flex-col gap-1 text-xs text-slate-500">Giáo viên
-            <select name="teacher" defaultValue={fTeacher} className={inputCls + " w-full min-w-0 xl:w-auto"} aria-label="Giáo viên"><option value="">Tất cả giáo viên</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>
+            <SearchableSelect key={fTeacher} name="teacher" defaultValue={fTeacher} emptyLabel="Tất cả giáo viên" ariaLabel="Giáo viên" className="w-full min-w-0 xl:w-52" options={teachers.map((t) => ({ value: t.id, label: t.fullName }))} />
           </label>}
         </>;
 
@@ -85,7 +87,7 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
             <div className="diary-toolbar flex flex-col gap-2 xl:flex-row xl:items-end">
               <AutoForm className="grid w-full min-w-0 gap-2 xl:flex xl:flex-1 xl:flex-wrap xl:items-end">
                 {Object.entries(base).filter(([k]) => k !== "class").map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-                {classes && <select name="class" defaultValue={cls.id} className={inputCls + " col-span-full w-full min-w-0 xl:w-auto"} aria-label="Lớp">{classes.map((c) => <option key={c.id} value={c.id}>{c.className} · {c.academicYear.yearName}</option>)}</select>}
+                {classes && <SearchableSelect key={cls.id} name="class" defaultValue={cls.id} ariaLabel="Lớp" className="col-span-full w-full min-w-0 xl:w-56" options={classes.map((c) => ({ value: c.id, label: c.className, subtext: c.academicYear.yearName }))} />}
                 <div className="hidden md:contents">{weekFilters}</div>
               </AutoForm>
               <div className="diary-week-actions grid w-full grid-cols-[2.25rem_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-2 text-sm md:grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] xl:flex xl:w-auto xl:shrink-0">
@@ -122,14 +124,14 @@ export async function ClassWeek({ me, cls, classes, teachers = [], w, fTeacher =
                     <Table bare mobileLayout="compact" head={["Tiết", "Môn", "GVBM", "Đánh giá", "Xếp loại", "HS vắng"]}>
                       {list.map((s) => {
                         const log = logOf.get(`${s.id}|${iso}`);
-                        const rt = log?.conductRating ? RATING[log.conductRating] : null;
+                        const rt = log?.conductRating ? ratings.find((r) => r.code === log.conductRating) ?? null : null;
                         return (
                           <tr key={s.id} className="align-middle [&>td]:!py-3">
                             <td className="w-20 whitespace-nowrap"><Link data-row href={`/so-dau-bai/ghi?slot=${s.id}&d=${iso}`} className="font-semibold tabular-nums hover:text-orange-700">Tiết {s.periodNo}</Link></td>
                             <td className="font-medium">{s.assignment.subject.subjectName}</td>
                             <td>{s.assignment.teacher.fullName}</td>
                             <td className="max-w-xs"><span className="line-clamp-2 text-slate-600">{log?.note || <span className="text-slate-400">—</span>}</span></td>
-                            <td className="whitespace-nowrap">{log ? (rt ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${rt[1]}`}><b>{GRADE_LETTER[log.conductRating!]}</b>{rt[0]}</span> : <span className="text-xs text-slate-400">Chưa xếp loại</span>) : <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${past ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"}`}>{past ? "Chưa ghi (quá ngày)" : "Chưa ghi"}</span>}</td>
+                            <td className="whitespace-nowrap">{log ? (rt ? <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${ratingTone(ratings, log.conductRating)}`}><b>{rt.symbol}</b>{rt.label}</span> : <span className="text-xs text-slate-400">Chưa xếp loại</span>) : <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${past ? "bg-red-100 text-red-600" : "bg-slate-100 text-slate-600"}`}>{past ? "Chưa ghi (quá ngày)" : "Chưa ghi"}</span>}</td>
                             <td className="w-24 tabular-nums">{log ? log.attendanceAbsentCount : <span className="text-slate-400">—</span>}</td>
                           </tr>
                         );

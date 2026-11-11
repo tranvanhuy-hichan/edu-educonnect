@@ -1,7 +1,7 @@
 import { z } from "zod";
 export const examPlanSchema = z.object({
   title: z.string().trim().min(2, "Nhập tên kỳ thi").max(200),
-  category: z.enum(["GIUA_KY", "CUOI_KY", "THI_LAI", "KHAC"]),
+  category: z.string().min(1).max(30), // thuộc danh mục "Loại kỳ thi" trong Cấu hình → Quy chế (kiểm tra ở service)
   termId: z.string().min(1), gradeId: z.string().min(1), notes: z.string().max(3000).default(""),
   papers: z.array(z.object({
     subjectId: z.string().min(1), grouping: z.enum(["CLASS", "ALPHABET"]),

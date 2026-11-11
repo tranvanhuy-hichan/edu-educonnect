@@ -6,6 +6,7 @@ import { appendAudit } from "@/modules/academic/records.repository";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { compareCandidates, examDate, examTime, groupCandidates, reservationConflict, timeOverlap, type Candidate, type Reservation } from "./planning";
 import type { ExamPlan } from "./schema";
+import { getPolicy } from "@/lib/policy";
 
 type Client = DatabaseContext | undefined;
 function manager(user: SessionUser) { if (!isAdmin(user)) throw new Error("Chỉ quản trị/ban giám hiệu được lập và sửa lịch thi"); }
@@ -101,6 +102,7 @@ export async function saveExamPlan(user: SessionUser, input: ExamPlan, fingerpri
       const existing = await examRepository(client).event(eventId);
       if (existing.status !== "DRAFT") throw new Error("Chỉ sửa lịch nháp. Hãy thu hồi lịch đã công bố trước khi sửa.");
     }
+    if (!(await getPolicy()).examCategories.some((c) => c.code === input.category)) throw new Error("Loại kỳ thi không hợp lệ");
     const { prepared } = await reviewExamPlan(user, input, fingerprint, eventId, client, false);
     const data = { title: input.title, category: input.category, academicTermId: input.termId, gradeLevelId: input.gradeId, notes: input.notes || null };
     const event = eventId ? await examRepository(client).updateEvent(eventId, { ...data, revision: { increment: 1 } }) : await examRepository(client).createEvent({ ...data, createdBy: user.email });

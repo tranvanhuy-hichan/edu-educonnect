@@ -1,4 +1,5 @@
 import { AttachmentUpload } from "@/components/attachment-upload";
+import { SearchableSelect } from "@/components/searchable-select";
 import { FileText } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -39,7 +40,7 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
     <div className="lesson-plan-list space-y-4">
       <Title right={canEdit && assignments.length > 0 && <DialogButton label="+ Đăng giáo án" title="Đăng giáo án" wide>
         <ActionForm action={createPlan} submit="Đăng giáo án" className="flex flex-col gap-3 [&>button]:self-start">
-          <Field label="Lớp · môn"><select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls + " w-full"} required><option value="">-- chọn lớp · môn --</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select></Field>
+          <Field label="Lớp · môn"><SearchableSelect name="assignmentId" defaultValue={sp.assignmentId ?? ""} required placeholder="-- chọn lớp · môn --" className="w-full" options={assignments.map((a) => ({ value: a.id, label: label(a) }))} /></Field>
           <Field label="Tiêu đề"><input name="title" className={inputCls + " w-full"} required /></Field>
           <Field label="Nội dung giáo án"><textarea name="content" rows={10} className={inputCls + " h-auto w-full py-2"} /></Field>
           <div className="space-y-1 text-xs font-semibold"><p>Tài liệu giáo án</p><AttachmentUpload purpose="LESSON_PLAN" name="attachment" multiple={false} /></div>
@@ -49,7 +50,7 @@ export default async function LessonPlans({ searchParams }: { searchParams: Prom
       <AutoForm className="flex flex-wrap items-center gap-2">
         <input name="q" defaultValue={sp.q} placeholder="Tìm giáo án..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[sp.assignmentId].filter(Boolean).length}>
-          <select name="assignmentId" defaultValue={sp.assignmentId ?? ""} className={inputCls}><option value="">Tất cả lớp · môn</option>{assignments.map((a) => <option key={a.id} value={a.id}>{label(a)}</option>)}</select>
+          <SearchableSelect key={sp.assignmentId ?? ""} name="assignmentId" defaultValue={sp.assignmentId ?? ""} emptyLabel="Tất cả lớp · môn" ariaLabel="Lớp · môn" className="w-full md:w-60" options={assignments.map((a) => ({ value: a.id, label: label(a) }))} />
         </MobileCollapse>
       </AutoForm>
 

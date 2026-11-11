@@ -1,4 +1,5 @@
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
+import { SearchableSelect } from "@/components/searchable-select";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -8,15 +9,18 @@ import { ActionForm } from "@/components/action-form";
 import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
+import { getPolicy } from "@/lib/policy";
 import { currentTerm, hueOfStr, initialOf, rankOf } from "@/lib/catalog";
 import { STATUS_COLOR, STATUS_LABEL, loadStudents } from "@/server/students";
 import { StudentFields } from "../student-fields";
 import { deleteStudent, resetParentPassword, resetStudentPassword, setStudentClass, toggleLocked, updateStudent } from "../actions";
 
+const GENDER: Record<string, string> = { MALE: "Nam", FEMALE: "Nữ", OTHER: "Khác" };
 const TABS = [["overview", "Tổng quan"], ["info", "Thông tin cá nhân"], ["classes", "Lớp & thời khóa biểu"], ["grades", "Bảng điểm"], ["loans", "Mượn sách"]] as const;
 
 export default async function StudentDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, "HOMEROOM_TEACHER", "SUBJECT_TEACHER");
+  const policy = await getPolicy();
   const { id } = await params;
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
@@ -70,18 +74,20 @@ export default async function StudentDetail({ params, searchParams }: { params: 
           <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Học tập</h2>
             <div className="flex justify-between"><span className="text-slate-500">Lớp năm nay</span><b>{s.current?.schoolClass.className ?? "Chưa xếp lớp"}</b></div>
             <div className="flex justify-between"><span className="text-slate-500">GVCN</span><b>{s.current?.schoolClass.homeroomTeacher?.fullName ?? "-"}</b></div>
-            <div className="flex justify-between"><span className="text-slate-500">Điểm TB {term?.termName ?? ""}</span><b>{s.gpa == null ? "-" : `${s.gpa.toFixed(2)} · ${rankOf(s.gpa)}`}</b></div>
+            <div className="flex justify-between"><span className="text-slate-500">Điểm TB {term?.termName ?? ""}</span><b>{s.gpa == null ? "-" : `${s.gpa.toFixed(2)} · ${rankOf(s.gpa, policy.gradeScale)}`}</b></div>
+          </Card>
+          <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Thông tin cá nhân</h2>
+            {([["Giới tính", GENDER[s.gender ?? ""]], ["Ngày sinh", s.dob ? fmtDate(s.dob) : null], ["Nơi sinh", s.birthPlace], ["Dân tộc", s.ethnicity], ["Số CCCD", s.idNumber], ["Điện thoại", s.phone], ["Email liên hệ", s.contactEmail], ["Địa chỉ", s.address]] as [string, string | null | undefined][]).map(([k, v]) => <div key={k} className="flex justify-between gap-4"><span className="shrink-0 text-slate-500">{k}</span><b className="text-right font-semibold">{v || "-"}</b></div>)}
           </Card>
           <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Phụ huynh</h2>
-            <div className="flex justify-between"><span className="text-slate-500">Họ tên</span><b>{s.guardianName ?? "-"}</b></div>
-            <div className="flex justify-between"><span className="text-slate-500">SĐT</span><b>{s.guardianPhone ?? "-"}</b></div>
-            <div className="flex justify-between"><span className="text-slate-500">Ngày sinh</span><b>{fmtDate(s.dob)}</b></div>
+            {([["Họ tên", s.guardianName], ["Quan hệ", s.guardianRelation], ["SĐT", s.guardianPhone], ["Email", s.guardianEmail], ["Nghề nghiệp", s.guardianJob]] as [string, string | null | undefined][]).map(([k, v]) => <div key={k} className="flex justify-between gap-4"><span className="shrink-0 text-slate-500">{k}</span><b className="text-right font-semibold">{v || "-"}</b></div>)}
           </Card>
+          {s.note && <Card className="space-y-1.5 text-sm md:col-span-2"><h2 className="font-semibold">Ghi chú</h2><p className="whitespace-pre-line text-slate-600">{s.note}</p></Card>}
         </div>
       )}
 
       {tab === "info" && isManager && (
-        <Card mobile="flat"><ActionForm action={updateStudent} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={s.id} /><StudentFields editing s={{ fullName: s.fullName, dob: s.dob, guardianName: s.guardianName, guardianPhone: s.guardianPhone }} /></ActionForm></Card>
+        <Card mobile="flat"><ActionForm action={updateStudent} submit="Lưu thông tin" reset={false} className="flex flex-col gap-4 [&>button]:self-start"><input type="hidden" name="id" value={s.id} /><StudentFields editing s={s} /></ActionForm></Card>
       )}
 
       {tab === "classes" && await (async () => {
@@ -96,7 +102,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
           <div className="space-y-4">
             <Card className="space-y-2"><h2 className="font-semibold">Lịch sử xếp lớp</h2><ul className="space-y-2 text-xs">{transfers.map((transfer) => <li key={transfer.id} className="rounded-lg border p-3"><b>{className.get(transfer.fromClassId) ?? transfer.fromClassId} → {className.get(transfer.toClassId) ?? transfer.toClassId}</b><p>Học lớp cũ: {transfer.fromDate ? fmtDate(transfer.fromDate) : "Chưa có mốc ngày từ dữ liệu cũ"} đến {fmtDate(transfer.effectiveAt)} (không bao gồm ngày chuyển). Lớp mới từ {fmtDate(transfer.effectiveAt)}.</p><p>{transfer.reason} · {transfer.decisionReference} · {transfer.actorEmail}</p></li>)}</ul>
               <ul className="divide-y text-sm">{s.enrollments.map((e) => <li key={e.id} className="flex justify-between py-2"><Link href={`/lop-hoc/${e.schoolClassId}`} className="font-medium hover:text-orange-700">{e.schoolClass.className}</Link><span className="text-slate-500">{e.academicYear.yearName}</span></li>)}{!s.enrollments.length && <li className="py-3 text-slate-500">Chưa xếp lớp.</li>}</ul>
-              {isManager && <DialogButton variant="secondary" label={s.current ? "Đổi lớp năm nay" : "Xếp lớp"} title="Xếp lớp cho học sinh"><ActionForm action={setStudentClass} submit="Xếp lớp" className="flex flex-col gap-3 [&>button]:self-start"><input type="hidden" name="studentId" value={s.id} /><Field label="Lớp"><select name="classId" className={inputCls + " w-full"}><option value="">-- chọn lớp --</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select></Field><Field label="Ngày hiệu lực"><input required type="date" name="effectiveDate" defaultValue={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })} className={inputCls + " w-full"} /></Field><Field label="Lý do"><input required minLength={5} name="reason" className={inputCls + " w-full"} /></Field><Field label="Số quyết định / căn cứ"><input required minLength={3} name="decisionReference" className={inputCls + " w-full"} /></Field></ActionForm></DialogButton>}
+              {isManager && <DialogButton variant="secondary" label={s.current ? "Đổi lớp năm nay" : "Xếp lớp"} title="Xếp lớp cho học sinh"><ActionForm action={setStudentClass} submit="Xếp lớp" className="flex flex-col gap-3 [&>button]:self-start"><input type="hidden" name="studentId" value={s.id} /><Field label="Lớp"><SearchableSelect name="classId" required placeholder="-- chọn lớp --" className="w-full" options={classes.map((c) => ({ value: c.id, label: c.className }))} /></Field><Field label="Ngày hiệu lực"><input required type="date" name="effectiveDate" defaultValue={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })} className={inputCls + " w-full"} /></Field><Field label="Lý do"><input required minLength={5} name="reason" className={inputCls + " w-full"} /></Field><Field label="Số quyết định / căn cứ"><input required minLength={3} name="decisionReference" className={inputCls + " w-full"} /></Field></ActionForm></DialogButton>}
             </Card>
             <Table head={["Thứ", "Tiết", "Môn", "Giáo viên", "Phòng"]}>
               {slots.map((x) => <tr key={x.id}><td>Thứ {x.dayOfWeek}</td><td>{x.periodNo}</td><td>{x.assignment.subject.subjectName}</td><td>{x.assignment.teacher.fullName}</td><td>{x.room.roomName}</td></tr>)}
@@ -110,7 +116,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
         const avgs = await db.subjectTermAverage.findMany({ where: { studentId: id, academicTermId: term?.id ?? "-" }, include: { assignment: { include: { subject: true } } }, orderBy: { assignment: { subject: { subjectName: "asc" } } } });
         return (
           <Table head={["Môn học", `Điểm TB ${term?.termName ?? ""}`, "Xếp loại"]}>
-            {avgs.map((a) => <tr key={a.id}><td>{a.assignment.subject.subjectName}</td><td className="font-bold">{a.averageValue.toFixed(2)}</td><td>{rankOf(a.averageValue)}</td></tr>)}
+            {avgs.map((a) => <tr key={a.id}><td>{a.assignment.subject.subjectName}</td><td className="font-bold">{a.averageValue.toFixed(2)}</td><td>{rankOf(a.averageValue, policy.gradeScale)}</td></tr>)}
             {!avgs.length && <tr><td colSpan={3} className="py-8 text-center text-slate-500">Chưa có điểm.</td></tr>}
           </Table>
         );

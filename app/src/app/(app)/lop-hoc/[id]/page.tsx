@@ -1,4 +1,5 @@
 import { AssignmentRow } from "@/components/assignment-row";
+import { SearchableSelect } from "@/components/searchable-select";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
@@ -13,7 +14,9 @@ import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
-import { CLASS_CAPACITY, DAYS, DAY_NAME, currentTerm, hueOfStr, initialOf, rankOf } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
+import { ratingText, ratingTone } from "@/lib/policy-schema";
+import { DAYS, DAY_NAME, currentTerm, hueOfStr, initialOf, rankOf } from "@/lib/catalog";
 import { ClassFormFields } from "../class-fields";
 import { deleteClass, enrollStudent, removeEnrollment, setMonitor, transferStudent, updateClass } from "../actions";
 import { classAccounts } from "../../hoc-sinh/actions";
@@ -24,6 +27,8 @@ const menuForm = "flex flex-col items-stretch gap-1 [&>button]:w-full [&>button]
 
 export default async function ClassDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; w?: string; page?: string; size?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES);
+  const policy = await getPolicy();
+  const CLASS_CAPACITY = policy.promotion.classCapacity;
   const canEdit = me.roles.some((r) => MANAGER_ROLES.includes(r));
   const { id } = await params;
   const sp = await searchParams;
@@ -106,12 +111,12 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
               <Stat icon={Users} label="Sĩ số" value={`${studentCount}/${CLASS_CAPACITY}`} />
               <Stat icon={Repeat} label="Môn được phân công" value={assignCount} tone="bg-green-100 text-green-700" />
               <Stat icon={CalendarDays} label="Tiết/tuần" value={slotCount} tone="bg-sky-100 text-sky-700" />
-              <Stat icon={GraduationCap} label="Điểm TB lớp" value={avg == null ? "-" : `${avg.toFixed(2)} · ${rankOf(avg)}`} tone="bg-yellow-100 text-yellow-700" />
+              <Stat icon={GraduationCap} label="Điểm TB lớp" value={avg == null ? "-" : `${avg.toFixed(2)} · ${rankOf(avg, policy.gradeScale)}`} tone="bg-yellow-100 text-yellow-700" />
             </div>
             <Card className="p-0">
               <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">Sổ đầu bài gần đây</h2><Link href="?tab=diary" className="text-sm text-orange-700 hover:underline">Xem tất cả →</Link></div>
               <ul className="divide-y text-sm">
-                {logs.map((l) => <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"><span><b>{fmtDate(l.logDate)}</b> · Tiết {l.timetableSlot.periodNo} · {l.timetableSlot.assignment.subject.subjectName}</span><span className="text-slate-500">{l.timetableSlot.assignment.teacher.fullName} · vắng {l.attendanceAbsentCount}</span></li>)}
+                {logs.map((l) => <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5"><span><b>{fmtDate(l.logDate)}</b> · Tiết {l.timetableSlot.periodNo} · {l.timetableSlot.assignment.subject.subjectName}</span><span className="text-slate-500">{l.timetableSlot.assignment.teacher.fullName} · vắng {l.attendanceAbsentCount}{l.conductRating && <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${ratingTone(policy.diaryRatings, l.conductRating)}`}>{ratingText(policy.diaryRatings, l.conductRating)}</span>}</span></li>)}
                 {!logs.length && <li className="px-4 py-8 text-center text-slate-500">Chưa có ghi chép nào.</li>}
               </ul>
             </Card>
@@ -128,7 +133,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           <DialogButton variant="secondary" size="sm" label="Đổi lớp" title={`Đổi lớp · ${e.student.fullName}`}>
             <ActionForm action={transferStudent} submit="Chuyển lớp" className="flex flex-col gap-3 [&>button]:self-start">
               <input type="hidden" name="id" value={e.id} />
-              <Field label="Chuyển sang lớp"><select name="toClassId" className={inputCls + " w-full"}><option value="">-- chọn lớp --</option>{others.map((o) => <option key={o.id} value={o.id}>{o.className}</option>)}</select></Field><Field label="Ngày hiệu lực"><input required type="date" name="effectiveDate" defaultValue={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })} className={inputCls + " w-full"} /></Field><Field label="Lý do"><input required minLength={5} name="reason" className={inputCls + " w-full"} /></Field><Field label="Số quyết định / căn cứ"><input required minLength={3} name="decisionReference" className={inputCls + " w-full"} /></Field>
+              <Field label="Chuyển sang lớp"><SearchableSelect name="toClassId" emptyLabel="-- chọn lớp --" ariaLabel="Chuyển sang lớp" className="w-full" options={others.map((o) => ({ value: o.id, label: o.className }))} /></Field><Field label="Ngày hiệu lực"><input required type="date" name="effectiveDate" defaultValue={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" })} className={inputCls + " w-full"} /></Field><Field label="Lý do"><input required minLength={5} name="reason" className={inputCls + " w-full"} /></Field><Field label="Số quyết định / căn cứ"><input required minLength={3} name="decisionReference" className={inputCls + " w-full"} /></Field>
             </ActionForm>
           </DialogButton>
         );
@@ -164,7 +169,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
       {tab === "assignments" && await (async () => {
         const [curriculum, teachers] = await Promise.all([
           db.classSubject.findMany({ where: { schoolClassId: id }, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: true, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } }),
-          db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" } }),
+          db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" }, include: { subjects: { select: { subjectId: true } } } }),
         ]);
         return <div className="content-panel overflow-hidden rounded-lg border bg-white"><p className="border-b p-4 text-sm text-slate-500">Môn đã chọn cho lớp · {term?.termName ?? "Chưa có học kỳ"}</p><ul className="divide-y">{curriculum.map((row) => <AssignmentRow key={row.subjectId} classId={id} className={c.className} termId={termId} subject={row.subject} assignment={row.assignments[0] ?? null} teachers={teachers} canEdit={canEdit && !!term} isAdmin={me.roles.includes("ADMIN")} />)}</ul>{!curriculum.length && <p className="p-4 text-sm text-slate-500">Chưa chọn môn học cho lớp. Vào tab Thông tin để chọn.</p>}</div>;
       })()}
@@ -204,7 +209,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
               {list.map((e) => {
                 const mine = avgs.filter((a) => a.studentId === e.studentId);
                 const avg = mine.length ? mine.reduce((s, a) => s + a.averageValue, 0) / mine.length : null;
-                return <tr key={e.id}><td><Link data-row href={`/hoc-sinh/${e.studentId}?tab=grades`} className="text-orange-700 hover:underline">{e.student.fullName}</Link></td><td>{mine.length}</td><td className="font-bold">{avg == null ? "-" : avg.toFixed(2)}</td><td>{rankOf(avg)}</td></tr>;
+                return <tr key={e.id}><td><Link data-row href={`/hoc-sinh/${e.studentId}?tab=grades`} className="text-orange-700 hover:underline">{e.student.fullName}</Link></td><td>{mine.length}</td><td className="font-bold">{avg == null ? "-" : avg.toFixed(2)}</td><td>{rankOf(avg, policy.gradeScale)}</td></tr>;
               })}
               {!list.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Chưa có học sinh.</td></tr>}
             </Table>
@@ -238,7 +243,7 @@ async function EnrollForm({ classId, yearId }: { classId: string; yearId: string
     <ActionForm action={enrollStudent} submit="Xếp lớp" className="flex flex-col gap-3 [&>button]:self-start">
       <input type="hidden" name="classId" value={classId} />
       <Field label="Học sinh chưa có lớp trong năm học này">
-        <select name="studentId" className={inputCls + " w-full"}><option value="">-- chọn --</option>{students.map((s) => <option key={s.id} value={s.id}>{s.fullName} ({s.code})</option>)}</select>
+        <SearchableSelect name="studentId" required placeholder="-- gõ tên hoặc mã học sinh --" className="w-full" options={students.map((s) => ({ value: s.id, label: s.fullName, subtext: s.code ?? undefined }))} />
       </Field>
     </ActionForm>
   );

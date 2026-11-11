@@ -6,14 +6,15 @@ import { AlertTriangle } from "lucide-react";
 type Stu = { id: string; name: string; code: string };
 type Weights = { tx: number; gk: number; ck: number };
 
-const BANDS = [[9, "Xuất sắc"], [8, "Giỏi"], [6.5, "Khá"], [5, "Trung bình"], [0, "Yếu"]] as const;
-const rankOf = (n: number | null) => (n == null ? "" : BANDS.find(([m]) => n >= m)![1]);
+type Band = { name: string; min: number };
+const bandOf = (bands: Band[], n: number | null) => (n == null ? "" : (bands.find((b) => n >= b.min) ?? bands[bands.length - 1]).name);
 
 export function GradeGrid({
   assignmentId,
   exemptStudentIds = [],
   txCols,
   weights,
+  bands,
   students,
   initial,
   readOnly = false,
@@ -26,6 +27,7 @@ export function GradeGrid({
   exemptStudentIds?: string[];
   txCols: number;
   weights: Weights;
+  bands: Band[]; // thang xếp loại trong Cấu hình → Quy chế
   students: Stu[];
   initial: Record<string, number>;
   readOnly?: boolean;
@@ -55,7 +57,7 @@ export function GradeGrid({
     if (ck != null) { sum += ck * weights.ck; w += weights.ck; }
     return w > 0 ? Math.round((sum / w) * 10) / 10 : null;
   };
-  const rows = useMemo(() => students.map((s) => { const total = totalOf(s.id); return { s, total, rank: rankOf(total) }; }), [vals, students]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rows = useMemo(() => students.map((s) => { const total = totalOf(s.id); return { s, total, rank: bandOf(bands, total) }; }), [vals, students]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const changed = () => {
     const out: { studentId: string; tx: number[]; gk: number | null; ck: number | null }[] = [];

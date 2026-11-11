@@ -12,7 +12,7 @@ export const saveScores = wrap(async (fd) => {
 });
 export const toggleLockTerm = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
-  if (fd.get("lock") !== "true") throw new Error("Không mở khóa toàn bộ học kỳ. Hãy yêu cầu mở quyền sửa có thời hạn tại bảng điểm lớp-môn.");
+  if (fd.get("lock") !== "true") throw new Error("Không mở khóa toàn bộ học kỳ. Hãy yêu cầu mở quyền sửa có thời hạn tại bảng điểm lớp và môn.");
   const term = await lockGradebook(me, str(fd, "termId"));
   revalidatePath("/nhap-diem");
   return `Đã khóa sổ điểm ${term.termName}`;

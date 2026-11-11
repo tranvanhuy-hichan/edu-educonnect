@@ -9,6 +9,11 @@ export function createLessonPost(input: CreateLessonPostInput) {
   return prisma.lessonPost.create({ data: input });
 }
 
+export const findAssignments = (ids: string[]) => prisma.classSubjectAssignment.findMany({ where: { id: { in: ids } }, select: { id: true, subjectId: true, academicTermId: true } });
+export function createLessonPosts(inputs: CreateLessonPostInput[]) {
+  return prisma.$transaction(inputs.map((data) => prisma.lessonPost.create({ data })));
+}
+
 export function createExercise(input: CreateExerciseInput) {
   return prisma.exercise.create({ data: input });
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Medal, Trophy, TrendingDown, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
@@ -32,8 +33,8 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
   const sumBtn = (term ? (<DialogButton label="Tổng hợp thi đua" title="Tổng hợp điểm thi đua">
           <ActionForm action={recalculate} submit="Tổng hợp" className="grid grid-cols-1 gap-3 sm:grid-cols-2 [&>button]:sm:col-span-2">
             <div className="sm:col-span-2"><Field label="Tên kỳ thi đua (vd: Tuần 1, Tháng 9, Học kỳ 1)"><input name="label" required className={inputCls + " w-full"} /></Field></div>
-            <Field label="Học kỳ"><select name="termId" defaultValue={term.id} className={inputCls + " w-full"}>{terms.map((t) => <option key={t.id} value={t.id}>{t.termName} · {t.academicYear.yearName}</option>)}</select></Field>
-            <Field label="Lớp"><select name="classId" defaultValue="" className={inputCls + " w-full"}><option value="">Tất cả lớp</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select></Field>
+            <Field label="Học kỳ"><SearchableSelect name="termId" defaultValue={term.id} ariaLabel="Học kỳ" className="w-full" options={terms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.academicYear.yearName}` }))} /></Field>
+            <Field label="Lớp"><SearchableSelect name="classId" emptyLabel="Tất cả lớp" className="w-full" options={classes.map((c) => ({ value: c.id, label: c.className }))} /></Field>
             <Field label="Từ ngày (tuỳ chọn)"><input type="date" name="from" className={inputCls + " w-full"} /></Field>
             <Field label="Đến ngày (tuỳ chọn)"><input type="date" name="to" className={inputCls + " w-full"} /></Field>
             <p className="text-xs text-slate-500 sm:col-span-2">Bỏ trống ngày để tính theo toàn bộ sổ đầu bài. Điểm = điểm học tập TB × 10 − lượt vắng × 0,5 − số tiết chưa xếp loại Tốt × 1.</p>
@@ -66,8 +67,8 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
 
               <select name="period" defaultValue={period} className={inputCls + " min-w-0 flex-1 md:min-w-56 md:flex-none"} aria-label="Kỳ thi đua">{periods.length ? periods.map((p) => <option key={p} value={p}>{p}</option>) : <option value="">Chưa có kỳ nào</option>}</select>
               <MobileCollapse active={[sp.grade, sp.term].filter(Boolean).length}>
-              <select name="term" defaultValue={term.id} className={inputCls} aria-label="Học kỳ">{terms.map((t) => <option key={t.id} value={t.id}>{t.termName} · {t.academicYear.yearName}</option>)}</select>
-                <select name="grade" defaultValue={sp.grade ?? ""} className={inputCls} aria-label="Khối"><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
+              <SearchableSelect key={term.id} name="term" defaultValue={term.id} ariaLabel="Học kỳ" className="w-full md:w-52" options={terms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.academicYear.yearName}` }))} />
+                <SearchableSelect key={sp.grade ?? ""} name="grade" defaultValue={sp.grade ?? ""} emptyLabel="Tất cả khối" ariaLabel="Khối" className="w-full md:w-44" options={grades.map((g) => ({ value: g.id, label: g.gradeName }))} />
                 {sp.grade && <Link href={`/thi-dua?tab=xep-hang&term=${term.id}&period=${encodeURIComponent(period)}`} className="inline-flex h-9 items-center rounded-md px-2 text-sm text-slate-500 hover:text-orange-700">Xoá lọc</Link>}
                 <ViewToggle path="/thi-dua" params={{ tab: "xep-hang", term: term.id, period, grade: sp.grade }} view={view} />
               </MobileCollapse>
@@ -184,7 +185,7 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
             <div className="flex flex-wrap items-center gap-2">
             <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
               <input type="hidden" name="tab" value="lich-su" />
-              <select name="class" defaultValue={classId} className={inputCls + " min-w-0 flex-1 md:min-w-56 md:flex-none"} aria-label="Lớp">{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
+              <SearchableSelect key={classId} name="class" defaultValue={classId} ariaLabel="Lớp" className="min-w-0 flex-1 md:min-w-56 md:flex-none" options={classes.map((c) => ({ value: c.id, label: c.className }))} />
             </AutoForm>
 
             </div>

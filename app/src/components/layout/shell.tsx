@@ -157,8 +157,9 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
           <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm text-slate-500" aria-label="Breadcrumb">
             <Link href="/" className="hidden whitespace-nowrap hover:text-orange-700 sm:inline">Trang chủ</Link>
             {crumbs.map((c, i) => (
-              <span key={c.href} className="flex items-center gap-1 min-w-0">
-                <ChevronRight className={`size-3.5 shrink-0 ${i === 0 ? "hidden sm:block" : ""}`} />
+              // Điện thoại: chỉ hiện tên trang hiện tại (đã có nút quay lại); từ sm trở lên hiện đủ đường dẫn
+              <span key={c.href} className={`${i === crumbs.length - 1 ? "flex" : "hidden sm:flex"} items-center gap-1 min-w-0`}>
+                <ChevronRight className="hidden size-3.5 shrink-0 sm:block" />
                 {i === crumbs.length - 1 ? <span className="truncate font-medium" style={{ color: "var(--fg)" }}>{c.label}</span> : <Link href={c.href} className="hover:text-orange-700 truncate">{c.label}</Link>}
               </span>
             ))}

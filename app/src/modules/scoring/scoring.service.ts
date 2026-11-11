@@ -50,7 +50,7 @@ export async function createScoreEntry(
     const assignment = await assertScoreWrite(user, input.assignmentId, tx);
     if (assignment.academicTermId !== input.academicTermId || assignment.subject.assessmentType !== "SCORE") throw new Error("Học kỳ hoặc hình thức đánh giá không phù hợp");
     const enrollment = await records.findEnrollment(input.studentId, assignment.academicTerm.academicYearId, tx);
-    if (!enrollment || enrollment.schoolClassId !== assignment.schoolClassId) throw new Error("Học sinh không thuộc lớp-môn");
+    if (!enrollment || enrollment.schoolClassId !== assignment.schoolClassId) throw new Error("Học sinh không thuộc lớp và môn");
     await records.lockEnrollment(enrollment.id, tx);
     if ((await yearResultRepository(tx).find(input.studentId, enrollment.academicYearId))?.reviewStatus === "APPROVED") throw new Error("Kết quả cuối năm đã duyệt");
     if (!Number.isFinite(input.value) || input.value < 0 || input.value > 10) throw new Error("Điểm từ 0 đến 10");

@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { genPassword, genStudentCode } from "@/lib/password";
-import { CLASS_CAPACITY, currentTerm, currentYear } from "@/lib/catalog";
+import { currentTerm, currentYear } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 
 export type NewStudent = { fullName: string; dob: Date | null; guardianName?: string | null; guardianPhone?: string | null; email?: string | null };
 export type Created = { code: string; password: string; fullName: string; email: string };
@@ -65,7 +66,7 @@ export async function importStudentsToClass(schoolClassId: string, text: string)
     let status = "Đã xếp lớp";
     try {
       const student = await db.student.findUniqueOrThrow({ where: { code: c.code } });
-      if (active >= CLASS_CAPACITY) status = "Lớp đã đủ sĩ số — chưa xếp lớp";
+      if (active >= (await getPolicy()).promotion.classCapacity) status = "Lớp đã đủ sĩ số — chưa xếp lớp";
       else {
         await db.studentClassEnrollment.create({ data: { studentId: student.id, schoolClassId, academicYearId: cls.academicYearId } });
         active++;
@@ -86,7 +87,8 @@ export type StudentRow = Awaited<ReturnType<typeof loadStudents>>[number];
 
 /** Học sinh kèm trạng thái suy ra: có lớp ở năm học hiện tại → Đang học (điểm TB < 5 → Cần quan tâm); chưa có → Chờ xếp lớp; tài khoản bị khóa → Đã khóa. */
 export async function loadStudents(where: object = {}) {
-  const [year, term] = await Promise.all([currentYear(), currentTerm()]);
+  const [year, term, policy] = await Promise.all([currentYear(), currentTerm(), getPolicy()]);
+  const attentionBelow = policy.promotion.attentionBelow;
   const list = await db.student.findMany({
     where, orderBy: { fullName: "asc" },
     include: { user: { select: { email: true, isActive: true, createdAt: true, mustChangePwd: true } }, enrollments: { include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true } }, academicYear: true } } },
@@ -96,7 +98,7 @@ export async function loadStudents(where: object = {}) {
   return list.map((s) => {
     const current = s.enrollments.find((e) => e.academicYearId === year?.id) ?? null;
     const gpa = avg.get(s.id) ?? null;
-    const status: StudentStatus = !s.user.isActive ? "locked" : !current ? "waiting" : gpa != null && gpa < 5 ? "attention" : "learning";
+    const status: StudentStatus = !s.user.isActive ? "locked" : !current ? "waiting" : gpa != null && gpa < attentionBelow ? "attention" : "learning";
     return { ...s, current, gpa: gpa == null ? null : Math.round(gpa * 100) / 100, status };
   });
 }

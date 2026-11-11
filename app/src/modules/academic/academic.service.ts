@@ -99,6 +99,13 @@ export async function listStudentsInClass(
   return academicRepository.listEnrollmentsByClass(schoolClassId);
 }
 
+/** Giáo viên chỉ được phân công dạy các môn mình phụ trách (khai báo trong hồ sơ giáo viên). */
+export async function assertTeacherTeachesSubject(teacherId: string, subjectId: string) {
+  if (!(await academicRepository.teacherHasSubject(teacherId, subjectId))) {
+    throw new ConflictError("Giáo viên này không phụ trách môn học này — hãy thêm môn vào hồ sơ giáo viên trước");
+  }
+}
+
 /** 1 (lớp, môn, kỳ) chỉ có 1 giáo viên phụ trách tại một thời điểm. */
 export async function createClassSubjectAssignment(
   user: SessionUser,
@@ -109,6 +116,7 @@ export async function createClassSubjectAssignment(
   }
 
   await requireClassSubject(undefined, input.schoolClassId, input.subjectId, input.academicTermId);
+  await assertTeacherTeachesSubject(input.teacherId, input.subjectId);
 
   const existing = await academicRepository.findAssignmentByClassSubjectTerm(
     input.schoolClassId,

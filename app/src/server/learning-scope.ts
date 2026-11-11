@@ -9,8 +9,8 @@ export const isManager = (me: Me) => me.roles.some((r) => MANAGER_ROLES.includes
 export const isStudentOnly = (me: Me) => !!me.studentId && !me.teacherId && !isManager(me);
 
 /**
- * Phạm vi lớp-môn (ClassSubjectAssignment) mỗi người được thấy:
- * quản lý = tất cả, giáo viên = lớp-môn mình dạy, học sinh = môn của lớp mình đang học.
+ * Phạm vi lớp và môn (ClassSubjectAssignment) mỗi người được thấy:
+ * quản lý = tất cả, giáo viên = lớp và môn mình dạy, học sinh = môn của lớp mình đang học.
  */
 export function assignmentWhere(me: Me): Prisma.ClassSubjectAssignmentWhereInput {
   if (isManager(me)) return {};

@@ -161,6 +161,7 @@ model Subject {
   subjectName           String                    @unique
   defaultPeriodsPerWeek Int
   assignments           ClassSubjectAssignment[]
+  teachers              TeacherSubject[]
 }
 
 model Teacher {
@@ -171,14 +172,33 @@ model Teacher {
   user            User                      @relation(fields: [userId], references: [id])
   fullName        String
   phone           String?
+  gender          String? // MALE | FEMALE | OTHER
+  dob             DateTime?
+  contactEmail    String? // email liên hệ (khác email đăng nhập)
+  address         String?
+  idNumber        String? // CCCD/CMND
+  degree          String? // trình độ / bằng cấp
+  startDate       DateTime? // ngày bắt đầu công tác
+  note            String?
+  subjects        TeacherSubject[] // các môn giáo viên được phụ trách (chỉ được phân công dạy các môn này)
   homeroomClasses SchoolClass[]
   assignments     ClassSubjectAssignment[]
+}
+
+model TeacherSubject {
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, subjectId])
 }
 
 model Student {
   examSeats ExamSeat[]
   assessments StudentAssessment[]
   transfers ClassTransfer[]
+  periodAbsences ClassPeriodAbsence[]
   id              String                   @id @default(cuid())
   code            String?                  @unique
   userId          String                   @unique
@@ -187,6 +207,17 @@ model Student {
   dob             DateTime?
   guardianName    String?
   guardianPhone   String?
+  gender          String? // MALE | FEMALE | OTHER
+  birthPlace      String?
+  ethnicity       String?
+  idNumber        String? // CCCD/CMND
+  phone           String?
+  contactEmail    String?
+  address         String?
+  guardianRelation String?
+  guardianEmail   String?
+  guardianJob     String?
+  note            String?
   enrollments     StudentClassEnrollment[]
   monitorOf       SchoolClass[]            @relation("ClassMonitor")
   lessonPostViews LessonPostView[]
@@ -461,10 +492,24 @@ model ClassPeriodLog {
   schoolClass           SchoolClass   @relation(fields: [schoolClassId], references: [id])
   logDate               DateTime
   attendanceAbsentCount Int           @default(0)
-  conductRating         String? // xếp loại tiết: TOT/KHA/TB/YEU
+  conductRating         String? // mã xếp loại tiết (cấu hình ở Cấu hình → Quy chế; mặc định TOT/KHA/TB/YEU)
   note                  String?
+  lessonTitle           String? // tên bài / nội dung bài dạy trong tiết
+  absences              ClassPeriodAbsence[]
 
   @@unique([timetableSlotId, logDate])
+}
+
+/// Học sinh vắng trong một tiết (có phép / không phép). attendanceAbsentCount của sổ = số dòng này khi có danh sách.
+model ClassPeriodAbsence {
+  id        String         @id @default(cuid())
+  logId     String
+  log       ClassPeriodLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student        @relation(fields: [studentId], references: [id])
+  excused   Boolean        @default(false)
+
+  @@unique([logId, studentId])
 }
 
 model EmulationCriteria {
@@ -578,6 +623,7 @@ model SchoolSetting {
   schoolName    String   @default("EduConnect")
   logoUrl       String?
   logoPublicId  String?
+  policy        Json? // quy chế học tập & danh mục do admin cấu hình (xem src/lib/policy-schema.ts); null = dùng mặc định
   updatedAt     DateTime @updatedAt
 }
 

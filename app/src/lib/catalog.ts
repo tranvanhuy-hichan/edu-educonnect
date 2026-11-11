@@ -1,10 +1,6 @@
+import { gradeBand } from "@/lib/policy-schema";
 import { db } from "@/lib/db";
 import { todayUTC } from "@/lib/format";
-
-export const ROOM_TYPES: Record<string, string> = {
-  THUONG: "Phòng thường", THI_NGHIEM: "Phòng thí nghiệm", MAY_TINH: "Phòng máy tính", THE_DUC: "Sân / phòng thể dục", KHAC: "Khác",
-};
-export const roomTypeLabel = (t: string) => ROOM_TYPES[t] ?? t;
 
 /** Thứ trong TKB: 2..7 = Thứ 2..Thứ 7 (Chủ nhật = 8, không có tiết). */
 export const DAYS = [2, 3, 4, 5, 6, 7];
@@ -28,9 +24,7 @@ export async function currentYear() {
   return (await db.academicYear.findFirst({ where: { startDate: { lte: today }, endDate: { gte: today } } })) ?? (await db.academicYear.findFirst({ orderBy: { startDate: "desc" } }));
 }
 
-/** Sĩ số tối đa mặc định của một lớp (schema chưa có field riêng). */
-export const CLASS_CAPACITY = 45;
-
-export const rankOf = (avg: number | null | undefined) => (avg == null ? "-" : avg >= 8 ? "Giỏi" : avg >= 6.5 ? "Khá" : avg >= 5 ? "Trung bình" : "Yếu");
+/** Xếp loại theo điểm TB, theo thang trong Cấu hình → Quy chế (truyền policy.gradeScale). */
+export const rankOf = gradeBand;
 export const initialOf = (name: string) => name.split(" ").pop()?.[0] ?? "?";
 export const hueOfStr = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);

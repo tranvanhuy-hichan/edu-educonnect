@@ -17,7 +17,7 @@ export async function loadScheduleSlots(where: Prisma.TimetableSlotWhereInput, c
     const id = `activity:${activity.id}`;
     result.push({ id, versionId: activity.versionId, schoolClassId: activity.schoolClassId, academicTermId: activity.version.academicTermId, assignmentId: id, roomId: id, dayOfWeek: activity.dayOfWeek, periodNo: activity.periodNo, schoolClass: activity.schoolClass, kind: "activity",
       room: { id, roomName: "Hoạt động chung", roomType: "ACTIVITY", capacity: 0 },
-      assignment: { id, schoolClassId: activity.schoolClassId, subjectId: id, teacherId: "", academicTermId: activity.version.academicTermId, subject: { id, subjectName: activity.name, defaultPeriodsPerWeek: 0, assessmentType: "COMMENT", annualPeriods: 0 }, teacher: { id: "", code: null, userId: "", fullName: "Theo kế hoạch nhà trường", phone: null } },
+      assignment: { id, schoolClassId: activity.schoolClassId, subjectId: id, teacherId: "", academicTermId: activity.version.academicTermId, subject: { id, subjectName: activity.name, defaultPeriodsPerWeek: 0, assessmentType: "COMMENT", annualPeriods: 0 }, teacher: { id: "", code: null, userId: "", fullName: "Theo kế hoạch nhà trường", phone: null, gender: null, dob: null, contactEmail: null, address: null, idNumber: null, degree: null, startDate: null, note: null } },
     });
   }
   return result.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.periodNo - b.periodNo);

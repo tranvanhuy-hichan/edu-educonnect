@@ -31,8 +31,8 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) return NextResponse.json({ error: "Chưa chọn tệp" }, { status: 400 });
   try { validateUpload(file.name, file.size, limit); } catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
   const assignmentId = String(form.get("assignmentId") || ""), purpose = String(form.get("purpose") || ""), exerciseId = String(form.get("exerciseId") || "") || null;
-  if (!assignmentId || assignmentId.length > 100 || (exerciseId?.length ?? 0) > 100) return NextResponse.json({ error: "Chọn lớp-môn hợp lệ trước khi tải tệp" }, { status: 400 });
-  try { await requireUploadAccess(user, assignmentId, purpose, exerciseId); } catch (error) { return NextResponse.json({ error: error instanceof FileAccessError ? error.message : "Không tìm thấy lớp-môn" }, { status: 403 }); }
+  if (!assignmentId || assignmentId.length > 100 || (exerciseId?.length ?? 0) > 100) return NextResponse.json({ error: "Chọn lớp và môn hợp lệ trước khi tải tệp" }, { status: 400 });
+  try { await requireUploadAccess(user, assignmentId, purpose, exerciseId); } catch (error) { return NextResponse.json({ error: error instanceof FileAccessError ? error.message : "Không tìm thấy lớp và môn" }, { status: 403 }); }
   try {
     const saved = await uploadFile(user, { assignmentId, purpose, exerciseId, name: file.name, buffer: Buffer.from(await file.arrayBuffer()) });
     return NextResponse.json(saved, { status: 201 });

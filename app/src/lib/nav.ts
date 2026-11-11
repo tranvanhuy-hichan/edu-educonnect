@@ -32,6 +32,8 @@ const MANAGE: NavGroup[] = [
       { href: "/phan-cong", label: "Phân công giảng dạy", icon: Repeat },
       schedule,
       diary,
+      lessons,
+      plans,
     ],
   },
   {

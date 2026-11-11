@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { assertRole, ADMIN_ROLES } from "@/lib/guard";
 import { wrap, str, int } from "@/lib/action";
-import { addDays, parseDate } from "@/lib/format";
+import { parseDate } from "@/lib/format";
 import { audit } from "@/lib/audit";
 import { deleteImage, isCloudinaryConfigured, uploadSchoolLogo } from "@/lib/cloudinary";
 import * as scoringService from "@/modules/scoring/scoring.service";
@@ -19,24 +19,34 @@ function dates(fd: FormData) {
   return { start, end };
 }
 
+/** Đọc một khoảng học kỳ từ form (`${prefix}Start/End/Weeks`): ngày hợp lệ, kết thúc sau bắt đầu, 1–30 tuần. */
+function period(fd: FormData, prefix: string, label: string) {
+  const s = str(fd, `${prefix}Start`), e = str(fd, `${prefix}End`);
+  if (!s || !e) throw new Error(`${label}: chọn ngày bắt đầu và ngày kết thúc`);
+  const start = parseDate(s), end = parseDate(e);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) throw new Error(`${label}: ngày không hợp lệ`);
+  if (end <= start) throw new Error(`${label}: ngày kết thúc phải sau ngày bắt đầu`);
+  const weeks = Math.ceil(((end.getTime() - start.getTime()) / 86400_000 + 1) / 7), given = int(fd, `${prefix}Weeks`, weeks);
+  if (weeks < 1 || weeks > 30 || given < 1 || given > 30) throw new Error(`${label}: thời lượng phải từ 1 đến 30 tuần`);
+  return { start, end };
+}
+const overlap = (a: { start: Date; end: Date }, b: { start: Date; end: Date }) => a.start <= b.end && b.start <= a.end;
+
 /* ===== Năm học & học kỳ ===== */
 export const addAcademicYear = wrap(async (fd) => {
   const me = await assertRole(...ADMIN_ROLES);
   const yearName = str(fd, "yearName");
   if (!yearName) throw new Error("Nhập tên năm học (vd 2027-2028)");
-  const { start, end } = dates(fd);
+  const hk1 = period(fd, "hk1", "Học kỳ 1"), hk2 = period(fd, "hk2", "Học kỳ 2");
+  if (hk2.start <= hk1.end) throw new Error("Học kỳ 2 phải bắt đầu sau khi học kỳ 1 kết thúc");
   if (await db.academicYear.findUnique({ where: { yearName } })) throw new Error("Năm học này đã tồn tại");
-  const year = await db.academicYear.create({ data: { yearName, startDate: start, endDate: end } });
-  if (fd.get("createTerms") === "on") {
-    const mid = addDays(start, Math.floor((end.getTime() - start.getTime()) / 86400_000 / 2));
-    await db.academicTerm.createMany({ data: [
-      { academicYearId: year.id, termName: "HK1", startDate: start, endDate: mid },
-      { academicYearId: year.id, termName: "HK2", startDate: addDays(mid, 1), endDate: end },
-    ] });
-  }
+  const year = await db.academicYear.create({ data: {
+    yearName, startDate: hk1.start, endDate: hk2.end,
+    terms: { create: [{ termName: "HK1", startDate: hk1.start, endDate: hk1.end }, { termName: "HK2", startDate: hk2.start, endDate: hk2.end }] },
+  } });
   await audit(me.email, "create", "AcademicYear", year.id);
   done();
-  return "Đã thêm năm học";
+  return "Đã thêm năm học cùng HK1 và HK2";
 });
 
 export const updateAcademicYear = wrap(async (fd) => {
@@ -45,6 +55,8 @@ export const updateAcademicYear = wrap(async (fd) => {
   if (!yearName) throw new Error("Nhập tên năm học");
   const { start, end } = dates(fd);
   if (await db.academicYear.findFirst({ where: { yearName, id: { not: id } } })) throw new Error("Đã có năm học cùng tên");
+  const terms = await db.academicTerm.findMany({ where: { academicYearId: id } });
+  if (terms.some((t) => t.startDate < start || t.endDate > end)) throw new Error("Thời gian năm học phải bao trùm các học kỳ của năm. Hãy sửa học kỳ trước hoặc dùng nút sửa học kỳ.");
   await db.academicYear.update({ where: { id }, data: { yearName, startDate: start, endDate: end } });
   await audit(me.email, "update", "AcademicYear", id);
   done();
@@ -69,12 +81,43 @@ export const addAcademicTerm = wrap(async (fd) => {
   const me = await assertRole(...ADMIN_ROLES);
   const academicYearId = str(fd, "academicYearId"), termName = str(fd, "termName");
   if (!["HK1", "HK2"].includes(termName)) throw new Error("Chọn học kỳ");
-  const { start, end } = dates(fd);
-  if (await db.academicTerm.findUnique({ where: { academicYearId_termName: { academicYearId, termName } } })) throw new Error(`Năm học này đã có ${termName}`);
-  const t = await db.academicTerm.create({ data: { academicYearId, termName, startDate: start, endDate: end } });
+  const p = period(fd, "term", "Học kỳ");
+  const year = await db.academicYear.findUniqueOrThrow({ where: { id: academicYearId }, include: { terms: true } });
+  if (year.terms.some((t) => t.termName === termName)) throw new Error(`Năm học này đã có ${termName}`);
+  const other = year.terms[0];
+  if (other && overlap(p, { start: other.startDate, end: other.endDate })) throw new Error(`Thời gian trùng với ${other.termName}`);
+  if (other && ((termName === "HK1") !== (p.end < other.startDate))) throw new Error("HK1 phải diễn ra trước HK2");
+  if (p.start < year.startDate || p.end > year.endDate) throw new Error("Học kỳ phải nằm trong thời gian của năm học");
+  const t = await db.academicTerm.create({ data: { academicYearId, termName, startDate: p.start, endDate: p.end } });
+  await syncYearDates(academicYearId);
   await audit(me.email, "create", "AcademicTerm", t.id);
   done();
   return "Đã thêm học kỳ";
+});
+
+/** Năm học có đủ HK1 + HK2 thì ngày đầu/cuối năm luôn = đầu HK1 / cuối HK2. */
+async function syncYearDates(academicYearId: string) {
+  const terms = await db.academicTerm.findMany({ where: { academicYearId } });
+  const hk1 = terms.find((t) => t.termName === "HK1"), hk2 = terms.find((t) => t.termName === "HK2");
+  if (hk1 && hk2) await db.academicYear.update({ where: { id: academicYearId }, data: { startDate: hk1.startDate, endDate: hk2.endDate } });
+}
+
+export const updateAcademicTerm = wrap(async (fd) => {
+  const me = await assertRole(...ADMIN_ROLES);
+  const id = str(fd, "id");
+  const p = period(fd, "term", "Học kỳ");
+  const term = await db.academicTerm.findUniqueOrThrow({ where: { id }, include: { academicYear: { include: { terms: true } } } });
+  const other = term.academicYear.terms.find((t) => t.id !== id);
+  if (other) {
+    if (overlap(p, { start: other.startDate, end: other.endDate })) throw new Error(`Thời gian trùng với ${other.termName}`);
+    if ((term.termName === "HK1") !== (p.end < other.startDate)) throw new Error("HK1 phải kết thúc trước khi HK2 bắt đầu");
+  } else if (p.start < term.academicYear.startDate || p.end > term.academicYear.endDate) throw new Error("Học kỳ phải nằm trong thời gian của năm học");
+  await db.academicTerm.update({ where: { id }, data: { startDate: p.start, endDate: p.end } });
+  await syncYearDates(term.academicYearId);
+  await audit(me.email, "update", "AcademicTerm", id);
+  done();
+  revalidatePath("/");
+  return "Đã lưu học kỳ";
 });
 
 export const deleteAcademicTerm = wrap(async (fd) => {

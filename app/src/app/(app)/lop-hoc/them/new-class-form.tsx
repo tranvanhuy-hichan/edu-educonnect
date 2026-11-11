@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
+import { SearchableSelect } from "@/components/searchable-select";
 import { BookOpenCheck, GraduationCap } from "lucide-react";
 import { createClass } from "../actions";
 
@@ -43,13 +44,10 @@ export function NewClassForm({ grades, years, teachers, rooms, subjects, default
               </select>
             </F>
             <F label="Phòng học cố định *" hint="1 phòng có thể chia cho 1 lớp sáng & 1 lớp chiều">
-              <select name="roomId" value={roomId} onChange={(e) => setRoomId(e.target.value)} required className={ic}>
-                <option value="">-- chọn phòng --</option>
-                {rooms.map((room) => <option key={room.id} value={room.id}>{room.label}</option>)}
-              </select>
+              <SearchableSelect name="roomId" value={roomId} onChange={setRoomId} emptyLabel="-- chọn phòng --" ariaLabel="Phòng học cố định" className="w-full" options={rooms.map((room) => ({ value: room.id, label: room.label }))} />
             </F>
-            <F label="Khối *"><select name="gradeLevelId" value={gradeId} onChange={(e) => setGradeId(e.target.value)} className={ic} required><option value="">-- chọn khối --</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></F>
-            <F label="Năm học *"><select name="academicYearId" value={yearId} onChange={(e) => setYearId(e.target.value)} className={ic} required><option value="">-- chọn năm học --</option>{years.map((y) => <option key={y.id} value={y.id}>{y.label}</option>)}</select></F>
+            <F label="Khối *"><SearchableSelect name="gradeLevelId" value={gradeId} onChange={setGradeId} emptyLabel="-- chọn khối --" ariaLabel="Khối" className="w-full" options={grades.map((g) => ({ value: g.id, label: g.label }))} /></F>
+            <F label="Năm học *"><SearchableSelect name="academicYearId" value={yearId} onChange={setYearId} emptyLabel="-- chọn năm học --" ariaLabel="Năm học" className="w-full" options={years.map((y) => ({ value: y.id, label: y.label }))} /></F>
           </div>
         </Section>
 
@@ -61,7 +59,7 @@ export function NewClassForm({ grades, years, teachers, rooms, subjects, default
         <Section icon={GraduationCap} title="Giáo viên chủ nhiệm" hint="Có thể chọn sau. Giáo viên được giao chủ nhiệm tự có thêm chức năng chủ nhiệm trong cùng một tài khoản">
           <div className="content-panel rounded-lg border bg-slate-50 p-0 md:p-3">
             <div className="mb-2 flex items-center gap-2 text-sm font-semibold"><GraduationCap className="size-4 text-orange-700" /> GVCN</div>
-            <select name="homeroomTeacherId" value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={ic}><option value="">-- chưa phân công --</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
+            <SearchableSelect name="homeroomTeacherId" value={teacherId} onChange={setTeacherId} emptyLabel="-- chưa phân công --" ariaLabel="Giáo viên chủ nhiệm" className="w-full" options={teachers.map((t) => ({ value: t.id, label: t.label }))} />
             <p className="mt-1.5 text-xs text-slate-500">GVCN quản lý danh sách học sinh, bảng điểm, thi đua và sổ đầu bài của lớp mình chủ nhiệm.</p>
           </div>
         </Section>

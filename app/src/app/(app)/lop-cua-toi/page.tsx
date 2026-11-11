@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchableSelect } from "@/components/searchable-select";
 import { BookOpen, GraduationCap, UserCheck } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -42,7 +43,7 @@ export default async function MyClasses({ searchParams }: { searchParams: Promis
         <input type="hidden" name="v" value={view} />
         <input name="q" defaultValue={sp.q} placeholder="Tìm lớp, môn..." className={inputCls + " min-w-48 flex-1"} />
         <MobileCollapse active={[sp.termId, sp.all].filter(Boolean).length}>
-          <select name="termId" defaultValue={sp.termId ?? ""} className={inputCls}><option value="">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
+          <SearchableSelect key={sp.termId ?? ""} name="termId" defaultValue={sp.termId ?? ""} emptyLabel="Tất cả học kỳ" ariaLabel="Học kỳ" className="w-full md:w-56" options={terms.map((t) => ({ value: t.id, label: t.label }))} />
           <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border bg-white px-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!sp.all} /> Gồm học kỳ đã kết thúc</label>
         </MobileCollapse>
         <div className="hidden md:contents"><ViewToggle path="/lop-cua-toi" params={{ q: sp.q, termId: sp.termId, all: sp.all, size: sp.size }} view={view} /></div>

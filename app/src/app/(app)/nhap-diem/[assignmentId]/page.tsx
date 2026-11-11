@@ -4,6 +4,7 @@ import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { Title } from "@/components/ui";
 import { GradeGrid } from "./grid";
+import { getPolicy } from "@/lib/policy";
 import { LockControls } from "./lock-controls";
 import { Assessments } from "./assessments";
 import { requiredRegularScores } from "@/modules/scoring/annual";
@@ -61,6 +62,7 @@ export default async function AssignmentGrades({ params }: { params: Promise<{ a
         assignmentId={assignmentId}
         txCols={txCols}
         weights={weights}
+        bands={(await getPolicy()).gradeScale}
         students={students}
         initial={initial}
         readOnly={readOnly}

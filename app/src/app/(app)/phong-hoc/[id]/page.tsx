@@ -1,8 +1,11 @@
 import { effectiveSlots } from "@/modules/scheduling/effective";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, DoorOpen, School, Users } from "lucide-react";
 import { db } from "@/lib/db";
+import { getPolicy } from "@/lib/policy";
+import { labelOf } from "@/lib/policy-schema";
 import { ADMIN_ROLES, MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
@@ -10,7 +13,7 @@ import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
 import { hueOf } from "@/components/schedule-chips";
 import { todayUTC } from "@/lib/format";
-import { DAYS, DAY_NAME, ROOM_TYPES, currentTerm, dowOf, roomTypeLabel } from "@/lib/catalog";
+import { DAYS, DAY_NAME, currentTerm, dowOf } from "@/lib/catalog";
 import { deleteRoom, updateRoom } from "../actions";
 
 const TABS = [["overview", "Tổng quan"], ["classes", "Lớp sử dụng"], ["schedule", "Lịch sử dụng"], ["settings", "Thông tin & Xoá"]] as const;
@@ -24,6 +27,7 @@ const Stat = ({ icon: I, label, value, tone = "bg-orange-100 text-orange-700" }:
 
 export default async function RoomDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; page?: string; size?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES);
+  const roomTypes = (await getPolicy()).roomTypes;
   const canEdit = me.roles.some((r) => MANAGER_ROLES.includes(r));
   const { id } = await params;
   const sp = await searchParams;
@@ -56,7 +60,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
             <h1 className="text-xl font-semibold">{room.roomName}</h1>
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${todaySlots.length ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"}`}>{todaySlots.length ? `${todaySlots.length} tiết hôm nay` : "Trống hôm nay"}</span>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600"><span className="font-medium text-orange-700">{roomTypeLabel(room.roomType)}</span><span className="flex items-center gap-1"><Users className="size-4" /> Sức chứa {room.capacity} chỗ</span></div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600"><span className="font-medium text-orange-700">{labelOf(roomTypes, room.roomType)}</span><span className="flex items-center gap-1"><Users className="size-4" /> Sức chứa {room.capacity} chỗ</span></div>
         </div>
         <Link href={`/lich-hoc?room=${id}`} className="inline-flex h-9 w-full items-center justify-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700 md:w-auto">Xem lịch phòng</Link>
       </Card>
@@ -162,7 +166,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
             <h2 className="mb-3 font-semibold">Thông tin phòng</h2>
             <ActionForm action={updateRoom} submit="Lưu thông tin" reset={false} className="grid max-w-2xl grid-cols-1 items-end gap-3 sm:grid-cols-2 [&>button]:justify-self-start">
               <input type="hidden" name="id" value={room.id} />
-              <Field label="Loại phòng"><select name="roomType" defaultValue={room.roomType} className={inputCls + " w-full"}>{Object.entries(ROOM_TYPES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+              <Field label="Loại phòng"><SearchableSelect name="roomType" defaultValue={room.roomType} ariaLabel="Loại phòng" className="w-full" options={roomTypes.map(({ code, label }) => ({ value: code, label }))} /></Field>
               <Field label="Tên phòng"><input name="name" defaultValue={room.roomName} className={inputCls + " w-full"} required /></Field>
               <Field label="Sức chứa"><input name="capacity" defaultValue={room.capacity} className={inputCls + " w-full"} /></Field>
             </ActionForm>

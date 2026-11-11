@@ -8,7 +8,7 @@ import { assertScoreWrite } from "./locking";
 export type AssessmentInput = { assignmentId: string; studentId: string; outcome: string; isExempt: boolean; comment: string; adjustmentReason: string; decisionReference: string; reason: string };
 export async function saveStudentAssessment(me: SessionUser, input: AssessmentInput) {
   const { assignmentId, studentId } = input;
-  if (!await canManageClassSubjectAssignment(me, assignmentId)) throw new Error("Không phụ trách lớp-môn này");
+  if (!await canManageClassSubjectAssignment(me, assignmentId)) throw new Error("Không phụ trách lớp và môn này");
   const outcome = input.outcome;
   if (outcome && !["DAT", "CHUA_DAT"].includes(outcome)) throw new Error("Kết quả nhận xét không hợp lệ");
   const isExempt = input.isExempt, comment = input.comment, adjustmentReason = input.adjustmentReason, decisionReference = input.decisionReference;

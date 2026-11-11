@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchableSelect } from "@/components/searchable-select";
 import { ActionMenu } from "@/components/action-menu";
 import { AutoForm } from "@/components/auto-form";
 import { db } from "@/lib/db";
@@ -45,9 +46,9 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
         <input type="hidden" name="v" value={v} />
         <input name="q" defaultValue={q} placeholder="Tìm lớp học..." className={inputCls + " min-w-48 flex-1 max-md:w-full max-md:basis-full"} />
         <MobileCollapse active={[grade, year, teacher, all].filter(Boolean).length}>
-          <select name="grade" defaultValue={grade ?? ""} className={inputCls}><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
-          <select name="year" defaultValue={year ?? ""} className={inputCls}><option value="">Năm học hiện tại</option>{years.map((y) => <option key={y.id} value={y.id}>{y.yearName}</option>)}</select>
-          <select name="teacher" defaultValue={teacher ?? ""} className={inputCls + " max-w-56"}><option value="">Tất cả GVCN</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>
+          <SearchableSelect key={grade ?? ""} name="grade" defaultValue={grade ?? ""} emptyLabel="Tất cả khối" ariaLabel="Khối" className="w-full md:w-44" options={grades.map((g) => ({ value: g.id, label: g.gradeName }))} />
+          <SearchableSelect key={year ?? ""} name="year" defaultValue={year ?? ""} emptyLabel="Năm học hiện tại" ariaLabel="Năm học" className="w-full md:w-44" options={years.map((y) => ({ value: y.id, label: y.yearName }))} />
+          <SearchableSelect key={teacher ?? ""} name="teacher" defaultValue={teacher ?? ""} emptyLabel="Tất cả GVCN" ariaLabel="Giáo viên chủ nhiệm" className="w-full md:w-52" options={teachers.map((t) => ({ value: t.id, label: t.fullName }))} />
         <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border bg-white px-3 text-sm max-md:flex-1 max-md:justify-center has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="all" value="1" defaultChecked={!!all} /> Gồm lớp năm học cũ</label>
           <ViewToggle path="/lop-hoc" params={{ q, all, grade, year, teacher, size: sp.size }} view={v === "cards" ? "cards" : "table"} />
         </MobileCollapse>

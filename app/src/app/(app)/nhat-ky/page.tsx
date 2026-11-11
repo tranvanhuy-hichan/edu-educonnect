@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { SearchableSelect } from "@/components/searchable-select";
 import { AutoForm } from "@/components/auto-form";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { inputCls, Table, Tabs, Title } from "@/components/ui";
@@ -57,7 +58,7 @@ export default async function ActivityLog({ searchParams }: { searchParams: Prom
         <input type="hidden" name="tab" value={tab} />
         <input name="q" defaultValue={q} placeholder="Tìm theo người thực hiện (email)..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[action, from, to].filter(Boolean).length}>
-          <select name="action" defaultValue={action} className={inputCls + " max-w-56"}><option value="">Mọi hành động</option>{actions.map((a) => <option key={a.action} value={a.action}>{label(ACTION_LABEL, a.action)}</option>)}</select>
+          <SearchableSelect key={action} name="action" defaultValue={action} emptyLabel="Mọi hành động" ariaLabel="Hành động" className="w-full md:w-56" options={actions.map((a) => ({ value: a.action, label: label(ACTION_LABEL, a.action) }))} />
           <input type="date" name="from" defaultValue={from} className={inputCls} aria-label="Từ ngày" title="Từ ngày" />
           <input type="date" name="to" defaultValue={to} className={inputCls} aria-label="Đến ngày" title="Đến ngày" />
         </MobileCollapse>

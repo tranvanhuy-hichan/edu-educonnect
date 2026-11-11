@@ -17,6 +17,24 @@ const rolesOf = (fd: FormData): Role[] => {
 };
 const validEmail = (e: string) => /^\S+@\S+\.\S+$/.test(e);
 
+/** Hồ sơ cá nhân + các môn phụ trách, đọc từ form. */
+function readProfile(fd: FormData) {
+  const gender = opt(fd, "gender");
+  if (gender && !["MALE", "FEMALE", "OTHER"].includes(gender)) throw new Error("Giới tính không hợp lệ");
+  const date = (k: string, label: string) => { const v = opt(fd, k); if (!v) return null; const d = new Date(v); if (Number.isNaN(d.getTime())) throw new Error(`${label} không hợp lệ`); return d; };
+  const contactEmail = opt(fd, "contactEmail");
+  if (contactEmail && !validEmail(contactEmail)) throw new Error("Email liên hệ không hợp lệ");
+  const phone = opt(fd, "phone")?.replace(/\s/g, "") ?? null;
+  if (phone && !/^[0-9+]{8,15}$/.test(phone)) throw new Error("Số điện thoại không hợp lệ");
+  return { phone, gender, dob: date("dob", "Ngày sinh"), contactEmail, address: opt(fd, "address"), idNumber: opt(fd, "idNumber"), degree: opt(fd, "degree"), startDate: date("startDate", "Ngày bắt đầu công tác"), note: opt(fd, "note") };
+}
+async function readSubjects(fd: FormData, roles: Role[]) {
+  const ids = [...new Set(fd.getAll("subjectIds").map(String).filter(Boolean))];
+  if (roles.includes("SUBJECT_TEACHER") && !ids.length) throw new Error("Chọn ít nhất một môn giáo viên phụ trách");
+  if (ids.length && (await db.subject.count({ where: { id: { in: ids } } })) !== ids.length) throw new Error("Môn học không tồn tại");
+  return ids;
+}
+
 export const createTeacher = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
   const fullName = str(fd, "fullName");
@@ -27,7 +45,8 @@ export const createTeacher = wrap(async (fd) => {
   const password = genPassword();
   let code = genTeacherCode();
   while (await db.teacher.findUnique({ where: { code } })) code = genTeacherCode();
-  const user = await db.user.create({ data: { email, passwordHash: await bcrypt.hash(password, 10), roles: rolesOf(fd), mustChangePwd: true, teacher: { create: { fullName, code, phone: opt(fd, "phone") } } }, include: { teacher: true } });
+  const roles = rolesOf(fd), profile = readProfile(fd), subjectIds = await readSubjects(fd, roles);
+  const user = await db.user.create({ data: { email, passwordHash: await bcrypt.hash(password, 10), roles, mustChangePwd: true, teacher: { create: { fullName, code, ...profile, subjects: { create: subjectIds.map((subjectId) => ({ subjectId })) } } } }, include: { teacher: true } });
   await audit(me.email, "create_teacher", "Teacher", user.teacher!.id);
   revalidatePath("/giao-vien");
   return { ok: "Đã tạo giáo viên. File mật khẩu ban đầu đang tự tải về.", data: { credentials: JSON.stringify([{ fullName, username: email, password }]) } };
@@ -41,9 +60,15 @@ export const updateTeacher = wrap(async (fd) => {
   const t = await db.teacher.findUniqueOrThrow({ where: { id }, include: { user: true } });
   // chỉ đổi 2 vai trò giáo viên; giữ nguyên các vai trò khác (Hiệu trưởng, Thủ thư...)
   const keep = t.user.roles.filter((r) => !TEACH.includes(r));
-  const next = [...keep, ...rolesOf(fd)];
+  const roles = rolesOf(fd), profile = readProfile(fd), subjectIds = await readSubjects(fd, roles);
+  const next = [...keep, ...roles];
+  // Không cho bỏ môn đang có phân công giảng dạy (bài học, điểm, thời khóa biểu gắn với phân công đó)
+  const inUse = await db.classSubjectAssignment.findMany({ where: { teacherId: id, subjectId: { notIn: subjectIds } }, include: { subject: true }, distinct: ["subjectId"] });
+  if (inUse.length) throw new Error(`Không bỏ được môn ${inUse.map((a) => a.subject.subjectName).join(", ")} vì giáo viên đang được phân công dạy môn này`);
   await db.$transaction([
-    db.teacher.update({ where: { id }, data: { fullName, phone: opt(fd, "phone") } }),
+    db.teacher.update({ where: { id }, data: { fullName, ...profile } }),
+    db.teacherSubject.deleteMany({ where: { teacherId: id } }),
+    db.teacherSubject.createMany({ data: subjectIds.map((subjectId) => ({ teacherId: id, subjectId })) }),
     db.user.update({ where: { id: t.userId }, data: { roles: next } }),
   ]);
   await audit(me.email, "update_teacher", "Teacher", id);

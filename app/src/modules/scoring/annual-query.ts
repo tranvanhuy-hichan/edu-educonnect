@@ -1,6 +1,8 @@
 import type { DatabaseContext } from "@/infrastructure/database/unit-of-work";
 import { gradingRepository } from "./scoring.repository";
-import { annualSubjectAverage, semesterAverage, requiredRegularScores, type AnnualSubject } from "./annual";
+import { annualSubjectAverage, semesterAverage, requiredRegularScores, DEFAULT_WEIGHTS, type AnnualSubject } from "./annual";
+
+const weightsOf = (c: { txWeight: number; gkWeight: number; ckWeight: number } | null | undefined) => (c ? { tx: c.txWeight, gk: c.gkWeight, ck: c.ckWeight } : DEFAULT_WEIGHTS);
 
 /** Dùng cùng phép tính ở giao diện và server; không nhận điểm tổng kết từ form. */
 export async function loadAnnualSubjects(studentId: string, academicYearId: string, context?: DatabaseContext): Promise<AnnualSubject[]> {
@@ -24,7 +26,7 @@ export async function loadAnnualSubjects(studentId: string, academicYearId: stri
       const txScores = entries.filter((row) => row.scoreType === "THUONG_XUYEN").map((row) => row.value);
       const gk = entries.filter((row) => row.scoreType === "GIUA_KY");
       const ck = entries.filter((row) => row.scoreType === "CUOI_KY");
-      const average = gk.length === 1 && ck.length === 1 ? semesterAverage(txScores, gk[0].value, ck[0].value, requiredRegularScores(subject.annualPeriods)) : null;
+      const average = gk.length === 1 && ck.length === 1 ? semesterAverage(txScores, gk[0].value, ck[0].value, requiredRegularScores(subject.annualPeriods), weightsOf(assignment.academicTerm.scoreWeightConfig)) : null;
       if (average == null) missing.push(`chưa đủ điểm ${termName}`);
       return { average, outcome: null, exempt: false };
     });

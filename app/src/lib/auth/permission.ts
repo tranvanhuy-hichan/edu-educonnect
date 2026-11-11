@@ -14,7 +14,7 @@ export async function canManageSchoolClass(
   return schoolClass?.homeroomTeacherId === user.teacherId;
 }
 
-/** GVBM chỉ thao tác được assignment (lớp-môn-kỳ) mình được phân công. */
+/** GVBM chỉ thao tác được assignment (lớp và môn-kỳ) mình được phân công. */
 export async function canManageClassSubjectAssignment(
   user: SessionUser,
   assignmentId: string,

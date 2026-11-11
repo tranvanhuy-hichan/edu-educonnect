@@ -6,6 +6,7 @@ import {
   Award,
   BookOpen,
   Calendar,
+  CalendarX,
   ChevronDown,
   Clock,
   FileText,
@@ -16,6 +17,8 @@ import {
   Users,
   Sparkles,
 } from "lucide-react";
+
+export type AbsenceItem = { id: string; isoDate: string; date: string; termId: string; periodNo: number; subjectName: string; excused: boolean; recent: boolean };
 
 export type ChildData = {
   id: string;
@@ -40,6 +43,7 @@ export type ChildData = {
     conductRank: string | null;
     result: string | null;
   } | null;
+  absences: AbsenceItem[];
   assessments: Array<{ id: string; academicTermId: string; subjectName: string; outcome: string | null; isExempt: boolean; comment: string | null }>;
   subjectAverages: Array<{
     assignmentId: string;
@@ -110,7 +114,7 @@ export function ParentPortalView({
 }) {
   const [selectedChildId, setSelectedChildId] = useState(initialChildId);
   const [selectedTermId, setSelectedTermId] = useState(defaultTermId);
-  const [activeTab, setActiveTab] = useState<"grades" | "schedule" | "exams" | "library">("grades");
+  const [activeTab, setActiveTab] = useState<"grades" | "schedule" | "absences" | "exams" | "library">("grades");
 
   const child = childrenData.find((c) => c.id === selectedChildId) ?? childrenData[0];
   if (!child) return null;
@@ -132,7 +136,13 @@ export function ParentPortalView({
   const scheduleDays = [2, 3, 4, 5, 6, 7]; // Thứ 2 - Thứ 7
   const schedulePeriods = [1, 2, 3, 4, 5]; // Tiết 1 - Tiết 5
 
-  // Thống kê nề nếp / vi phạm
+  // Nghỉ học của con (theo học kỳ đang chọn), gom theo ngày
+  const termAbsences = child.absences.filter((a) => isAllTerms || a.termId === selectedTermId);
+  const absenceDays = [...termAbsences.reduce((m, a) => m.set(a.isoDate, [...(m.get(a.isoDate) ?? []), a]), new Map<string, AbsenceItem[]>()).entries()].sort((x, y) => y[0].localeCompare(x[0]));
+  const excusedCount = termAbsences.filter((a) => a.excused).length;
+  // Báo ngay trên đầu trang nếu con vừa nghỉ trong 7 ngày gần đây
+  const recentAbsences = child.absences.filter((a) => a.recent);
+  const recentAbsenceDays = [...new Set(recentAbsences.map((a) => a.isoDate))].sort().reverse();
 
   // Điểm trung bình học kỳ được chọn
   const termAvg =
@@ -292,6 +302,16 @@ export function ParentPortalView({
         </div>
       </div>
 
+      {recentAbsenceDays.length > 0 && (
+        <button type="button" onClick={() => setActiveTab("absences")} className="no-print flex w-full items-start gap-3 rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/80 dark:bg-rose-950/30 p-4 text-left">
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300"><CalendarX className="size-5" /></span>
+          <span className="min-w-0 text-xs">
+            <span className="block text-sm font-bold text-rose-800 dark:text-rose-200">Con có nghỉ học trong 7 ngày gần đây</span>
+            <span className="mt-0.5 block text-rose-700 dark:text-rose-300">{recentAbsences.length} tiết vắng · ngày {recentAbsenceDays.map((d) => d.split("-").reverse().slice(0, 2).join("/")).join(", ")}. Bấm để xem chi tiết.</span>
+          </span>
+        </button>
+      )}
+
       {/* 3. THANH TAB ĐIỀU HƯỚNG NỘI DUNG */}
       <div className="no-print flex items-center gap-1.5 sm:gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800 pb-2 text-xs font-semibold">
         <button
@@ -318,6 +338,24 @@ export function ParentPortalView({
         >
           <Calendar className="size-4" />
           <span>Thời khóa biểu</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("absences")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 transition whitespace-nowrap ${
+            activeTab === "absences"
+              ? "bg-orange-600 text-white shadow-sm"
+              : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+          }`}
+        >
+          <CalendarX className="size-4" />
+          <span>Nghỉ học</span>
+          {termAbsences.length > 0 && (
+            <span className="rounded-full bg-rose-100 dark:bg-rose-900/60 px-1.5 py-0.2 text-[10px] text-rose-600 dark:text-rose-300">
+              {termAbsences.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -602,6 +640,56 @@ export function ParentPortalView({
                       <span>Ca thi: <strong>{seat.startsAt}</strong> – <strong>{seat.endsAt}</strong></span>
                     </div>
                   )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: NGHỈ HỌC CỦA CON */}
+      {activeTab === "absences" && (
+        <div className="space-y-4">
+          <div className="content-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Tình hình nghỉ học của con</h3>
+              <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Cập nhật theo điểm danh của giáo viên trong sổ đầu bài từng tiết.</p>
+            </div>
+            <select value={selectedTermId} onChange={(e) => setSelectedTermId(e.target.value)} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs font-semibold">
+              <option value="ALL">Tất cả học kỳ</option>
+              {allTerms.map((t) => <option key={t.id} value={t.id}>{t.termName} · {t.yearName}</option>)}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 text-center">
+            {([["Tổng tiết vắng", termAbsences.length, "text-slate-900 dark:text-slate-100"], ["Có phép", excusedCount, "text-amber-600 dark:text-amber-400"], ["Không phép", termAbsences.length - excusedCount, "text-rose-600 dark:text-rose-400"]] as const).map(([label, value, tone]) => (
+              <div key={label} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-xs">
+                <div className={`text-2xl font-bold ${tone}`}>{value}</div>
+                <div className="text-[11px] text-slate-500 dark:text-slate-400">{label}</div>
+              </div>
+            ))}
+          </div>
+
+          {absenceDays.length === 0 ? (
+            <div className="content-panel rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center text-slate-500">
+              Con chưa có tiết nghỉ nào trong thời gian này. 👍
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {absenceDays.map(([iso, items]) => (
+                <div key={iso} className="content-panel rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-bold text-slate-900 dark:text-slate-100">{["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"][new Date(iso + "T00:00:00Z").getUTCDay()]}, {items[0].date}</div>
+                    <span className="text-[11px] text-slate-500">{items.length} tiết</span>
+                  </div>
+                  <ul className="mt-2 divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                    {items.sort((x, y) => x.periodNo - y.periodNo).map((a) => (
+                      <li key={a.id} className="flex items-center justify-between gap-2 py-2">
+                        <span><b>Tiết {a.periodNo}</b> · {a.subjectName}</span>
+                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold ${a.excused ? "bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200" : "bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-200"}`}>{a.excused ? "CÓ PHÉP" : "KHÔNG PHÉP"}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>

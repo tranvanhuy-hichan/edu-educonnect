@@ -154,6 +154,23 @@ export default async function ParentPortalPage({
   ));
   const scheduleMap = new Map(classIds.map((cid, i) => [cid, allSchedules[i]]));
 
+  // Chỉ các tiết CHÍNH CON MÌNH vắng (do giáo viên điểm danh trong sổ đầu bài); không đưa dữ liệu của lớp hay bạn khác.
+  const absenceRows = await db.classPeriodAbsence.findMany({
+    where: { studentId: { in: rawStudents.map((s) => s.id) } },
+    include: { log: { include: { timetableSlot: { include: { assignment: { include: { subject: true } } } } } } },
+    orderBy: { log: { logDate: "desc" } },
+  });
+  const absencesOf = (studentId: string) => absenceRows.filter((a) => a.studentId === studentId).map((a) => ({
+    id: a.id,
+    isoDate: a.log.logDate.toISOString().slice(0, 10),
+    date: fmtDate(a.log.logDate),
+    termId: a.log.timetableSlot.academicTermId,
+    periodNo: a.log.timetableSlot.periodNo,
+    subjectName: a.log.timetableSlot.assignment.subject.subjectName,
+    excused: a.excused,
+    recent: a.log.logDate.getTime() >= Date.now() - 7 * 86400_000, // tính ở server
+  }));
+
   // Chuẩn bị dữ liệu từng con
   const childrenData: ChildData[] = rawStudents.map((s) => {
     const latestEnr = s.enrollments[0];
@@ -190,6 +207,7 @@ export default async function ParentPortalPage({
             result: yearEnd.result,
           }
         : null,
+      absences: absencesOf(s.id),
       assessments: s.assessments.map((review) => ({ id: review.id, academicTermId: review.assignment.academicTermId, subjectName: review.assignment.subject.subjectName, outcome: review.outcome, isExempt: review.isExempt, comment: review.comment })),
       subjectAverages: s.subjectAverages.filter((avg) => !s.assessments.some((review) => review.assignmentId === avg.assignmentId && review.isExempt)).map((avg) => ({
         assignmentId: avg.assignmentId,

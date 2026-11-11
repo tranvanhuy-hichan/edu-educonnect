@@ -2,7 +2,7 @@ import { withTransaction } from "@/infrastructure/database/unit-of-work";
 import * as repository from "./records.repository";
 import { yearResultRepository } from "@/modules/promotion/promotion.repository";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
-import { CLASS_CAPACITY } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 import { todayUTC } from "@/lib/format";
 
 export async function moveStudent(user: SessionUser, input: { studentId: string; targetClassId: string; effectiveDate: string; reason: string; decisionReference: string }) {
@@ -22,7 +22,7 @@ export async function moveStudent(user: SessionUser, input: { studentId: string;
     if (existing?.schoolClassId === target.id) throw new Error("Học sinh đang ở lớp này");
     if (existing?.currentClassSince && input.effectiveDate < existing.currentClassSince.toISOString().slice(0, 10)) throw new Error("Ngày chuyển phải sau ngày bắt đầu học lớp hiện tại");
     if ((await yearResultRepository(tx).find(input.studentId, target.academicYearId))?.reviewStatus === "APPROVED") throw new Error("Kết quả năm học đã duyệt. Cần mở lại trước khi đổi lớp");
-    if (await repository.countClassEnrollments(target.id, tx) >= CLASS_CAPACITY) throw new Error("Lớp đích đã đủ sĩ số");
+    if (await repository.countClassEnrollments(target.id, tx) >= (await getPolicy()).promotion.classCapacity) throw new Error("Lớp đích đã đủ sĩ số");
     if (existing) {
       const source = await repository.findClass(existing.schoolClassId, tx);
       await repository.appendTransfer({ studentId: input.studentId, academicYearId: target.academicYearId, fromClassId: source.id, toClassId: target.id, fromDate: existing.currentClassSince, effectiveAt, reason: input.reason, decisionReference: input.decisionReference, actorEmail: user.email }, tx);

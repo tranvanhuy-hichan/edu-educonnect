@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SearchableSelect } from "@/components/searchable-select";
 import { db } from "@/lib/db";
 import { parseDate } from "@/lib/format";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
@@ -22,7 +23,7 @@ export default async function AutoSchedulePage({ searchParams }: { searchParams:
   const selected = sp.w && /^\d{4}-\d{2}-\d{2}$/.test(sp.w) && !Number.isNaN(parseDate(sp.w).getTime()) ? parseDate(sp.w) : undefined;
   return <div className="space-y-4">
     <Title right={<Link href={`/lich-hoc?term=${term.id}`} className="text-sm text-orange-700 hover:underline">Quay lại thời khóa biểu</Link>}>Tạo thời khóa biểu mới</Title>
-    <AutoForm className="flex flex-wrap gap-2"><select name="term" defaultValue={term.id} className={inputCls} aria-label="Học kỳ">{terms.map((term) => <option key={term.id} value={term.id}>{term.termName} · {term.academicYear.yearName}</option>)}</select></AutoForm>
+    <AutoForm className="flex flex-wrap gap-2"><SearchableSelect key={term.id} name="term" defaultValue={term.id} ariaLabel="Học kỳ" className="w-56" options={terms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.academicYear.yearName}` }))} /></AutoForm>
     <ScheduleBuilder key={term.id} term={term} grades={grades} classes={classes.map((cls) => ({ id: cls.id, className: cls.className, gradeLevelId: cls.gradeLevelId, shift: cls.shift, subjectIds: cls.subjects.map((row) => row.subjectId) }))} subjects={subjects} initial={initial.success ? initial.data : undefined} selected={selected} />
   </div>;
 }

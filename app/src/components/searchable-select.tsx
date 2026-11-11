@@ -11,6 +11,15 @@ export type SelectOption = {
   badge?: string;
 };
 
+/** Chuẩn hóa để tìm không dấu, không phân biệt hoa thường ("le van cuong" khớp "Lê Văn Cường"). */
+export const normalizeText = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d");
+
+/**
+ * Ô chọn có tìm kiếm, dùng như <select> trong form:
+ * - gửi giá trị qua một input ẩn `name`; khi đổi giá trị bắn sự kiện `input` (bubbles) để AutoForm tự áp dụng bộ lọc;
+ * - chỉ khi truyền `minSearchable` (mặc định 0 = luôn có ô tìm kiếm) thì danh sách ngắn mới dùng <select> gốc;
+ * - `emptyLabel`/`allowEmpty`: thêm lựa chọn rỗng (vd. "Tất cả lớp").
+ */
 export function SearchableSelect({
   name,
   options,
@@ -18,6 +27,13 @@ export function SearchableSelect({
   defaultValue = "",
   required = false,
   className = "",
+  emptyLabel,
+  allowEmpty,
+  minSearchable = 0,
+  searchPlaceholder = "Gõ để tìm kiếm...",
+  ariaLabel,
+  value: controlledValue,
+  onChange,
 }: {
   name: string;
   options: SelectOption[];
@@ -25,13 +41,26 @@ export function SearchableSelect({
   defaultValue?: string;
   required?: boolean;
   className?: string;
+  emptyLabel?: string;
+  allowEmpty?: boolean;
+  minSearchable?: number;
+  searchPlaceholder?: string;
+  ariaLabel?: string;
+  /** Dùng cho form controlled: truyền `value` + `onChange` (không truyền thì tự quản lý bằng defaultValue). */
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState(defaultValue);
+  const [inner, setSelected] = useState(defaultValue);
+  const selected = controlledValue ?? inner;
+  const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const uniqueId = useId();
+  const withEmpty = allowEmpty ?? emptyLabel !== undefined;
 
   // Đóng khi click ngoài
   useEffect(() => {
@@ -46,106 +75,138 @@ export function SearchableSelect({
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => searchInputRef.current?.focus(), 50);
-    }
+    if (open) setTimeout(() => searchInputRef.current?.focus(), 50);
   }, [open]);
 
+  // Lưu ý: bộ lọc đổi giá trị từ bên ngoài thì truyền `key={giá trị}` để remount (như với <select> thường).
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return options;
-    const q = search.toLowerCase();
-    return options.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        (o.subtext && o.subtext.toLowerCase().includes(q)) ||
-        (o.badge && o.badge.toLowerCase().includes(q)),
-    );
-  }, [options, search]);
+    const q = normalizeText(search.trim());
+    const rows = q
+      ? options.filter((o) => normalizeText(`${o.label} ${o.subtext ?? ""} ${o.badge ?? ""}`).includes(q))
+      : options;
+    return !q && withEmpty ? [{ value: "", label: emptyLabel ?? placeholder } as SelectOption, ...rows] : rows;
+  }, [options, search, withEmpty, emptyLabel, placeholder]);
+
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
 
   const currentOption = options.find((o) => o.value === selected);
 
-  return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      {/* Hidden input gửi giá trị qua FormData */}
-      <input type="hidden" name={name} value={selected} required={required} />
+  // Giá trị controlled đổi từ bên ngoài → đồng bộ input ẩn (không bắn sự kiện).
+  useEffect(() => {
+    const el = hiddenRef.current;
+    if (controlledValue !== undefined && el && el.value !== controlledValue) el.value = controlledValue;
+  }, [controlledValue]);
 
+  function choose(value: string) {
+    setSelected(value);
+    onChange?.(value);
+    setOpen(false);
+    setSearch("");
+    const el = hiddenRef.current;
+    if (el && el.value !== value) {
+      // Đặt giá trị bằng setter gốc để React nhận ra thay đổi, rồi bắn `input` cho AutoForm.
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(el, value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive((i) => Math.min(filtered.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (filtered[active]) choose(filtered[active].value); }
+    else if (e.key === "Escape") { e.preventDefault(); setOpen(false); setSearch(""); }
+  }
+
+  // Danh sách ngắn: dùng <select> gốc (hành vi như cũ, kể cả `required`).
+  if (options.length <= minSearchable) {
+    return (
+      <select name={name} defaultValue={defaultValue} required={required} aria-label={ariaLabel} className={`${inputCls} ${className}`}>
+        <option value="">{emptyLabel ?? placeholder}</option>
+        {options.map((o) => <option key={o.value} value={o.value}>{o.label}{o.subtext ? ` (${o.subtext})` : ""}</option>)}
+      </select>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className={`relative min-w-0 ${className}`}>
+      {/* Input ẩn gửi giá trị qua FormData (type=text + hidden để React phát được onChange cho form) */}
+      <input ref={hiddenRef} type="text" hidden name={name} defaultValue={defaultValue} readOnly tabIndex={-1} />
+
+      {open ? (
+        // Đang mở: chính ô chọn trở thành ô nhập để gõ tìm kiếm (không có ô tìm kiếm riêng bên dưới)
+        <div className={`${inputCls} relative flex w-full items-center gap-2 border-orange-500 ring-1 ring-orange-500`}>
+          <Search className="size-3.5 shrink-0 text-slate-400" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            role="combobox"
+            aria-expanded
+            aria-controls={`${uniqueId}-list`}
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setActive(0); }}
+            onKeyDown={onKeyDown}
+            placeholder={currentOption ? currentOption.label : (withEmpty && emptyLabel) || searchPlaceholder}
+            autoComplete="off"
+            className="combo-input min-w-0 flex-1 text-base placeholder:text-slate-700 md:text-sm"
+          />
+          {search && <button type="button" onClick={() => { setSearch(""); searchInputRef.current?.focus(); }} className="text-slate-400 hover:text-slate-600" aria-label="Xóa từ khóa"><X className="size-3.5" /></button>}
+          <button type="button" tabIndex={-1} aria-label="Đóng" onClick={() => { setOpen(false); setSearch(""); }}><ChevronDown className="size-4 shrink-0 rotate-180 text-slate-400" /></button>
+        </div>
+      ) : (
       <button
         type="button"
         id={uniqueId}
-        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={false}
+        aria-label={ariaLabel}
+        onClick={() => { setActive(0); setOpen(true); }}
+        onKeyDown={(e) => { if (e.key === "ArrowDown") { e.preventDefault(); setActive(0); setOpen(true); } }}
         className={`${inputCls} flex w-full items-center justify-between gap-2 text-left focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500`}
       >
         <span className={`truncate ${!currentOption ? "text-slate-400" : "text-slate-800"}`}>
           {currentOption ? (
             <span className="flex items-center gap-1.5 truncate">
               <span className="font-medium">{currentOption.label}</span>
-              {currentOption.subtext && (
-                <span className="text-xs text-slate-500 truncate">({currentOption.subtext})</span>
-              )}
+              {currentOption.subtext && <span className="truncate text-xs text-slate-500">({currentOption.subtext})</span>}
             </span>
           ) : (
-            placeholder
+            (withEmpty && emptyLabel) || placeholder
           )}
         </span>
-        <ChevronDown className={`size-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className="size-4 shrink-0 text-slate-400" />
       </button>
+      )}
 
       {open && (
-        <div className="absolute z-50 mt-1 max-h-60 w-full rounded-md border bg-white p-1 shadow-lg">
-          <div className="relative border-b pb-1">
-            <Search className="absolute left-2.5 top-2.5 size-3.5 text-slate-400" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Gõ để tìm kiếm..."
-              className="h-8 w-full rounded bg-slate-50 pl-8 pr-7 text-xs outline-none focus:bg-white focus:ring-1 focus:ring-orange-400"
-            />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-48 overflow-y-auto pt-1">
+        <div className="absolute left-0 z-50 mt-1 w-full min-w-56 max-w-[calc(100vw-2rem)] rounded-md border bg-white p-1 shadow-lg">
+          <div ref={listRef} id={`${uniqueId}-list`} role="listbox" className="max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
-              <div className="px-3 py-2 text-center text-xs text-slate-500">
-                Không tìm thấy kết quả phù hợp
-              </div>
+              <div className="px-3 py-2 text-center text-xs text-slate-500">Không tìm thấy kết quả phù hợp</div>
             ) : (
-              filtered.map((opt) => {
+              filtered.map((opt, idx) => {
                 const isSelected = opt.value === selected;
                 return (
                   <button
-                    key={opt.value}
+                    key={opt.value || "__empty"}
                     type="button"
-                    onClick={() => {
-                      setSelected(opt.value);
-                      setOpen(false);
-                      setSearch("");
-                    }}
-                    className={`flex w-full items-center justify-between rounded px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-orange-50 ${
-                      isSelected ? "bg-orange-50 font-medium text-orange-800" : "text-slate-700"
-                    }`}
+                    role="option"
+                    aria-selected={isSelected}
+                    data-idx={idx}
+                    onMouseEnter={() => setActive(idx)}
+                    onClick={() => choose(opt.value)}
+                    className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-sm transition-colors md:py-1.5 md:text-xs ${
+                      idx === active ? "bg-orange-100" : "hover:bg-orange-50"
+                    } ${isSelected ? "font-medium text-orange-800" : "text-slate-700"}`}
                   >
                     <div className="min-w-0 pr-2">
-                      <div className="truncate font-medium">{opt.label}</div>
-                      {opt.subtext && (
-                        <div className="truncate text-[11px] text-slate-500">{opt.subtext}</div>
-                      )}
+                      <div className={`truncate ${opt.value ? "font-medium" : "text-slate-500"}`}>{opt.label}</div>
+                      {opt.subtext && <div className="truncate text-[11px] text-slate-500">{opt.subtext}</div>}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {opt.badge && (
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">
-                          {opt.badge}
-                        </span>
-                      )}
+                      {opt.badge && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{opt.badge}</span>}
                       {isSelected && <Check className="size-3.5 text-orange-600" />}
                     </div>
                   </button>
@@ -199,13 +260,8 @@ export function MultiSearchableSelect({
 
   const filtered = useMemo(() => {
     if (!search.trim()) return availableOptions;
-    const q = search.toLowerCase();
-    return availableOptions.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        (o.subtext && o.subtext.toLowerCase().includes(q)) ||
-        (o.badge && o.badge.toLowerCase().includes(q)),
-    );
+    const q = normalizeText(search.trim());
+    return availableOptions.filter((o) => normalizeText(`${o.label} ${o.subtext ?? ""} ${o.badge ?? ""}`).includes(q));
   }, [availableOptions, search]);
 
   const selectedList = useMemo(() => {

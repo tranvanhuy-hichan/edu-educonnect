@@ -5,13 +5,13 @@ import { db } from "@/lib/db";
 import { ADMIN_ROLES, MANAGER_ROLES, assertRole } from "@/lib/guard";
 import { wrap, str, int } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { ROOM_TYPES } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 
-function roomFields(fd: FormData) {
+async function roomFields(fd: FormData) {
   const roomName = str(fd, "name");
   if (!roomName) throw new Error("Nhập tên phòng");
   const roomType = str(fd, "roomType") || "THUONG";
-  if (!(roomType in ROOM_TYPES)) throw new Error("Loại phòng không hợp lệ");
+  if (!(await getPolicy()).roomTypes.some((t) => t.code === roomType)) throw new Error("Loại phòng không hợp lệ");
   const capacity = int(fd, "capacity", 40);
   if (capacity < 1) throw new Error("Sức chứa phải lớn hơn 0");
   return { roomName, roomType, capacity };
@@ -19,7 +19,7 @@ function roomFields(fd: FormData) {
 
 export const createRoom = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
-  const data = roomFields(fd);
+  const data = await roomFields(fd);
   if (await db.room.findUnique({ where: { roomName: data.roomName } })) throw new Error("Đã có phòng cùng tên");
   const r = await db.room.create({ data });
   await audit(me.email, "create_room", "Room", r.id);
@@ -29,7 +29,7 @@ export const createRoom = wrap(async (fd) => {
 export const updateRoom = wrap(async (fd) => {
   const me = await assertRole(...MANAGER_ROLES);
   const id = str(fd, "id");
-  const data = roomFields(fd);
+  const data = await roomFields(fd);
   if (await db.room.findFirst({ where: { roomName: data.roomName, id: { not: id } } })) throw new Error("Đã có phòng cùng tên");
   const examRooms = await db.examRoom.findMany({ where: { roomId: id, paper: { event: { status: { not: "CANCELLED" } }, endsAt: { gt: new Date() } } }, include: { _count: { select: { seats: true } } } });
   if (examRooms.some((room) => room._count.seats > data.capacity)) throw new Error("Sức chứa mới không đủ cho lịch thi đã xếp ở phòng này");

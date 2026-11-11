@@ -1,7 +1,10 @@
 import { effectiveSlots } from "@/modules/scheduling/effective";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { ChevronRight, ClipboardCheck, Percent, ScrollText, Users } from "lucide-react";
 import { db } from "@/lib/db";
+import { getPolicy } from "@/lib/policy";
+import { ratingText, ratingTone } from "@/lib/policy-schema";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { AutoForm } from "@/components/auto-form";
 import { MobileCollapse } from "@/components/mobile-collapse";
@@ -15,15 +18,15 @@ import { weekNumber } from "@/lib/week";
 import { ClassWeek } from "./class-week";
 
 const TABS = [["lop", "Danh sách lớp"], ["lich-su", "Lịch sử"], ["thong-ke", "Thống kê"]] as const;
-const RATING: Record<string, [string, string]> = { TOT: ["Tốt", "bg-green-100 text-green-800"], KHA: ["Khá", "bg-sky-100 text-sky-800"], TB: ["Trung bình", "bg-yellow-100 text-yellow-800"], YEU: ["Yếu", "bg-red-100 text-red-600"] };
-const GRADE_LETTER: Record<string, string> = { TOT: "A", KHA: "B", TB: "C", YEU: "D" };
-const RATING_COLOR: Record<string, string> = { TOT: "#22c55e", KHA: "#0ea5e9", TB: "#eab308", YEU: "#ef4444" };
+/** Màu biểu đồ theo thứ hạng của mức xếp loại (cùng quy ước với ratingTone). */
+const rankColor = (i: number, n: number) => { const r = n > 1 ? i / (n - 1) : 0; return r < 0.25 ? "#22c55e" : r < 0.5 ? "#0ea5e9" : r < 0.75 ? "#eab308" : "#ef4444"; };
 
 type SP = { v?: string; tab?: string; q?: string; all?: string; w?: string; class?: string; teacher?: string; rating?: string; from?: string; to?: string; page?: string; size?: string };
 const validDate = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? parseDate(s) : null);
 
 export default async function Diary({ searchParams }: { searchParams: Promise<SP> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES);
+  const ratings = (await getPolicy()).diaryRatings;
   const sp = await searchParams;
   const view = sp.v === "table" ? "table" : "cards";
   const tab = sp.tab === "lich-su" ? "lich-su" : sp.tab === "thong-ke" ? "thong-ke" : "lop";
@@ -45,7 +48,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
   const from = validDate(sp.from), to = validDate(sp.to);
   const logWhere = {
     schoolClassId: fClass ? fClass : { in: visibleClassIds },
-    ...(sp.rating && RATING[sp.rating] ? { conductRating: sp.rating } : {}),
+    ...(sp.rating && ratings.some((r) => r.code === sp.rating) ? { conductRating: sp.rating } : {}),
     ...(fTeacher ? { timetableSlot: { assignment: { teacherId: fTeacher } } } : {}),
     ...(from || to ? { logDate: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
   };
@@ -139,7 +142,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
         ]);
         return (
           <div className="space-y-3">
-            <FilterBar sp={sp} classes={classes} teachers={teachers} staff={staff} tab="lich-su" />
+            <FilterBar sp={sp} classes={classes} teachers={teachers} staff={staff} tab="lich-su" ratings={ratings} />
             <Table head={["Ngày", "Tiết", "Lớp", "Môn", "Giáo viên", "Vắng", "Xếp loại", "Nhận xét"]}>
               {rows.map((r) => (
                 <tr key={r.id} className="align-middle">
@@ -149,7 +152,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
                   <td>{r.timetableSlot.assignment.subject.subjectName}</td>
                   <td>{r.timetableSlot.assignment.teacher.fullName}</td>
                   <td>{r.attendanceAbsentCount}</td>
-                  <td>{r.conductRating ? <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${RATING[r.conductRating]?.[1]}`}><b className="mr-1">{GRADE_LETTER[r.conductRating]}</b>{RATING[r.conductRating]?.[0]}</span> : <span className="text-slate-400">-</span>}</td>
+                  <td>{r.conductRating ? <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ratingTone(ratings, r.conductRating)}`}>{ratingText(ratings, r.conductRating)}</span> : <span className="text-slate-400">-</span>}</td>
                   <td className="max-w-xs truncate text-slate-600" title={r.note ?? ""}>{r.note ?? "-"}</td>
                 </tr>
               ))}
@@ -170,7 +173,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
         ]);
         const rated = byRating.filter((r) => r.conductRating);
         const ratedTotal = rated.reduce((s, r) => s + r._count, 0);
-        const good = rated.filter((r) => r.conductRating === "TOT").reduce((s, r) => s + r._count, 0);
+        const good = rated.filter((r) => r.conductRating === ratings[0].code).reduce((s, r) => s + r._count, 0);
         const name = new Map(classes.map((c) => [c.id, c.className]));
         return (
           <div className="space-y-3">
@@ -183,7 +186,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               <Card className="space-y-3"><h2 className="font-semibold">Xếp loại tiết học</h2>
-                <Donut items={Object.entries(RATING).map(([k, [l]]) => ({ label: l, value: byRating.find((r) => r.conductRating === k)?._count ?? 0, color: RATING_COLOR[k] }))} center={<div><div className="text-2xl font-bold">{ratedTotal}</div><div className="text-xs text-slate-500">tiết</div></div>} />
+                <Donut items={ratings.map((rt, i) => ({ label: `${rt.symbol} · ${rt.label}`, value: byRating.find((r) => r.conductRating === rt.code)?._count ?? 0, color: rankColor(i, ratings.length) }))} center={<div><div className="text-2xl font-bold">{ratedTotal}</div><div className="text-xs text-slate-500">tiết</div></div>} />
               </Card>
               <Card className="space-y-3"><h2 className="font-semibold">Lượt vắng theo lớp</h2>
                 {byClass.length ? <BarList items={byClass.map((c) => ({ label: name.get(c.schoolClassId) ?? "-", value: c._sum.attendanceAbsentCount ?? 0, hint: `/${c._count} tiết` })).sort((a, b) => b.value - a.value).slice(0, 12)} /> : <p className="text-sm text-slate-500">Chưa có dữ liệu.</p>}
@@ -197,7 +200,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
 }
 
 /** Thanh lọc dùng chung cho tab Lịch sử và Thống kê (AutoForm: đổi là lọc ngay). */
-function FilterBar({ sp, classes, teachers, staff, tab, noRating }: { sp: SP; classes: { id: string; className: string }[]; teachers: { id: string; fullName: string }[]; staff: boolean; tab: string; noRating?: boolean }) {
+function FilterBar({ sp, classes, teachers, staff, tab, noRating, ratings = [] }: { ratings?: { code: string; symbol: string; label: string }[]; sp: SP; classes: { id: string; className: string }[]; teachers: { id: string; fullName: string }[]; staff: boolean; tab: string; noRating?: boolean }) {
   const n = [sp.class, sp.teacher, sp.rating, sp.from, sp.to].filter(Boolean).length;
   return (
     <AutoForm className="flex flex-wrap items-center gap-2">
@@ -205,9 +208,9 @@ function FilterBar({ sp, classes, teachers, staff, tab, noRating }: { sp: SP; cl
       <MobileCollapse active={n}>
       <input type="date" name="from" defaultValue={sp.from} className={inputCls} aria-label="Từ ngày" />
       <input type="date" name="to" defaultValue={sp.to} className={inputCls} aria-label="Đến ngày" />
-        <select name="class" defaultValue={sp.class ?? ""} className={inputCls} aria-label="Lớp"><option value="">Tất cả lớp</option>{classes.map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
-        {staff && <select name="teacher" defaultValue={sp.teacher ?? ""} className={inputCls} aria-label="Giáo viên"><option value="">Tất cả giáo viên</option>{teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}</select>}
-        {!noRating && <select name="rating" defaultValue={sp.rating ?? ""} className={inputCls} aria-label="Xếp loại"><option value="">Tất cả xếp loại</option>{Object.entries(RATING).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}</select>}
+        <SearchableSelect key={sp.class ?? ""} name="class" defaultValue={sp.class ?? ""} emptyLabel="Tất cả lớp" ariaLabel="Lớp" className="w-full md:w-44" options={classes.map((c) => ({ value: c.id, label: c.className }))} />
+        {staff && <SearchableSelect key={sp.teacher ?? ""} name="teacher" defaultValue={sp.teacher ?? ""} emptyLabel="Tất cả giáo viên" ariaLabel="Giáo viên" className="w-full md:w-52" options={teachers.map((t) => ({ value: t.id, label: t.fullName }))} />}
+        {!noRating && <select name="rating" defaultValue={sp.rating ?? ""} className={inputCls} aria-label="Xếp loại"><option value="">Tất cả xếp loại</option>{ratings.map((r) => <option key={r.code} value={r.code}>{r.symbol} · {r.label}</option>)}</select>}
         {n > 0 && <Link href={`/so-dau-bai?tab=${tab}`} className="inline-flex h-9 items-center rounded-md px-2 text-sm text-slate-500 hover:text-orange-700">Xoá lọc</Link>}
       </MobileCollapse>
     </AutoForm>

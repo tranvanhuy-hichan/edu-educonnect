@@ -49,7 +49,25 @@ export async function createLessonPost(
   return contentRepository.createLessonPost(input);
 }
 
-/** Thêm bài tập vào một bài học (quyền theo lớp-môn của bài học) và thông báo cho học sinh. */
+/** Đăng cùng một bài học cho nhiều lớp (cùng môn, cùng học kỳ): mỗi lớp một bài học riêng để theo dõi xem/nộp bài độc lập. */
+export async function createLessonPosts(user: SessionUser, input: Omit<CreateLessonPostInput, "assignmentId"> & { assignmentIds: string[] }) {
+  const ids = [...new Set(input.assignmentIds)];
+  if (!ids.length) throw new Error("Chọn ít nhất một lớp để đăng bài");
+  const targets = await contentRepository.findAssignments(ids);
+  if (targets.length !== ids.length) throw new ForbiddenError("Lớp-môn không tồn tại");
+  if (new Set(targets.map((t) => `${t.subjectId}|${t.academicTermId}`)).size > 1) throw new Error("Chỉ đăng cùng lúc cho các lớp cùng môn, cùng học kỳ");
+  const { assignmentIds: _omit, ...rest } = input;
+  void _omit;
+  const parsed = ids.map((assignmentId) => createLessonPostSchema.parse({ ...rest, assignmentId }));
+  for (const p of parsed) {
+    await assertCanManageAssignment(user, p.assignmentId);
+    if (!p.content.trim() && !p.attachments?.length) throw new Error("Nhập nội dung hoặc tải tệp bài học");
+    await validateFileReferences(user, p.attachments ?? [], p.assignmentId, "LESSON_POST");
+  }
+  return contentRepository.createLessonPosts(parsed);
+}
+
+/** Thêm bài tập vào một bài học (quyền theo lớp và môn của bài học) và thông báo cho học sinh. */
 export async function createExercise(user: SessionUser, input: CreateExerciseInput) {
   input = createExerciseSchema.parse(input);
   const post = await contentRepository.findLessonPost(input.lessonPostId);

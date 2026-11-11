@@ -1,4 +1,5 @@
 import { ActionMenu } from "@/components/action-menu";
+import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
 import { ViewToggle, pickView } from "@/components/view-toggle";
 import { AutoForm } from "@/components/auto-form";
@@ -60,8 +61,8 @@ export default async function Students({ searchParams }: { searchParams: Promise
         <input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} />
         <input name="q" defaultValue={q} placeholder="Tìm theo tên, mã, email..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[grade, classId, sort !== "az" ? sort : ""].filter(Boolean).length}>
-          <select name="grade" defaultValue={grade} className={inputCls}><option value="">Tất cả khối</option>{grades.map((g) => <option key={g.id} value={g.id}>{g.gradeName}</option>)}</select>
-          <select name="classId" defaultValue={classId} className={inputCls + " max-w-56"}><option value="">Tất cả lớp</option>{classes.filter((c) => !grade || c.gradeLevelId === grade).map((c) => <option key={c.id} value={c.id}>{c.className}</option>)}</select>
+          <SearchableSelect key={grade} name="grade" defaultValue={grade} emptyLabel="Tất cả khối" ariaLabel="Khối" className="w-full md:w-44" options={grades.map((g) => ({ value: g.id, label: g.gradeName }))} />
+          <SearchableSelect key={classId} name="classId" defaultValue={classId} emptyLabel="Tất cả lớp" ariaLabel="Lớp" className="w-full md:w-44" options={classes.filter((c) => !grade || c.gradeLevelId === grade).map((c) => ({ value: c.id, label: c.className }))} />
           <select name="sort" defaultValue={sort} className={inputCls}><option value="az">Tên A-Z</option><option value="za">Tên Z-A</option><option value="new">Mới nhất</option></select>
           <ViewToggle path="/hoc-sinh" params={{ q, tab, sort, grade, classId, size: sp.size }} view={view} />
         </MobileCollapse>

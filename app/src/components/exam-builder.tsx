@@ -79,7 +79,7 @@ export function ExamBuilder({ data, initial, eventId }: { data: ExamFormData; in
           <h2 className="font-semibold">Kỳ thi dành cho khối nào?</h2>
           <div className="grid gap-3 md:grid-cols-2">
             <Field label="Tên kỳ thi"><input required minLength={2} maxLength={200} value={plan.title} onChange={(event) => setPlan({ ...plan, title: event.target.value })} className={inputCls} placeholder="Ví dụ: Kiểm tra giữa kỳ I — Khối 11" /></Field>
-            <Field label="Loại kỳ thi"><select value={plan.category} onChange={(event) => setPlan({ ...plan, category: event.target.value as ExamPlan["category"] })} className={inputCls}><option value="GIUA_KY">Giữa kỳ</option><option value="CUOI_KY">Cuối kỳ</option><option value="THI_LAI">Thi lại</option><option value="KHAC">Khác</option></select></Field>
+            <Field label="Loại kỳ thi"><select value={plan.category} onChange={(event) => setPlan({ ...plan, category: event.target.value })} className={inputCls}>{data.categories.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}</select></Field>
             <Field label="Học kỳ"><select value={plan.termId} onChange={(event) => setPlan({ ...plan, termId: event.target.value, papers: [] })} className={inputCls}>{data.terms.map((term) => <option key={term.id} value={term.id}>{term.label}</option>)}</select></Field>
             <Field label="Khối thi"><select value={plan.gradeId} onChange={(event) => setPlan({ ...plan, gradeId: event.target.value, papers: [] })} className={inputCls}>{data.grades.map((grade) => <option key={grade.id} value={grade.id}>{grade.label}</option>)}</select></Field>
           </div>

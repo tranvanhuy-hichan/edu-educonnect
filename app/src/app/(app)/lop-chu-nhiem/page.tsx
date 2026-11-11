@@ -1,4 +1,5 @@
 import { YearResults } from "@/components/academic/year-results";
+import { SearchableSelect } from "@/components/searchable-select";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import Link from "next/link";
@@ -71,8 +72,8 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         </div>
         <AutoForm className="flex flex-wrap gap-2">
           <input type="hidden" name="tab" value={tab} />
-          {classes.length > 1 && <select name="classId" defaultValue={cls.id} className={inputCls}>{classes.map((c) => <option key={c.id} value={c.id}>Lớp {c.className} · {c.academicYear.yearName}</option>)}</select>}
-          <MobileCollapse active={sp.termId ? 1 : 0}>{terms.length > 0 && <select name="termId" defaultValue={term?.id ?? ""} className={inputCls}>{terms.map((t) => <option key={t.id} value={t.id}>{t.termName}</option>)}</select>}
+          {classes.length > 1 && <SearchableSelect key={cls.id} name="classId" defaultValue={cls.id} ariaLabel="Lớp" className="w-full md:w-56" options={classes.map((c) => ({ value: c.id, label: `Lớp ${c.className}`, subtext: c.academicYear.yearName }))} />}
+          <MobileCollapse active={sp.termId ? 1 : 0}>{terms.length > 0 && <SearchableSelect key={term?.id ?? ""} name="termId" defaultValue={term?.id ?? ""} ariaLabel="Học kỳ" className="w-full md:w-40" options={terms.map((t) => ({ value: t.id, label: t.termName }))} />}
         </MobileCollapse>
         </AutoForm>
       </Card>

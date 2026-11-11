@@ -1,3 +1,4 @@
+import { getPolicy } from "@/lib/policy";
 import { canManageLibrary, type SessionUser } from "@/lib/auth/session";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as libraryRepository from "@/modules/library/library.repository";
@@ -93,8 +94,8 @@ export async function createLoan(user: SessionUser, input: CreateLoanInput) {
     );
   }
 
-  // 3. Kiểm tra hạn mức số lượng sách đang mượn (tối đa 5 cuốn/học sinh)
-  const MAX_BORROW_LIMIT = 5;
+  // 3. Kiểm tra hạn mức số lượng sách đang mượn (cấu hình trong Cấu hình → Quy chế, mặc định 5 cuốn/học sinh)
+  const MAX_BORROW_LIMIT = (await getPolicy()).library.maxBooksPerStudent;
   const currentHoldingCount = await libraryRepository.countActiveBorrowedItems(input.studentId);
   if (currentHoldingCount + input.bookCopyIds.length > MAX_BORROW_LIMIT) {
     throw new ConflictError(

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { assertRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { wrap, str, opt } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { createExercise as createExerciseService, createLessonPost, updateLessonPost, deleteLessonPost, updateExercise as updateExerciseService, deleteExercise as deleteExerciseService, gradeSubmission as gradeSubmissionService, submitAssignment } from "@/modules/content/content.service";
+import { createExercise as createExerciseService, createLessonPosts, updateLessonPost, deleteLessonPost, updateExercise as updateExerciseService, deleteExercise as deleteExerciseService, gradeSubmission as gradeSubmissionService, submitAssignment } from "@/modules/content/content.service";
 
 import { attachmentLinks as parseLinks } from "@/lib/storage/validation";
 
@@ -15,13 +15,12 @@ export const createPost = wrap(async (fd) => {
   const title = str(fd, "title"), content = str(fd, "content");
   const links = parseLinks(str(fd, "attachments"));
   if (!title || (!content && !links.length)) throw new Error("Nhập tiêu đề và nội dung hoặc tải tệp bài học");
-  const post = await createLessonPost(me, {
-    assignmentId: str(fd, "assignmentId"), title, content,
-    attachments: links.length ? links : undefined,
-  });
-  await audit(me.email, "create_lesson_post", "LessonPost", post.id);
+  const assignmentIds = fd.getAll("assignmentIds").map(String).filter(Boolean);
+  const posts = await createLessonPosts(me, { assignmentIds: assignmentIds.length ? assignmentIds : [str(fd, "assignmentId")], title, content, attachments: links.length ? links : undefined });
+  for (const post of posts) await audit(me.email, "create_lesson_post", "LessonPost", post.id);
   revalidatePath("/bai-hoc");
   revalidatePath("/lop-cua-toi", "layout");
+  return posts.length > 1 ? `Đã đăng bài học cho ${posts.length} lớp` : "Đã đăng bài học";
 });
 
 export const updatePost = wrap(async (fd) => {

@@ -10,6 +10,8 @@ import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { bandOf } from "@/server/grades-stats";
+import { getPolicy } from "@/lib/policy";
+import { ratingText } from "@/lib/policy-schema";
 import { createPost } from "../../bai-hoc/actions";
 import { createPlan, deletePlan } from "../../giao-an/actions";
 
@@ -19,6 +21,7 @@ const DAY = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ
 export default async function MyClass({ params, searchParams }: { params: Promise<{ assignmentId: string }>; searchParams: Promise<{ tab?: string }> }) {
   const me = await requireRole(...TEACHING_ROLES, ...MANAGER_ROLES);
   const { assignmentId } = await params;
+  const ratings = (await getPolicy()).diaryRatings;
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "students";
   if (!(await canManageClassSubjectAssignment(me, assignmentId))) notFound();
@@ -106,7 +109,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
                 <td>{fmtDate(p.createdAt)}</td>
               </tr>
             ))}
-            {!posts.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có bài học nào cho lớp-môn này.</td></tr>}
+            {!posts.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có bài học nào cho lớp và môn này.</td></tr>}
           </Table>
         </div>
       )}
@@ -170,10 +173,10 @@ export default async function MyClass({ params, searchParams }: { params: Promis
           {logs.map((l) => (
             <tr key={l.id} className="align-middle [&>td]:!py-3">
               <td>{fmtDate(l.logDate)}</td><td>{DAY[l.timetableSlot.dayOfWeek % 7]} · tiết {l.timetableSlot.periodNo}</td>
-              <td>{l.attendanceAbsentCount}</td><td>{l.conductRating ?? "-"}</td><td>{l.note ?? "-"}</td>
+              <td>{l.attendanceAbsentCount}</td><td>{ratingText(ratings, l.conductRating)}</td><td>{l.note ?? "-"}</td>
             </tr>
           ))}
-          {!logs.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có bản ghi sổ đầu bài nào cho lớp-môn này.</td></tr>}
+          {!logs.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có bản ghi sổ đầu bài nào cho lớp và môn này.</td></tr>}
         </Table>
       )}
     </div>

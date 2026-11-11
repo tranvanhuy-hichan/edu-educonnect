@@ -10,7 +10,7 @@ const requestSchema = z.object({ assignmentId: z.string().min(1), reason: z.stri
 const reviewSchema = z.object({ requestId: z.string().min(1), reason: z.string().min(10).max(2000), approve: z.boolean() });
 export async function requestScoreUnlock(user: SessionUser, input: z.infer<typeof requestSchema>) {
   const data = requestSchema.parse(input);
-  if (!await canManageClassSubjectAssignment(user, data.assignmentId)) throw new ForbiddenError("Không có quyền với lớp-môn này");
+  if (!await canManageClassSubjectAssignment(user, data.assignmentId)) throw new ForbiddenError("Không có quyền với lớp và môn này");
   return withTransaction(async (context) => {
     const repository = gradingRepository(context);
     const assignment = await repository.assignment(data.assignmentId);

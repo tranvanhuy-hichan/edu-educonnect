@@ -9,7 +9,7 @@ import { db } from "@/lib/db";
 import { ADMIN_ROLES, MANAGER_ROLES, assertRole } from "@/lib/guard";
 import { wrap, str, opt } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { CLASS_CAPACITY } from "@/lib/catalog";
+import { getPolicy } from "@/lib/policy";
 import { ensureTeacherRole } from "@/server/accounts";
 import { importStudentsToClass } from "@/server/students";
 import { createStudentClassEnrollment } from "@/modules/academic/academic.service";
@@ -103,7 +103,7 @@ export const enrollStudent = wrap(async (fd) => {
   const studentId = str(fd, "studentId");
   if (!studentId) throw new Error("Chọn học sinh");
   const cls = await db.schoolClass.findUniqueOrThrow({ where: { id: schoolClassId } });
-  if ((await db.studentClassEnrollment.count({ where: { schoolClassId } })) >= CLASS_CAPACITY) throw new Error(`Lớp đã đủ sĩ số (${CLASS_CAPACITY})`);
+  if ((await db.studentClassEnrollment.count({ where: { schoolClassId } })) >= (await getPolicy()).promotion.classCapacity) throw new Error(`Lớp đã đủ sĩ số (${(await getPolicy()).promotion.classCapacity})`);
   await createStudentClassEnrollment(me, { studentId, schoolClassId, academicYearId: cls.academicYearId });
   await audit(me.email, "enroll_student", "StudentClassEnrollment", studentId);
   revalidatePath(`/lop-hoc/${schoolClassId}`);

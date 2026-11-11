@@ -9,7 +9,7 @@ import { createYearEndResult, submitClassResults, promoteClasses, reviewYearResu
 export const saveYearResult = wrap(async (fd) => {
   const me = await assertRole("HOMEROOM_TEACHER", ...MANAGER_ROLES);
   const studentId = str(fd, "studentId"), academicYearId = str(fd, "academicYearId");
-  await createYearEndResult(me, { studentId, academicYearId, conductRank: (opt(fd, "conductRank") ?? undefined) as "Tốt" | "Khá" | "Đạt" | "Chưa đạt" | undefined, absenceDays: str(fd, "absenceDays") === "" ? null : Number(str(fd, "absenceDays")), result: "CHUA_DU_DIEU_KIEN" });
+  await createYearEndResult(me, { studentId, academicYearId, conductRank: (opt(fd, "conductRank") ?? undefined) as string | undefined, absenceDays: str(fd, "absenceDays") === "" ? null : Number(str(fd, "absenceDays")), result: "CHUA_DU_DIEU_KIEN" });
   revalidatePath("/len-lop");
   revalidatePath("/lop-chu-nhiem");
   return "Đã lưu";
@@ -20,7 +20,7 @@ export const saveClassResults = wrap(async (fd) => {
   const me = await assertRole("HOMEROOM_TEACHER", ...MANAGER_ROLES);
   const academicYearId = str(fd, "academicYearId");
   const ids = [...new Set(str(fd, "ids").split(",").filter(Boolean))].sort();
-  await submitClassResults(me, academicYearId, ids.map((id) => ({ studentId: id, academicYearId, conductRank: (opt(fd, `conduct_${id}`) ?? undefined) as "Tốt" | "Khá" | "Đạt" | "Chưa đạt" | undefined, absenceDays: str(fd, `absence_${id}`) === "" ? null : Number(str(fd, `absence_${id}`)), result: "CHUA_DU_DIEU_KIEN" })));
+  await submitClassResults(me, academicYearId, ids.map((id) => ({ studentId: id, academicYearId, conductRank: (opt(fd, `conduct_${id}`) ?? undefined) as string | undefined, absenceDays: str(fd, `absence_${id}`) === "" ? null : Number(str(fd, `absence_${id}`)), result: "CHUA_DU_DIEU_KIEN" })));
   revalidatePath("/len-lop");
   revalidatePath("/lop-chu-nhiem");
   return `Đã tổng hợp ${ids.length} học sinh. Hồ sơ đủ dữ liệu được chuyển sang chờ duyệt; hồ sơ thiếu giữ ở bản nháp.`;

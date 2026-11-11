@@ -12,7 +12,7 @@ export const saveScoresInput = z.object({ assignmentId: z.string().min(1), reaso
 export async function saveClassScores(me: SessionUser, input: z.infer<typeof saveScoresInput>) {
   const { assignmentId, rows, reason } = saveScoresInput.parse(input);
   const a = await gradingRepository().assignment(assignmentId);
-  if (!(await canManageClassSubjectAssignment(me, assignmentId))) throw new Error("Bạn không phụ trách lớp-môn này");
+  if (!(await canManageClassSubjectAssignment(me, assignmentId))) throw new Error("Bạn không phụ trách lớp và môn này");
 
   if (a.subject.assessmentType !== "SCORE") throw new Error("Môn này đánh giá bằng nhận xét, không nhập điểm số");
   if (new Set(rows.map((row) => row.studentId)).size !== rows.length) throw new Error("Học sinh bị lặp");
@@ -21,7 +21,7 @@ export async function saveClassScores(me: SessionUser, input: z.infer<typeof sav
     const assignment = await assertScoreWrite(me, assignmentId, tx);
     const enrolled = new Set((await records.listClassStudentIds(a.schoolClassId, a.schoolClass.academicYearId, tx)).map((row) => row.studentId));
     for (const row of rows) {
-      if (!enrolled.has(row.studentId)) throw new Error("Học sinh không thuộc lớp-môn được chọn");
+      if (!enrolled.has(row.studentId)) throw new Error("Học sinh không thuộc lớp và môn được chọn");
       await records.lockStudentYear(row.studentId, a.schoolClass.academicYearId, tx);
       if ((await yearResultRepository(tx).find(row.studentId, a.schoolClass.academicYearId))?.reviewStatus === "APPROVED") throw new Error("Kết quả năm học đã duyệt; cần mở lại hồ sơ kết quả trước khi sửa điểm");
       if ((await gradingRepository(tx).assessment(row.studentId, assignmentId))?.isExempt) throw new Error("Học sinh đã có quyết định miễn đánh giá môn này; không sửa điểm số");

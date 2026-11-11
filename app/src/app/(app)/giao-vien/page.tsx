@@ -30,12 +30,14 @@ export default async function Teachers({ searchParams }: { searchParams: Promise
   const where = { ...search, ...filt[tab] };
   const [total, list, ...cnt] = await Promise.all([
     db.teacher.count({ where }),
-    db.teacher.findMany({ where, orderBy: { fullName: "asc" }, skip: pg.skip, take: pg.take, include: { user: true, _count: { select: { homeroomClasses: true, assignments: true } } } }),
+    db.teacher.findMany({ where, orderBy: { fullName: "asc" }, skip: pg.skip, take: pg.take, include: { user: true, subjects: { include: { subject: true } }, assignments: { select: { schoolClassId: true } }, _count: { select: { homeroomClasses: true, assignments: true } } } }),
     ...TABS.map(([k]) => db.teacher.count({ where: { ...search, ...filt[k] } })),
   ]);
   const link = (t: string) => `/giao-vien?tab=${t}&q=${encodeURIComponent(q)}`;
   const tags = (t: (typeof list)[number]) => t.user.roles.filter((r) => r === "HOMEROOM_TEACHER" || r === "SUBJECT_TEACHER").map((r) => ROLE_TAG[r]).join(" · ");
-  const stats = (t: (typeof list)[number]) => [{ label: "Chủ nhiệm", value: `${t._count.homeroomClasses} lớp` }, { label: "Phân công dạy", value: `${t._count.assignments} môn-lớp` }];
+  const subj = (t: (typeof list)[number]) => t.subjects.map((x) => x.subject.subjectName).sort((a, b) => a.localeCompare(b, "vi")).join(", ") || "Chưa chọn môn";
+  const teaching = (t: (typeof list)[number]) => new Set(t.assignments.map((a) => a.schoolClassId)).size;
+  const stats = (t: (typeof list)[number]) => [{ label: "Môn phụ trách", value: subj(t) }, { label: "Chủ nhiệm", value: `${t._count.homeroomClasses} lớp` }, { label: "Đang dạy", value: `${teaching(t)} lớp` }];
   const badge = (t: (typeof list)[number]) => (!t.user.isActive ? <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-600">TK bị khoá</span> : null);
 
   return (
@@ -50,14 +52,14 @@ export default async function Teachers({ searchParams }: { searchParams: Promise
       {view === "cards" ? (
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3 2xl:grid-cols-4">{list.map((t) => <PersonCard key={t.id} href={`/giao-vien/${t.id}`} name={t.fullName} tag={tags(t)} badge={badge(t)} phone={t.phone} email={t.user.email} stats={stats(t)} />)}{!list.length && <p className="text-sm text-slate-500">Không tìm thấy giáo viên.</p>}</div>
       ) : (
-        <div className="hidden md:block"><Table head={["Giáo viên", "Vai trò", "Điện thoại", "Chủ nhiệm", "Phân công dạy"]}>
+        <div className="hidden md:block"><Table head={["Giáo viên", "Môn phụ trách", "Vai trò", "Điện thoại", "Chủ nhiệm", "Đang dạy"]}>
           {list.map((t) => (
             <tr key={t.id} className="align-middle [&>td]:!py-3">
               <td><Link data-row href={`/giao-vien/${t.id}`} className="font-semibold text-orange-700 hover:underline">{t.fullName}</Link>{badge(t) && <span className="ml-2">{badge(t)}</span>}<div className="text-xs text-slate-500">{t.code} · {t.user.email}</div></td>
-              <td>{tags(t) || "-"}</td><td>{t.phone ?? "-"}</td><td>{t._count.homeroomClasses} lớp</td><td>{t._count.assignments} môn-lớp</td>
+              <td>{subj(t)}</td><td>{tags(t) || "-"}</td><td>{t.phone ?? "-"}</td><td>{t._count.homeroomClasses} lớp</td><td>{teaching(t)} lớp</td>
             </tr>
           ))}
-          {!list.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Không tìm thấy giáo viên.</td></tr>}
+          {!list.length && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Không tìm thấy giáo viên.</td></tr>}
         </Table></div>
       )}
       <Pagination total={total} page={pg.page} size={pg.size} path="/giao-vien" params={{ q, tab, size: sp.size, v: sp.v }} />

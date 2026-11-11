@@ -5,7 +5,7 @@ export const createYearEndResultSchema = z.object({
   academicYearId: z.string().min(1),
   overallAverage: z.number().min(0).max(10).nullable().optional(),
   absenceDays: z.number().int().min(0).max(366).nullable().optional(),
-  conductRank: z.enum(["Tốt", "Khá", "Đạt", "Chưa đạt"]).optional(),
+  conductRank: z.string().trim().min(1).max(40).optional(), // phải thuộc danh sách rèn luyện trong Quy chế (kiểm tra khi tổng hợp)
   result: z.enum(["CHUA_DU_DIEU_KIEN", "LEN_LOP", "O_LAI", "THI_LAI"]),
 });
 export type CreateYearEndResultInput = z.infer<typeof createYearEndResultSchema>;

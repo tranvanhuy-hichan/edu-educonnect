@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { SearchableSelect } from "@/components/searchable-select";
 import { AlertCircle, CalendarCheck, ClipboardList, School } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guard";
@@ -46,7 +47,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
     <div className="space-y-4">
       <Title>Bảng điểm của tôi</Title>
       <AutoForm className="flex flex-wrap items-center gap-2">
-        <select name="termId" defaultValue={termId ?? "all"} className={inputCls}><option value="all">Tất cả học kỳ</option>{terms.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}</select>
+        <SearchableSelect key={termId ?? "all"} name="termId" defaultValue={termId ?? "all"} ariaLabel="Học kỳ" className="w-full md:w-56" options={[{ value: "all", label: "Tất cả học kỳ" }, ...terms.map((t) => ({ value: t.id, label: t.label }))]} />
       </AutoForm>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

@@ -21,8 +21,10 @@ export function createClassPeriodLog(
   schoolClassId: string,
   input: CreateClassPeriodLogInput,
 ) {
+  const { absences: _a, ...data } = input;
+  void _a;
   return prisma.classPeriodLog.create({
-    data: { ...input, schoolClassId },
+    data: { ...data, schoolClassId },
   });
 }
 
@@ -36,11 +38,24 @@ export function listLogsBySchoolClass(schoolClassId: string) {
 
 /** Ghi sổ đầu bài: thêm mới hoặc cập nhật nếu (tiết, ngày) đã có bản ghi. */
 export function upsertClassPeriodLog(schoolClassId: string, input: CreateClassPeriodLogInput) {
-  return prisma.classPeriodLog.upsert({
-    where: { timetableSlotId_logDate: { timetableSlotId: input.timetableSlotId, logDate: input.logDate } },
-    update: { attendanceAbsentCount: input.attendanceAbsentCount, conductRating: input.conductRating ?? null, note: input.note ?? null },
-    create: { ...input, schoolClassId },
+  const { absences, ...data } = input;
+  return prisma.$transaction(async (tx) => {
+    const log = await tx.classPeriodLog.upsert({
+      where: { timetableSlotId_logDate: { timetableSlotId: input.timetableSlotId, logDate: input.logDate } },
+      update: { attendanceAbsentCount: data.attendanceAbsentCount, conductRating: data.conductRating ?? null, note: data.note ?? null, lessonTitle: data.lessonTitle ?? null },
+      create: { ...data, schoolClassId },
+    });
+    if (absences) {
+      await tx.classPeriodAbsence.deleteMany({ where: { logId: log.id } });
+      if (absences.length) await tx.classPeriodAbsence.createMany({ data: absences.map((a) => ({ logId: log.id, studentId: a.studentId, excused: a.excused })) });
+    }
+    return log;
   });
+}
+
+/** Mã các học sinh đang học lớp (để kiểm tra danh sách vắng). */
+export async function enrolledStudentIds(schoolClassId: string) {
+  return new Set((await prisma.studentClassEnrollment.findMany({ where: { schoolClassId }, select: { studentId: true } })).map((e) => e.studentId));
 }
 
 export function countEnrollmentsOfClass(schoolClassId: string) {

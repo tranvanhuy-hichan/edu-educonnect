@@ -1,4 +1,7 @@
+import { getPolicy } from "@/lib/policy";
+import { ratingText } from "@/lib/policy-schema";
 import type { Prisma } from "@prisma/client";
+import { SearchableSelect } from "@/components/searchable-select";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import { weekNumber } from "@/lib/week";
@@ -221,12 +224,7 @@ export default async function Schedule({
     PLANNED: ["Chưa ghi sổ", "bg-slate-100 text-slate-600"],
     DONE: ["Đã ghi sổ đầu bài", "bg-green-100 text-green-800"],
   } as const;
-  const RATING: Record<string, string> = {
-    TOT: "Tốt",
-    KHA: "Khá",
-    TB: "Trung bình",
-    YEU: "Yếu",
-  };
+  const ratings = (await getPolicy()).diaryRatings;
 
   // Chi tiết một tiết học dùng trong hộp thoại
   const Detail = ({ s }: { s: S }) => {
@@ -291,7 +289,7 @@ export default async function Schedule({
             <Row icon={ScrollText} label="Sổ đầu bài">
               Vắng {s.log.attendanceAbsentCount}
               {s.log.conductRating
-                ? ` · Xếp loại ${RATING[s.log.conductRating] ?? s.log.conductRating}`
+                ? ` · Xếp loại ${ratingText(ratings, s.log.conductRating)}`
                 : ""}
               {s.log.note ? ` · ${s.log.note}` : ""}
             </Row>
@@ -861,53 +859,19 @@ export default async function Schedule({
             {hasMine && <input type="hidden" name="scope" value={scope} />}
             <MobileCollapse active={[fGrade, fRoom, fClass, fTeacher].filter(Boolean).length}>
               {terms.length > 1 && (
-                <select name="term" defaultValue={term.id} className={inputCls} aria-label="Học kỳ">
-                  {terms.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.termName} · {t.academicYear.yearName}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect key={term.id} name="term" defaultValue={term.id} ariaLabel="Học kỳ" className="w-full md:w-52" options={terms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.academicYear.yearName}` }))} />
               )}
               {(view === "class" || view === "list") && (
-                <select name="grade" defaultValue={fGrade} className={inputCls} aria-label="Khối">
-                  <option value="">Tất cả khối</option>
-                  {grades.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.gradeName}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect key={fGrade} name="grade" defaultValue={fGrade} emptyLabel="Tất cả khối" ariaLabel="Khối" className="w-full md:w-44" options={grades.map((g) => ({ value: g.id, label: g.gradeName }))} />
               )}
               {(view === "room" || view === "list") && (
-                <select name="room" defaultValue={fRoom} className={inputCls} aria-label="Phòng">
-                  <option value="">Tất cả phòng</option>
-                  {rooms.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.roomName}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect key={fRoom} name="room" defaultValue={fRoom} emptyLabel="Tất cả phòng" ariaLabel="Phòng" className="w-full md:w-44" options={rooms.map((r) => ({ value: r.id, label: r.roomName }))} />
               )}
               {(view === "class" || view === "list") && (
-                <select name="class" defaultValue={fClass} className={inputCls} aria-label="Lớp">
-                  <option value="">Tất cả lớp</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.className}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect key={fClass} name="class" defaultValue={fClass} emptyLabel="Tất cả lớp" ariaLabel="Lớp" className="w-full md:w-44" options={classes.map((c) => ({ value: c.id, label: c.className }))} />
               )}
               {(view === "teacher" || view === "list") && (
-                <select name="teacher" defaultValue={fTeacher} className={inputCls} aria-label="Giáo viên">
-                  <option value="">Tất cả giáo viên</option>
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.fullName}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect key={fTeacher} name="teacher" defaultValue={fTeacher} emptyLabel="Tất cả giáo viên" ariaLabel="Giáo viên" className="w-full md:w-52" options={teachers.map((t) => ({ value: t.id, label: t.fullName }))} />
               )}
               {(fGrade || fRoom || fClass || fTeacher) && (
                 <Link
