@@ -181,8 +181,8 @@ export function SearchableSelect({
       )}
 
       {open && (
-        <div className="absolute left-0 z-50 mt-1 w-full min-w-56 max-w-[calc(100vw-2rem)] rounded-md border bg-white p-1 shadow-lg">
-          <div ref={listRef} id={`${uniqueId}-list`} role="listbox" className="max-h-56 overflow-y-auto">
+        <div className="absolute left-0 z-50 mt-1 w-full min-w-60 max-w-[calc(100vw-2rem)] rounded-md border bg-white p-1.5 shadow-lg">
+          <div ref={listRef} id={`${uniqueId}-list`} role="listbox" className="max-h-72 overflow-y-auto">
             {filtered.length === 0 ? (
               <div className="px-3 py-2 text-center text-xs text-slate-500">Không tìm thấy kết quả phù hợp</div>
             ) : (
@@ -197,17 +197,17 @@ export function SearchableSelect({
                     data-idx={idx}
                     onMouseEnter={() => setActive(idx)}
                     onClick={() => choose(opt.value)}
-                    className={`flex w-full items-center justify-between rounded px-2.5 py-2 text-left text-sm transition-colors md:py-1.5 md:text-xs ${
+                    className={`flex w-full items-center justify-between rounded px-3 py-2.5 text-left text-sm transition-colors ${
                       idx === active ? "bg-orange-100" : "hover:bg-orange-50"
                     } ${isSelected ? "font-medium text-orange-800" : "text-slate-700"}`}
                   >
                     <div className="min-w-0 pr-2">
-                      <div className={`truncate ${opt.value ? "font-medium" : "text-slate-500"}`}>{opt.label}</div>
-                      {opt.subtext && <div className="truncate text-[11px] text-slate-500">{opt.subtext}</div>}
+                      <div className={`truncate text-sm ${opt.value ? "font-medium" : "text-slate-500"}`}>{opt.label}</div>
+                      {opt.subtext && <div className="truncate text-xs text-slate-500">{opt.subtext}</div>}
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       {opt.badge && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{opt.badge}</span>}
-                      {isSelected && <Check className="size-3.5 text-orange-600" />}
+                      {isSelected && <Check className="size-4 text-orange-600" />}
                     </div>
                   </button>
                 );
