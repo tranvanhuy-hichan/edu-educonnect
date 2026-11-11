@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireParentSession } from "@/lib/auth/parent-session";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { currentTerm } from "@/lib/catalog";
+import { hiddenTermIds } from "@/server/grade-visibility";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { effectiveSlots } from "@/modules/scheduling/effective";
 import { fmtDate, fmtTime } from "@/lib/format";
@@ -40,6 +41,10 @@ export default async function ParentPortalPage({
   ]);
 
   const sp = await searchParams;
+  // Học kỳ khóa xem điểm: server không đưa điểm của kỳ đó sang trình duyệt phụ huynh
+  const hiddenTerms = await hiddenTermIds();
+  const hiddenYearIds = new Set(allTerms.filter((t) => hiddenTerms.includes(t.id)).map((t) => t.academicYearId));
+  const visible = (termId: string) => !hiddenTerms.includes(termId);
 
   // Lấy toàn bộ học sinh liên kết với SĐT của phụ huynh
   const cleanedDigits = parent.phone.replace(/\D/g, "");
@@ -115,7 +120,7 @@ export default async function ParentPortalPage({
 
   if (!rawStudents.length) {
     return (
-      <div className="min-h-screen theme-bg text-[var(--fg)]">
+      <div className="parent-portal min-h-screen theme-bg text-[var(--fg)]">
         <ParentHeader
           brandName={brand.schoolName}
           brandLogo={brand.logoUrl}
@@ -200,7 +205,7 @@ export default async function ParentPortalPage({
           }
         : null,
       yearName: latestEnr?.academicYear?.yearName ?? "2026-2027",
-      yearEnd: yearEnd
+      yearEnd: yearEnd && !hiddenYearIds.has(yearEnd.academicYearId)
         ? {
             overallAverage: yearEnd.overallAverage,
             conductRank: yearEnd.conductRank,
@@ -208,16 +213,18 @@ export default async function ParentPortalPage({
           }
         : null,
       absences: absencesOf(s.id),
-      assessments: s.assessments.map((review) => ({ id: review.id, academicTermId: review.assignment.academicTermId, subjectName: review.assignment.subject.subjectName, outcome: review.outcome, isExempt: review.isExempt, comment: review.comment })),
-      subjectAverages: s.subjectAverages.filter((avg) => !s.assessments.some((review) => review.assignmentId === avg.assignmentId && review.isExempt)).map((avg) => ({
+      assessments: s.assessments.filter((review) => visible(review.assignment.academicTermId)).map((review) => ({ id: review.id, academicTermId: review.assignment.academicTermId, subjectName: review.assignment.subject.subjectName, outcome: review.outcome, isExempt: review.isExempt, comment: review.comment })),
+      subjectAverages: s.subjectAverages.filter((avg) => visible(avg.academicTermId) && !s.assessments.some((review) => review.assignmentId === avg.assignmentId && review.isExempt)).map((avg) => ({
         assignmentId: avg.assignmentId,
+        subjectId: avg.assignment.subjectId,
+        termName: avg.academicTerm.termName,
         id: avg.id,
         academicTermId: avg.academicTermId,
         averageValue: avg.averageValue,
         subjectName: avg.assignment.subject.subjectName,
         teacherName: avg.assignment.teacher.fullName,
       })),
-      scoreEntries: s.scoreEntries.map((e) => ({
+      scoreEntries: s.scoreEntries.filter((e) => visible(e.academicTermId)).map((e) => ({
         id: e.id,
         academicTermId: e.academicTermId,
         assignmentId: e.assignmentId,
@@ -256,6 +263,7 @@ export default async function ParentPortalPage({
   const termOptions: TermOption[] = allTerms.map((t) => ({
     id: t.id,
     termName: t.termName,
+    yearId: t.academicYearId,
     yearName: t.academicYear.yearName,
     isCurrent: t.id === curTerm?.id,
   }));
@@ -272,7 +280,7 @@ export default async function ParentPortalPage({
   }));
 
   return (
-    <div className="min-h-screen theme-bg text-[var(--fg)] pb-12">
+    <div className="parent-portal min-h-screen theme-bg text-[var(--fg)] pb-12">
       <ParentHeader
         brandName={brand.schoolName}
         brandLogo={brand.logoUrl}
@@ -282,12 +290,13 @@ export default async function ParentPortalPage({
         selectedChildId={initialChildId}
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+      <main className="w-full px-3 py-4 md:px-6">
         <ParentPortalView
           childrenData={childrenData}
           initialChildId={initialChildId}
           allTerms={termOptions}
           defaultTermId={defaultTermId}
+          hiddenTermIds={hiddenTerms}
         />
       </main>
     </div>

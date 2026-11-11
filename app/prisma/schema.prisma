@@ -123,6 +123,11 @@ model AcademicTerm {
   isLocked           Boolean                  @default(false)
   lockedAt           DateTime?
   lockedBy           String?
+  // Khóa xem điểm: học sinh và phụ huynh không xem được điểm học kỳ này (giáo viên vẫn nhập, quản lý vẫn xem)
+  gradesHidden       Boolean                  @default(false)
+  gradesHiddenAt     DateTime?
+  gradesHiddenBy     String?
+  gradesHiddenNote   String?
   assignments        ClassSubjectAssignment[]
   scoreEntries       ScoreEntry[]
   subjectAverages    SubjectTermAverage[]

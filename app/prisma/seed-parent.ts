@@ -1,5 +1,5 @@
 /**
- * Tài khoản phụ huynh demo đầy đủ dữ liệu: phụ huynh của hocsinh1 (Lê Văn Cường, lớp 10A1) — SĐT 0911111111, mật khẩu 123456.
+ * Tài khoản phụ huynh demo đầy đủ dữ liệu: phụ huynh của hocsinh1 (Lê Văn Cường, lớp 10A1) — SĐT 0911111111, mật khẩu 123456 (có thêm con thứ hai hs11.01, lớp 11A1).
  * Bổ sung những gì còn thiếu để cổng sổ liên lạc có đủ: điểm, TKB, nghỉ học (seed-lessons), lịch thi, mượn sách, đánh giá năm học.
  * Chạy lại nhiều lần không tạo trùng. Chạy SAU seed-lessons.ts và seed-yearend.ts.
  */
@@ -20,6 +20,15 @@ async function main() {
   if (found.length) await prisma.$executeRaw`UPDATE "ParentAccount" SET "passwordHash" = ${hash}, "updatedAt" = ${now} WHERE phone = ${PHONE}`;
   else await prisma.$executeRaw`INSERT INTO "ParentAccount" ("id","phone","fullName","passwordHash","createdAt","updatedAt") VALUES (${"pa_" + Date.now().toString(36)}, ${PHONE}, ${"Lê Văn Hùng"}, ${hash}, ${now}, ${now})`;
   await prisma.student.update({ where: { id: student.id }, data: { guardianPhone: PHONE, guardianName: "Lê Văn Hùng" } });
+
+  // 1b. Con thứ hai của cùng phụ huynh (lớp 11A1): cổng sổ liên lạc cho chọn giữa 2 con
+  const second = await prisma.student.findFirstOrThrow({ where: { user: { email: "hs11.01@sonha.edu.vn" } } });
+  await prisma.student.update({ where: { id: second.id }, data: { guardianPhone: PHONE, guardianName: "Lê Văn Hùng", guardianRelation: "Bố" } });
+  const secondLogs = await prisma.classPeriodLog.findMany({ where: { schoolClass: { enrollments: { some: { studentId: second.id } } } }, orderBy: { logDate: "desc" }, take: 2 });
+  for (const [i, log] of secondLogs.entries()) {
+    await prisma.classPeriodAbsence.upsert({ where: { logId_studentId: { logId: log.id, studentId: second.id } }, update: {}, create: { logId: log.id, studentId: second.id, excused: i === 0 } });
+    await prisma.classPeriodLog.update({ where: { id: log.id }, data: { attendanceAbsentCount: Math.max(log.attendanceAbsentCount, await prisma.classPeriodAbsence.count({ where: { logId: log.id } })) } });
+  }
 
   // 2. Mượn sách: 1 cuốn đang mượn, 1 cuốn quá hạn
   const books = [{ code: "SGK-TOAN10", title: "Toán 10 – Tập 1", author: "Nhiều tác giả", category: "Sách giáo khoa" }, { code: "VH-DEMEN", title: "Dế Mèn phiêu lưu ký", author: "Tô Hoài", category: "Văn học" }];

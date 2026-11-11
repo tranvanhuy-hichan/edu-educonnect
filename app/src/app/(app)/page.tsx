@@ -1,3 +1,4 @@
+import { hiddenTermIds } from "@/server/grade-visibility";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
 import { listRecentActivitySummaries } from "@/modules/admin/admin.service";
 import { effectiveSlots } from "@/modules/scheduling/effective";
@@ -329,9 +330,10 @@ export default async function Home() {
       select: { fullName: true, code: true, enrollments: { take: 1, orderBy: { academicYear: { startDate: "desc" } }, select: { schoolClassId: true, schoolClass: { select: { className: true, gradeLevel: { select: { gradeName: true } }, homeroomTeacher: { select: { fullName: true } } } } } } },
     });
     const enrollment = student?.enrollments[0];
+    const hiddenTerms = await hiddenTermIds(); // học kỳ đang khóa xem điểm
     const [slots, averages, loans] = await Promise.all([
       enrollment ? todaySlots({ schoolClassId: enrollment.schoolClassId }) : Promise.resolve([]),
-      db.subjectTermAverage.findMany({ where: { studentId: me.studentId! }, orderBy: [{ academicTerm: { startDate: "desc" } }, { assignment: { subject: { subjectName: "asc" } } }], take: 8, include: { assignment: { select: { subject: { select: { subjectName: true } } } }, academicTerm: { select: { termName: true } } } }),
+      db.subjectTermAverage.findMany({ where: { studentId: me.studentId!, ...(hiddenTerms.length ? { academicTermId: { notIn: hiddenTerms } } : {}) }, orderBy: [{ academicTerm: { startDate: "desc" } }, { assignment: { subject: { subjectName: "asc" } } }], take: 8, include: { assignment: { select: { subject: { select: { subjectName: true } } } }, academicTerm: { select: { termName: true } } } }),
       db.libraryLoan.findMany({
         where: { studentId: me.studentId!, status: { in: ["BORROWED", "OVERDUE", "PARTIALLY_RETURNED"] } },
         orderBy: { dueDate: "asc" },

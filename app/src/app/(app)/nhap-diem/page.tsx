@@ -8,6 +8,9 @@ import { MobileCollapse } from "@/components/mobile-collapse";
 import { BarChart3, ChevronRight, ClipboardCheck, Percent, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
+import { canManageGradeVisibility } from "@/server/grade-visibility";
+import { setGradesVisibility } from "./visibility-actions";
+import { fmtDate } from "@/lib/format";
 import { Card, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { ViewToggle } from "@/components/view-toggle";
 import { Pagination } from "@/components/pagination";
@@ -71,9 +74,39 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
     </DialogButton>
   ) : null;
 
+  const canPublish = canManageGradeVisibility(me);
+  const visibilityBtn = isManager ? (
+    <DialogButton label="👁 Công bố điểm" title="Khóa / công bố điểm cho học sinh và phụ huynh" variant="secondary">
+      <div className="space-y-3">
+        <p className="text-xs text-slate-500">
+          Khi khóa xem điểm, học sinh và phụ huynh <b>không xem được điểm</b> của học kỳ đó (hữu ích lúc cuối kỳ để tránh xin điểm). Giáo viên vẫn nhập và sửa điểm bình thường; Ban giám hiệu vẫn xem được.{!canPublish && " Chỉ Admin và Hiệu trưởng được thay đổi."}
+        </p>
+        <div className="content-panel divide-y rounded-lg border bg-white">
+          {terms.map((t) => (
+            <div key={t.id} className="space-y-2 p-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-semibold">{t.termName} · {t.yearName}</div>
+                  <div className="text-xs">{t.gradesHidden ? <span className="font-medium text-amber-700">Đang khóa xem điểm{t.gradesHiddenBy ? ` bởi ${t.gradesHiddenBy}` : ""}{t.gradesHiddenAt ? ` (${fmtDate(t.gradesHiddenAt)})` : ""}</span> : <span className="font-medium text-green-700">Đã công bố cho học sinh và phụ huynh</span>}</div>
+                  {t.gradesHidden && t.gradesHiddenNote && <div className="text-xs text-slate-500">Lý do: {t.gradesHiddenNote}</div>}
+                </div>
+                {canPublish && (
+                  <ActionForm action={setGradesVisibility} submit={t.gradesHidden ? "Công bố điểm" : "Khóa xem điểm"} danger={!t.gradesHidden} confirmText={t.gradesHidden ? "Công bố điểm học kỳ này cho học sinh và phụ huynh?" : "Khóa xem điểm học kỳ này với học sinh và phụ huynh?"} className="flex flex-wrap items-center gap-2" reset={false}>
+                    <input type="hidden" name="termId" value={t.id} /><input type="hidden" name="hide" value={t.gradesHidden ? "false" : "true"} />
+                    {!t.gradesHidden && <input name="note" placeholder="Lý do (tùy chọn)" className={inputCls + " w-48"} />}
+                  </ActionForm>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DialogButton>
+  ) : null;
+
   return (
     <div className="space-y-4">
-      <Title right={lockManageBtn}>Nhập điểm</Title>
+      <Title right={<div className="flex flex-wrap items-center gap-2">{visibilityBtn}{lockManageBtn}</div>}>Nhập điểm</Title>
       <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {/* ===================== DANH SÁCH LỚP ===================== */}

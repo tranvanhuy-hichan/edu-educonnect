@@ -456,3 +456,15 @@ tr[data-clickable] { cursor: pointer; }
 input.combo-input, input.combo-input:focus, input.combo-input:focus-visible {
   outline: none !important; border: 0 !important; box-shadow: none !important; background: transparent !important; border-radius: 0 !important; padding: 0 !important; height: 100% !important;
 }
+
+/* Cổng phụ huynh: chữ lớn hơn trên máy tính (phụ huynh đọc nhiều, màn hình rộng) */
+@media (min-width: 768px) {
+  .parent-portal { font-size: 1.0625rem; }
+  .parent-portal .text-xs { font-size: 0.9375rem; line-height: 1.35rem; }
+  .parent-portal .text-sm { font-size: 1.0625rem; line-height: 1.5rem; }
+  .parent-portal .text-\[13px\] { font-size: 1rem; }
+  .parent-portal .text-\[11px\] { font-size: 0.8125rem; }
+  .parent-portal .text-xl { font-size: 1.5rem; line-height: 2rem; }
+  .parent-portal .text-2xl { font-size: 2rem; line-height: 2.25rem; }
+  .parent-portal table { font-size: 1.0625rem; }
+}

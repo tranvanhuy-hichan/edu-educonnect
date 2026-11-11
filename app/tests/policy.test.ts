@@ -69,3 +69,22 @@ test("diary ratings show symbol with text and colour by rank", () => {
   const dup = clone(); dup.diaryRatings[1].symbol = "A";
   assert.equal(policySchema.safeParse(dup).success, false);
 });
+
+test("only admin or principal may lock or publish grades", async () => {
+  const { setGradesVisibility } = await import("../src/modules/scoring/grade-visibility.service");
+  const user = (roles: string[]) => ({ userId: "u", email: "u@example.test", roles, teacherId: null, studentId: null }) as never;
+  for (const roles of [["VICE_PRINCIPAL"], ["SUBJECT_TEACHER"], ["STUDENT"]]) await assert.rejects(setGradesVisibility(user(roles), { termId: "t", hide: true }), /Admin và Hiệu trưởng/);
+});
+
+test("year view combines HK1 and HK2 with the (HK1 + 2×HK2)/3 formula", async () => {
+  const { buildYearRows, meanOf } = await import("../src/modules/scoring/year-view");
+  const rows = buildYearRows([
+    { subjectId: "t", subjectName: "Toán", termName: "HK1", value: 6.04 }, { subjectId: "t", subjectName: "Toán", termName: "HK2", value: 9 },
+    { subjectId: "v", subjectName: "Vật lý", termName: "HK1", value: 8 },
+    { subjectId: "a", subjectName: "Anh", termName: "HK2", value: 7 },
+  ]);
+  const by = Object.fromEntries(rows.map((r) => [r.subjectId, r]));
+  assert.deepEqual([by.t.hk1, by.t.hk2, by.t.year], [6, 9, 8]);
+  assert.equal(by.v.year, null); assert.equal(by.a.year, null); // thiếu một kỳ → chưa tính cả năm
+  assert.equal(meanOf(rows.map((r) => r.year)), 8); assert.equal(meanOf([null]), null);
+});

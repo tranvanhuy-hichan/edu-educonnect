@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CalendarX, Printer } from "lucide-react";
 import { Card, Table } from "@/components/ui";
 import { SearchableSelect } from "@/components/searchable-select";
+import { buildYearRows, meanOf } from "@/modules/scoring/year-view";
 
 export type AbsenceItem = { id: string; isoDate: string; date: string; termId: string; periodNo: number; subjectName: string; excused: boolean; recent: boolean };
 
@@ -34,6 +35,8 @@ export type ChildData = {
   assessments: Array<{ id: string; academicTermId: string; subjectName: string; outcome: string | null; isExempt: boolean; comment: string | null }>;
   subjectAverages: Array<{
     assignmentId: string;
+    subjectId: string;
+    termName: string;
     id: string;
     academicTermId: string;
     averageValue: number;
@@ -78,6 +81,7 @@ export type ChildData = {
 export type TermOption = {
   id: string;
   termName: string;
+  yearId: string;
   yearName: string;
   isCurrent: boolean;
 };
@@ -98,28 +102,37 @@ const Badge = ({ tone, children }: { tone: "amber" | "red" | "green"; children: 
   <span className={`rounded px-2 py-0.5 text-xs font-medium ${tone === "amber" ? "bg-amber-100 text-amber-800" : tone === "red" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}>{children}</span>
 );
 
-export function ParentPortalView({ childrenData, initialChildId, allTerms, defaultTermId }: { childrenData: ChildData[]; initialChildId: string; allTerms: TermOption[]; defaultTermId: string }) {
+export function ParentPortalView({ childrenData, initialChildId, allTerms, defaultTermId, hiddenTermIds }: { childrenData: ChildData[]; initialChildId: string; allTerms: TermOption[]; defaultTermId: string; hiddenTermIds: string[] }) {
   const [selectedChildId, setSelectedChildId] = useState(initialChildId);
   const [selectedTermId, setSelectedTermId] = useState(defaultTermId);
   const [tab, setTab] = useState<TabKey>("grades");
+  // Bảng điểm: chọn NĂM HỌC trước, rồi HK1 / HK2 / Cả năm
+  const curTerm = allTerms.find((t) => t.id === defaultTermId);
+  const [gradeYearId, setGradeYearId] = useState(curTerm?.yearId ?? allTerms[0]?.yearId ?? "");
+  const [gradePeriod, setGradePeriod] = useState<"HK1" | "HK2" | "YEAR">(curTerm?.termName === "HK1" || curTerm?.termName === "HK2" ? (curTerm.termName as "HK1" | "HK2") : "YEAR");
 
   const child = childrenData.find((c) => c.id === selectedChildId) ?? childrenData[0];
   if (!child) return null;
 
+  const gradeYearTerms = allTerms.filter((t) => t.yearId === gradeYearId);
+  const gradeTerm = gradePeriod === "YEAR" ? undefined : gradeYearTerms.find((t) => t.termName === gradePeriod);
+  const gradeYearHidden = gradeYearTerms.filter((t) => hiddenTermIds.includes(t.id));
+  const yearOptions = [...new Map(allTerms.map((t) => [t.yearId, `Năm học ${t.yearName}`])).entries()].map(([value, label]) => ({ value, label }));
+  const periodOptions = [{ value: "HK1", label: "Học kỳ 1" }, { value: "HK2", label: "Học kỳ 2" }, { value: "YEAR", label: "Cả năm (HK1 + HK2×2)/3" }];
+  const gradeAverages = gradeTerm ? child.subjectAverages.filter((a) => a.academicTermId === gradeTerm.id) : [];
+  const yearRows = gradePeriod === "YEAR" ? buildYearRows(child.subjectAverages.filter((a) => gradeYearTerms.some((t) => t.id === a.academicTermId)).map((a) => ({ subjectId: a.subjectId, subjectName: a.subjectName, termName: a.termName, value: a.averageValue }))) : [];
   const isAll = selectedTermId === "ALL";
   const inTerm = (termId: string) => isAll || termId === selectedTermId;
   const averages = child.subjectAverages.filter((a) => inTerm(a.academicTermId));
-  const entries = child.scoreEntries.filter((e) => inTerm(e.academicTermId));
   const slots = child.scheduleSlots.filter((s) => inTerm(s.academicTermId));
   const absences = child.absences.filter((a) => inTerm(a.termId));
   const excused = absences.filter((a) => a.excused).length;
   const recent = child.absences.filter((a) => a.recent);
   const recentDays = [...new Set(recent.map((a) => a.isoDate))].sort().reverse();
-  const termAvg = averages.length ? (averages.reduce((t, a) => t + a.averageValue, 0) / averages.length).toFixed(2) : null;
   const count: Partial<Record<TabKey, number>> = { absences: absences.length, exams: child.examSeats.length, library: child.loans.length };
   const termOptions = [{ value: "ALL", label: "Tất cả học kỳ" }, ...allTerms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.yearName}${t.isCurrent ? " (hiện tại)" : ""}` }))];
   const termPicker = (
-    <div className="no-print w-56"><SearchableSelect name="term" options={termOptions} value={selectedTermId} onChange={setSelectedTermId} ariaLabel="Học kỳ" /></div>
+    <div className="no-print w-full sm:w-72"><SearchableSelect name="term" options={termOptions} value={selectedTermId} onChange={setSelectedTermId} ariaLabel="Học kỳ" /></div>
   );
   const info = (label: string, value: React.ReactNode) => (
     <div className="min-w-0"><dt className="text-[11px] uppercase tracking-wide text-slate-500">{label}</dt><dd className="font-medium">{value}</dd></div>
@@ -174,16 +187,32 @@ export function ParentPortalView({ childrenData, initialChildId, allTerms, defau
 
       {tab === "grades" && (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">Điểm các môn</h2>{termPicker}</div>
-          {averages.length === 0 ? <Empty>Chưa có điểm môn học nào trong học kỳ này.</Empty> : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold">Điểm các môn</h2>
+            <div className="no-print flex w-full flex-wrap gap-2 sm:w-auto">
+              <div className="w-full sm:w-56"><SearchableSelect name="gyear" options={yearOptions} value={gradeYearId} onChange={setGradeYearId} ariaLabel="Năm học" /></div>
+              <div className="w-full sm:w-64"><SearchableSelect name="gperiod" options={periodOptions} value={gradePeriod} onChange={(v) => setGradePeriod(v as "HK1" | "HK2" | "YEAR")} ariaLabel="Học kỳ" /></div>
+            </div>
+          </div>
+          {gradeYearHidden.length > 0 && (gradePeriod === "YEAR" || (gradeTerm && gradeYearHidden.some((t) => t.id === gradeTerm.id))) && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">{gradePeriod === "YEAR" ? `Điểm ${gradeYearHidden.map((t) => t.termName).join(", ")} chưa được công bố nên chưa hiển thị và chưa tính điểm cả năm.` : "Điểm học kỳ này chưa được công bố. Nhà trường sẽ thông báo khi điểm được công bố."}</div>
+          )}
+          {gradePeriod === "YEAR" ? (
+            yearRows.length === 0 ? <Empty>Chưa có điểm trong năm học này.</Empty> : (
+              <Table mobileLayout="compact" head={["Môn học", "HK1", "HK2", "Cả năm"]}>
+                {yearRows.map((r) => <tr key={r.subjectId} className="align-middle"><td className="font-semibold">{r.subjectName}</td><td>{r.hk1?.toFixed(1) ?? "—"}</td><td>{r.hk2?.toFixed(1) ?? "—"}</td><td className="font-semibold text-orange-700">{r.year != null ? r.year.toFixed(1) : "—"}</td></tr>)}
+                <tr className="bg-slate-50 font-semibold"><td>Trung bình các môn</td><td>{meanOf(yearRows.map((r) => r.hk1)) ?? "—"}</td><td>{meanOf(yearRows.map((r) => r.hk2)) ?? "—"}</td><td className="text-orange-700">{meanOf(yearRows.map((r) => r.year))?.toFixed(1) ?? "—"}</td></tr>
+              </Table>
+            )
+          ) : gradeAverages.length === 0 ? <Empty>{gradeTerm && gradeYearHidden.some((t) => t.id === gradeTerm.id) ? "Điểm học kỳ này chưa được công bố." : "Chưa có điểm môn học nào trong học kỳ này."}</Empty> : (
             <Table mobileLayout="compact" head={["Môn học", "Giáo viên", "Thường xuyên", "Giữa kỳ", "Cuối kỳ", "TB môn"]}>
-              {averages.map((avg) => {
-                const own = entries.filter((e) => e.academicTermId === avg.academicTermId && e.assignmentId === avg.assignmentId);
+              {gradeAverages.map((avg) => {
+                const own = child.scoreEntries.filter((e) => e.academicTermId === avg.academicTermId && e.assignmentId === avg.assignmentId);
                 const tx = own.filter((e) => e.scoreType === "THUONG_XUYEN").map((e) => e.value.toFixed(1)).join(", ");
                 const one = (t: "GIUA_KY" | "CUOI_KY") => own.find((e) => e.scoreType === t)?.value.toFixed(1) ?? "—";
                 return <tr key={avg.id} className="align-middle"><td className="font-semibold">{avg.subjectName}</td><td>{avg.teacherName}</td><td>{tx || "—"}</td><td>{one("GIUA_KY")}</td><td>{one("CUOI_KY")}</td><td className="font-semibold text-orange-700">{avg.averageValue.toFixed(1)}</td></tr>;
               })}
-              {termAvg && <tr className="bg-slate-50 font-semibold"><td colSpan={5} className="text-right">Điểm trung bình học kỳ</td><td className="text-orange-700">{termAvg}</td></tr>}
+              <tr className="bg-slate-50 font-semibold"><td colSpan={5} className="text-right">Điểm trung bình học kỳ</td><td className="text-orange-700">{(gradeAverages.reduce((t, a) => t + a.averageValue, 0) / gradeAverages.length).toFixed(2)}</td></tr>
             </Table>
           )}
         </div>
