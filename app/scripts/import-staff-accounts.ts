@@ -1,7 +1,9 @@
 /**
  * Nhập tài khoản NHÂN SỰ EduConnect (quản trị, hiệu trưởng/phó, giáo viên, thủ thư) vào DB dùng chung với Cổng Đoàn.
  * Mỗi người có 1 tài khoản dùng chung public."User" (vai trò khkt EXTERNAL: không vào được Cổng Đoàn) + hồ sơ edu."User" (+ edu."Teacher" nếu có mã giáo viên).
- * KHÔNG mang mật khẩu cũ: sinh mật khẩu tạm MỚI, bắt đổi ở lần đăng nhập đầu. Thông tin đăng nhập ghi ra --out (quyền 600), không in ra màn hình.
+ * Mật khẩu mặc định: "test123" (theo quyết định của chủ hệ thống), KHÔNG bắt đổi ở lần đăng nhập đầu.
+ * Thêm --random-passwords để sinh mật khẩu ngẫu nhiên riêng cho từng người và bắt đổi ở lần đăng nhập đầu (an toàn hơn).
+ * Thông tin đăng nhập ghi ra --out (quyền 600), không in ra màn hình.
  *
  *   npx tsx scripts/import-staff-accounts.ts --file staff.json                       chạy thử (không ghi)
  *   npx tsx scripts/import-staff-accounts.ts --file staff.json --out creds.csv --apply
@@ -15,6 +17,8 @@ import { genPassword } from "../src/lib/password";
 const prisma = new PrismaClient();
 const arg = (n: string) => { const i = process.argv.indexOf(n); return i >= 0 ? process.argv[i + 1] : undefined; };
 const apply = process.argv.includes("--apply");
+const random = process.argv.includes("--random-passwords");
+const DEFAULT_PASSWORD = "test123";
 const file = arg("--file"), out = arg("--out");
 type Row = { email: string; roles: Role[]; isActive?: boolean; fullName?: string | null; teacherCode?: string | null; phone?: string | null; gender?: string | null; contactEmail?: string | null };
 
@@ -31,10 +35,10 @@ async function main() {
     const username = r.teacherCode || email;
     const fullName = r.fullName || email.split("@")[0];
     if (!apply) { console.log(`Sẽ tạo: ${email} [${r.roles.join(",")}] đăng nhập=${username}${r.teacherCode ? " (giáo viên)" : ""}`); created++; continue; }
-    const password = genPassword();
+    const password = random ? genPassword() : DEFAULT_PASSWORD;
     const passwordHash = await bcrypt.hash(password, 10);
     await prisma.$transaction(async (tx) => {
-      const account = await tx.doanUser.create({ data: { username, passwordHash, fullName, role: "EXTERNAL", mustChangePassword: true }, select: { id: true } });
+      const account = await tx.doanUser.create({ data: { username, passwordHash, fullName, role: "EXTERNAL", mustChangePassword: random }, select: { id: true } });
       await tx.user.create({
         data: {
           accountId: account.id, email, roles: r.roles, isActive: r.isActive ?? true,
@@ -46,6 +50,6 @@ async function main() {
     created++;
   }
   if (apply) { writeFileSync(out!, creds.join("\n") + "\n", { mode: 0o600 }); chmodSync(out!, 0o600); }
-  console.log(`${apply ? "Đã tạo" : "Sẽ tạo"}: ${created}; bỏ qua: ${skipped}${apply ? `. Mật khẩu tạm ghi ở ${out} (quyền 600), mọi người bị buộc đổi mật khẩu lần đầu.` : "  (chạy thử, chưa ghi)"}`);
+  console.log(`${apply ? "Đã tạo" : "Sẽ tạo"}: ${created}; bỏ qua: ${skipped}${apply ? `. Mật khẩu tạm ghi ở ${out} (quyền 600), ${random ? "mọi người bị buộc đổi mật khẩu lần đầu." : "mật khẩu: test123, không bắt đổi."}` : "  (chạy thử, chưa ghi)"}`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); }).finally(() => prisma.$disconnect());
