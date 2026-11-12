@@ -6,6 +6,7 @@ import { parseAccountNames } from "@/server/accounts";
 import { randomUUID } from "crypto";
 import { genPassword } from "@/lib/password";
 import * as adminService from "@/modules/admin/admin.service";
+import * as sessions from "@/modules/auth/session.repository";
 import { z } from "zod";
 import { LIMITS, rateLimit } from "@/lib/rate-limit";
 import { reportError } from "@/lib/observability/report-error";
@@ -105,3 +106,23 @@ export async function runBulkReset(ids: unknown): Promise<{ ok: true; rows: admi
     return { ok: true, rows };
   } catch (error) { return fail(error); }
 }
+
+/** Mất điện thoại / lộ mật khẩu: vô hiệu mọi phiên của tài khoản ngay lập tức (người dùng phải đăng nhập lại). */
+export const adminLogoutEverywhere = wrap(async (fd) => {
+  const me = await assertRole(...ADMIN_ROLES);
+  const id = str(fd, "userId");
+  await sessions.revokeEverywhere(id);
+  await sessions.writeAudit(me.email, "revoke_sessions", id);
+  revalidatePath(`/tai-khoan/${id}`);
+  return "Đã đăng xuất tài khoản này khỏi mọi thiết bị";
+});
+
+/** Mở khoá sớm tài khoản đang bị khoá tạm do nhập sai mật khẩu. */
+export const adminUnlockLogin = wrap(async (fd) => {
+  const me = await assertRole(...ADMIN_ROLES);
+  const id = str(fd, "userId");
+  await sessions.clearLock(id);
+  await sessions.writeAudit(me.email, "unlock_login", id);
+  revalidatePath(`/tai-khoan/${id}`); revalidatePath("/tai-khoan");
+  return "Đã mở khoá đăng nhập";
+});

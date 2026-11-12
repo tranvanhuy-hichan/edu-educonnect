@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { SearchableSelect } from "@/components/searchable-select";
 import { AutoForm } from "@/components/auto-form";
+import { SystemTabs } from "@/components/system-tabs";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { inputCls, Table, Tabs, Title } from "@/components/ui";
 import { MobileCollapse } from "@/components/mobile-collapse";
@@ -52,6 +53,7 @@ export default async function ActivityLog({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-4">
+      <SystemTabs current="/nhat-ky" />
       <Title>Nhật ký hoạt động ({all})</Title>
       <Tabs current={href(tab)} items={[[href("all"), `Tất cả (${all})`] as [string, string], ...types.map((t) => [href(t.targetType), `${label(TYPE_LABEL, t.targetType)} (${t._count})`] as [string, string])]} />
       <AutoForm className="flex flex-wrap items-center gap-2">

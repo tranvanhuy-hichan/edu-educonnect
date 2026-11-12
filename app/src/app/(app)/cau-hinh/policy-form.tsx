@@ -4,6 +4,7 @@ import { Plus, RotateCcw, Trash2 } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { DEFAULT_POLICY, type Policy } from "@/lib/policy-schema";
 import { inputCls } from "@/components/ui";
+import { confirmAction } from "@/lib/feedback";
 import { savePolicy } from "./policy-actions";
 
 const num = (v: string) => (v === "" ? 0 : Number(v.replace(",", ".")));
@@ -120,7 +121,7 @@ export function PolicyForm({ initial }: { initial: Policy }) {
         <label className="space-y-1 text-sm"><span className="block text-xs font-semibold">Số sách tối đa mỗi học sinh được mượn cùng lúc</span><NumIn step={1} w="w-28" value={p.library.maxBooksPerStudent} onChange={(maxBooksPerStudent) => set("library", { maxBooksPerStudent })} /></label>
       </Sec>
 
-      <button type="button" onClick={() => { if (confirm("Khôi phục toàn bộ quy chế về mặc định? (chưa lưu cho đến khi bấm Lưu quy chế)")) setP(DEFAULT_POLICY); }} className="inline-flex items-center gap-1 self-start text-sm text-slate-600 hover:underline"><RotateCcw className="size-4" />Khôi phục mặc định</button>
+      <button type="button" onClick={async () => { if (await confirmAction({ title: "Khôi phục quy chế mặc định?", message: "Toàn bộ quy chế sẽ về giá trị mặc định. Thay đổi chưa được lưu cho đến khi bạn bấm “Lưu quy chế”.", confirmLabel: "Khôi phục", tone: "danger" })) setP(DEFAULT_POLICY); }} className="inline-flex items-center gap-1 self-start text-sm text-slate-600 hover:underline"><RotateCcw className="size-4" />Khôi phục mặc định</button>
     </ActionForm>
   );
 }

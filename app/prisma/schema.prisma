@@ -82,9 +82,19 @@ model User {
   isActive     Boolean  @default(true)
   mustChangePwd Boolean @default(false)
   tokenVersion Int      @default(1)
+  /// Lần đăng nhập thành công gần nhất (phục vụ rà soát tài khoản lâu không dùng).
+  lastLoginAt      DateTime?
+  /// Mọi phiên đăng nhập cấp TRƯỚC thời điểm này đều vô hiệu ("đăng xuất mọi nơi", kể cả phiên cũ chưa có bản ghi).
+  tokensValidAfter DateTime?
+  /// Đăng nhập sai liên tiếp; quá ngưỡng thì khoá tạm đến lockedUntil.
+  failedLogins     Int       @default(0)
+  lockedUntil      DateTime?
+  /// Đã xem hướng dẫn lần đầu theo vai trò.
+  onboardedAt      DateTime?
   teacher      Teacher?
   student      Student?
   notifications Notification[]
+  sessions     UserSession[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
@@ -215,6 +225,7 @@ model TeacherSubject {
 }
 
 model Student {
+  youth StudentYouth?
   examViolations ExamViolation[]
   quizAttempts QuizAttempt[]
   examSeats ExamSeat[]
@@ -1187,4 +1198,128 @@ model SmsLog {
   @@index([createdAt])
   @@index([phoneHash, createdAt])
   @@index([status, createdAt])
+}
+
+/// Một phiên đăng nhập (một thiết bị/trình duyệt). Mã phiên nằm trong cookie; thu hồi ở đây là vô hiệu ngay.
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device     String // "Chrome trên Windows"
+  ipMasked   String // 113.161.*.*
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId, revokedAt])
+}
+
+/// Thùng rác của quản trị: bản chụp dữ liệu đã xoá (kèm các bản ghi phụ thuộc) để khôi phục trong thời hạn lưu.
+model TrashItem {
+  id          String    @id @default(cuid())
+  kind        String // STUDENT | CLASS | LESSON_POST | QUESTION | LIBRARY_LESSON
+  label       String
+  detail      String?
+  payload     Json
+  deletedBy   String
+  deletedAt   DateTime  @default(now())
+  expiresAt   DateTime
+  restoredAt  DateTime?
+
+  @@index([kind, deletedAt])
+  @@index([expiresAt])
+}
+
+/// Đã gửi nhắc việc nào (khoá duy nhất) để chạy lại tác vụ nhắc không gửi trùng.
+model ReminderSent {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Khoá API cấp cho hệ thống bên ngoài (vd hệ thống Đoàn). Chỉ lưu băm SHA-256 của khoá; khoá gốc hiện đúng một lần khi tạo.
+model ApiKey {
+  id              String          @id @default(cuid())
+  name            String
+  keyPrefix       String // 8 ký tự đầu để nhận ra khoá trong danh sách
+  keyHash         String          @unique
+  scopes          String[]
+  ipAllowlist     String[]        @default([])
+  rateLimitPerMin Int             @default(120)
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  lastUsedAt      DateTime?
+  lastUsedIp      String?
+  note            String?
+  createdBy       String
+  createdAt       DateTime        @default(now())
+  logs            ApiRequestLog[]
+  changes         ApiChange[]
+  idempotency     ApiIdempotency[]
+}
+
+/// Nhật ký gọi API theo khoá (không lưu địa chỉ IP đầy đủ, không lưu nội dung phản hồi). Giữ 30 ngày.
+model ApiRequestLog {
+  id        String   @id @default(cuid())
+  keyId     String
+  key       ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  method    String
+  path      String
+  status    Int
+  ms        Int
+  ipMasked  String
+  createdAt DateTime @default(now())
+
+  @@index([keyId, createdAt])
+  @@index([createdAt])
+}
+
+/// Thông tin Đoàn của học sinh (do hệ thống Đoàn cập nhật qua API ngoài; tách khỏi hồ sơ học tập).
+model StudentYouth {
+  studentId String   @id
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isMember  Boolean  @default(false)
+  joinedAt  DateTime?
+  branch    String? // chi đoàn
+  position  String? // chức vụ trong Đoàn
+  note      String?
+  updatedBy String
+  updatedAt DateTime @updatedAt
+}
+
+/// Mỗi lần hệ thống ngoài GHI dữ liệu: lưu trước/sau để quản trị xem và hoàn tác.
+model ApiChange {
+  id         String    @id @default(cuid())
+  keyId      String
+  key        ApiKey    @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  kind       String // STUDENT_CREATE | STUDENT_UPDATE | STUDENT_CLASS | YOUTH_UPDATE | TEACHER_CREATE | TEACHER_UPDATE | CLASS_CREATE | CLASS_UPDATE
+  entityType String
+  entityId   String
+  label      String
+  before     Json?
+  after      Json?
+  meta       Json?
+  createdAt  DateTime  @default(now())
+  revertedAt DateTime?
+  revertedBy String?
+
+  @@index([createdAt])
+  @@index([keyId, createdAt])
+  @@index([entityType, entityId])
+}
+
+/// Chống gửi trùng: cùng Idempotency-Key + cùng nội dung thì trả lại đúng kết quả lần đầu, không tạo bản ghi thứ hai.
+model ApiIdempotency {
+  id          String   @id @default(cuid())
+  keyId       String
+  key         ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  idemKey     String
+  requestHash String
+  status      Int      @default(0)
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([keyId, idemKey])
+  @@index([createdAt])
 }

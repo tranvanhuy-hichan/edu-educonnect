@@ -3,7 +3,7 @@
 -- Cho biết DB thật đang thiếu bảng/cột nào mà code mới cần.
 -- ============================================================================
 SELECT 'bang' AS loai, t AS ten, EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=t) AS co_chua
-FROM unnest(ARRAY['LoginThrottle','Job','ErrorLog','ParentNotification','ParentOtp','SmsLog','QuizAttempt','StoredFile','ImportJob']) AS t
+FROM unnest(ARRAY['LoginThrottle','Job','ErrorLog','ParentNotification','ParentOtp','SmsLog','UserSession','TrashItem','ReminderSent','ApiKey','ApiRequestLog','StudentYouth','ApiChange','ApiIdempotency','QuizAttempt','StoredFile','ImportJob']) AS t
 UNION ALL
 SELECT 'cot', 'QuizAttempt.snapshot', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='QuizAttempt' AND column_name='snapshot')
 UNION ALL
@@ -155,5 +155,143 @@ CREATE TABLE IF NOT EXISTS "SmsLog" (
 CREATE INDEX IF NOT EXISTS "SmsLog_createdAt_idx" ON "SmsLog"("createdAt");
 CREATE INDEX IF NOT EXISTS "SmsLog_phoneHash_createdAt_idx" ON "SmsLog"("phoneHash", "createdAt");
 CREATE INDEX IF NOT EXISTS "SmsLog_status_createdAt_idx" ON "SmsLog"("status", "createdAt");
+
+-- Phiên đăng nhập, khoá tạm, thùng rác, nhắc việc, hướng dẫn lần đầu (migration 20261117)
+-- Phiên đăng nhập, khoá tạm, thùng rác, nhắc việc, hướng dẫn lần đầu
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lastLoginAt" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "tokensValidAfter" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "failedLogins" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP(3);
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "onboardedAt" TIMESTAMP(3);
+
+CREATE TABLE IF NOT EXISTS "UserSession" (
+  "id" TEXT NOT NULL,
+  "userId" TEXT NOT NULL,
+  "device" TEXT NOT NULL,
+  "ipMasked" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "lastSeenAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "revokedAt" TIMESTAMP(3),
+  CONSTRAINT "UserSession_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "UserSession_userId_revokedAt_idx" ON "UserSession"("userId", "revokedAt");
+DO $$ BEGIN
+  ALTER TABLE "UserSession" ADD CONSTRAINT "UserSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS "TrashItem" (
+  "id" TEXT NOT NULL,
+  "kind" TEXT NOT NULL,
+  "label" TEXT NOT NULL,
+  "detail" TEXT,
+  "payload" JSONB NOT NULL,
+  "deletedBy" TEXT NOT NULL,
+  "deletedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "restoredAt" TIMESTAMP(3),
+  CONSTRAINT "TrashItem_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "TrashItem_kind_deletedAt_idx" ON "TrashItem"("kind", "deletedAt");
+CREATE INDEX IF NOT EXISTS "TrashItem_expiresAt_idx" ON "TrashItem"("expiresAt");
+
+CREATE TABLE IF NOT EXISTS "ReminderSent" (
+  "key" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ReminderSent_pkey" PRIMARY KEY ("key")
+);
+CREATE INDEX IF NOT EXISTS "ReminderSent_createdAt_idx" ON "ReminderSent"("createdAt");
+
+-- Khoá API cho hệ thống bên ngoài (migration 20261118)
+-- Khoá API cho hệ thống bên ngoài + nhật ký gọi API
+CREATE TABLE IF NOT EXISTS "ApiKey" (
+  "id" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "keyPrefix" TEXT NOT NULL,
+  "keyHash" TEXT NOT NULL,
+  "scopes" TEXT[],
+  "ipAllowlist" TEXT[] DEFAULT ARRAY[]::TEXT[],
+  "rateLimitPerMin" INTEGER NOT NULL DEFAULT 120,
+  "expiresAt" TIMESTAMP(3),
+  "revokedAt" TIMESTAMP(3),
+  "lastUsedAt" TIMESTAMP(3),
+  "lastUsedIp" TEXT,
+  "note" TEXT,
+  "createdBy" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ApiKey_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ApiKey_keyHash_key" ON "ApiKey"("keyHash");
+
+CREATE TABLE IF NOT EXISTS "ApiRequestLog" (
+  "id" TEXT NOT NULL,
+  "keyId" TEXT NOT NULL,
+  "method" TEXT NOT NULL,
+  "path" TEXT NOT NULL,
+  "status" INTEGER NOT NULL,
+  "ms" INTEGER NOT NULL,
+  "ipMasked" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ApiRequestLog_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "ApiRequestLog_keyId_createdAt_idx" ON "ApiRequestLog"("keyId", "createdAt");
+CREATE INDEX IF NOT EXISTS "ApiRequestLog_createdAt_idx" ON "ApiRequestLog"("createdAt");
+DO $$ BEGIN
+  ALTER TABLE "ApiRequestLog" ADD CONSTRAINT "ApiRequestLog_keyId_fkey" FOREIGN KEY ("keyId") REFERENCES "ApiKey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- API ngoài có GHI: thông tin Đoàn, nhật ký thay đổi, chống gửi trùng (migration 20261119)
+-- API ngoài có GHI: thông tin Đoàn, nhật ký thay đổi (hoàn tác), chống gửi trùng
+CREATE TABLE IF NOT EXISTS "StudentYouth" (
+  "studentId" TEXT NOT NULL,
+  "isMember" BOOLEAN NOT NULL DEFAULT false,
+  "joinedAt" TIMESTAMP(3),
+  "branch" TEXT,
+  "position" TEXT,
+  "note" TEXT,
+  "updatedBy" TEXT NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  CONSTRAINT "StudentYouth_pkey" PRIMARY KEY ("studentId")
+);
+DO $$ BEGIN
+  ALTER TABLE "StudentYouth" ADD CONSTRAINT "StudentYouth_studentId_fkey" FOREIGN KEY ("studentId") REFERENCES "Student"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS "ApiChange" (
+  "id" TEXT NOT NULL,
+  "keyId" TEXT NOT NULL,
+  "kind" TEXT NOT NULL,
+  "entityType" TEXT NOT NULL,
+  "entityId" TEXT NOT NULL,
+  "label" TEXT NOT NULL,
+  "before" JSONB,
+  "after" JSONB,
+  "meta" JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "revertedAt" TIMESTAMP(3),
+  "revertedBy" TEXT,
+  CONSTRAINT "ApiChange_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "ApiChange_createdAt_idx" ON "ApiChange"("createdAt");
+CREATE INDEX IF NOT EXISTS "ApiChange_keyId_createdAt_idx" ON "ApiChange"("keyId", "createdAt");
+CREATE INDEX IF NOT EXISTS "ApiChange_entityType_entityId_idx" ON "ApiChange"("entityType", "entityId");
+DO $$ BEGIN
+  ALTER TABLE "ApiChange" ADD CONSTRAINT "ApiChange_keyId_fkey" FOREIGN KEY ("keyId") REFERENCES "ApiKey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS "ApiIdempotency" (
+  "id" TEXT NOT NULL,
+  "keyId" TEXT NOT NULL,
+  "idemKey" TEXT NOT NULL,
+  "requestHash" TEXT NOT NULL,
+  "status" INTEGER NOT NULL DEFAULT 0,
+  "response" JSONB,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ApiIdempotency_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ApiIdempotency_keyId_idemKey_key" ON "ApiIdempotency"("keyId", "idemKey");
+CREATE INDEX IF NOT EXISTS "ApiIdempotency_createdAt_idx" ON "ApiIdempotency"("createdAt");
+DO $$ BEGIN
+  ALTER TABLE "ApiIdempotency" ADD CONSTRAINT "ApiIdempotency_keyId_fkey" FOREIGN KEY ("keyId") REFERENCES "ApiKey"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 COMMIT;

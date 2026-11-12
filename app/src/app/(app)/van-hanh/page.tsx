@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { SystemTabs } from "@/components/system-tabs";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { Card, Table, Title } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
@@ -27,12 +28,18 @@ async function dbStats() {
     WHERE s.idx_scan = 0 AND NOT i.indisunique AND NOT i.indisprimary ORDER BY pg_relation_size(s.indexrelid) DESC LIMIT 6`;
   return { size: Number(size), ping, lastMigration, tables, unused };
 }
+/** Tình trạng SMS 24 giờ qua. Nằm ngoài component vì dùng đồng hồ hệ thống (không được gọi trong lúc render). */
+async function smsOverview() {
+  const provider = currentProvider();
+  if (!provider) return { provider, stats: [], failures: [] };
+  const [stats, failures] = await Promise.all([smsStatsSince(new Date(Date.now() - 86_400_000)), recentSmsFailures(8)]);
+  return { provider, stats, failures };
+}
 const mb = (n: number | bigint) => `${(Number(n) / 1048576).toFixed(1)} MB`;
 
 export default async function Operations() {
   await requireRole(...ADMIN_ROLES);
-  const smsProvider = currentProvider();
-  const [smsStats, smsFailures] = smsProvider ? await Promise.all([smsStatsSince(new Date(Date.now() - 86_400_000)), recentSmsFailures(8)]) : [[], []];
+  const { provider: smsProvider, stats: smsStats, failures: smsFailures } = await smsOverview();
   const smsCount = (purpose: string, status: string) => smsStats.find((r) => r.purpose === purpose && r.status === status)?._count ?? 0;
   const [stats, queue, jobs, errors] = await Promise.all([
     dbStats(),
@@ -45,6 +52,7 @@ export default async function Operations() {
 
   return (
     <div className="space-y-6">
+      <SystemTabs current="/van-hanh" />
       <Title>Vận hành hệ thống</Title>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

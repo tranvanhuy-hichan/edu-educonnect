@@ -7,6 +7,10 @@
     {
       "path": "/api/jobs/run?cleanup=1",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/jobs/run?reminders=1",
+      "schedule": "0 12 * * *"
     }
   ]
 }

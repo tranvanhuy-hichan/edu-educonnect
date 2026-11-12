@@ -486,3 +486,39 @@ input.combo-input, input.combo-input:focus, input.combo-input:focus-visible {
 }
 
 @keyframes tab-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
+
+/* ── Bảng màu phụ cho trang chủ (chỉ dùng cho thẻ chỉ số, ô truy cập nhanh, nhãn môn học; nút bấm vẫn theo màu chủ đạo) ── */
+:root {
+  /* Họ màu lạnh cho trang trí (teal, lam, lục, xám xanh); amber/rose chỉ dành cho cảnh báo. */
+  --tone-sky: #0891b2; --tone-emerald: #059669; --tone-slate: #64748b; --tone-amber: #d97706; --tone-violet: #6d6fd1; --tone-rose: #e11d48; --tone-teal: var(--primary);
+}
+.tone-sky { --tone: var(--tone-sky); } .tone-amber { --tone: var(--tone-amber); } .tone-violet { --tone: var(--tone-violet); }
+.tone-rose { --tone: var(--tone-rose); } .tone-slate { --tone: var(--tone-slate); } .tone-emerald { --tone: var(--tone-emerald); } .tone-teal { --tone: var(--tone-teal); }
+.tone-card {
+  border-color: color-mix(in srgb, var(--tone) 16%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--tone) 5%, var(--surface)), var(--surface) 75%);
+}
+.tone-card:hover { border-color: color-mix(in srgb, var(--tone) 60%, var(--line)); box-shadow: 0 8px 20px -12px color-mix(in srgb, var(--tone) 45%, transparent); }
+.tone-chip { color: #fff; background: linear-gradient(135deg, var(--tone), color-mix(in srgb, var(--tone) 78%, #000)); }
+.tone-soft { background: color-mix(in srgb, var(--tone) 8%, var(--surface)); color: color-mix(in srgb, var(--tone) 72%, var(--fg)); }
+.tone-dot { background: var(--tone); }
+.dashboard-hero { background: linear-gradient(120deg, var(--sidebar) 0%, var(--primary) 100%); color: #fff; }
+.dashboard-hero::before, .dashboard-hero::after { content: ""; position: absolute; border-radius: 9999px; background: rgb(255 255 255 / 0.09); pointer-events: none; }
+.dashboard-hero::before { width: 16rem; height: 16rem; right: -4rem; top: -7rem; }
+.dashboard-hero::after { width: 10rem; height: 10rem; right: 7rem; bottom: -6rem; background: rgb(255 255 255 / 0.06); }
+.manager-dashboard > .dashboard-hero { order: 0; }
+@media (prefers-reduced-motion: reduce) { .tone-card { transition: none; } .tone-card:hover { transform: none; } }
+
+/* ── Thông báo (toast) và hộp xác nhận tự thiết kế (xem lib/feedback.ts) ── */
+@keyframes toast-in { from { opacity: 0; transform: translateX(1.5rem) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-in-top { from { opacity: 0; transform: translateY(-0.75rem); } to { opacity: 1; transform: none; } }
+@keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes confirm-in { from { opacity: 0; transform: translateY(0.5rem) scale(0.97); } to { opacity: 1; transform: none; } }
+.toast-item { animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.toast-progress { animation-name: toast-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
+.toast-item:hover .toast-progress { animation-play-state: paused; }
+.confirm-dialog[open] { animation: confirm-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.confirm-dialog[open]::backdrop { animation: toast-fade 0.18s ease-out; }
+@keyframes toast-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 639px) { .toast-item { animation-name: toast-in-top; } }
+@media (prefers-reduced-motion: reduce) { .toast-item, .confirm-dialog[open], .confirm-dialog[open]::backdrop { animation: none; } .toast-progress { animation-duration: 1ms !important; } }

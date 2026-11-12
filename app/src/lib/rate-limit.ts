@@ -18,6 +18,8 @@ export const LIMITS = {
   otpPhone: { limit: 3, windowSec: 600 }, // 3 mã/10 phút/số (chống nhắn tin gây phiền)
   otpVerifyIp: { limit: 40, windowSec: 3600 },
   otpVerifyPhone: { limit: 10, windowSec: 600 },
+  apiWrite: { limit: 60, windowSec: 60 }, // yêu cầu GHI của API ngoài/khoá
+  apiAuthFail: { limit: 20, windowSec: 600 }, // khoá API sai theo IP
   bulkReset: { limit: 150, windowSec: 600 }, // 150 lô x 40 = 6000 tài khoản / 10 phút
 } satisfies Record<string, RateLimitRule>;
 
@@ -49,3 +51,12 @@ export function clientIp(request: Request): string {
 
 export const tooManyRequests = (retryAfterSec: number, message = "Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.") =>
   NextResponse.json({ error: message, retryAfterSec }, { status: 429, headers: { "Retry-After": String(retryAfterSec) } });
+
+/** Đã chạm giới hạn chưa (KHÔNG tăng bộ đếm). Dùng để chặn sớm trước khi xử lý, còn việc đếm do rateLimit() làm khi có sự kiện đáng đếm. */
+export async function rateLimitPeek(scope: string, identifier: string, rule: RateLimitRule): Promise<boolean> {
+  const key = createHash("sha256").update(`rl:${scope}:${identifier.trim().toLowerCase()}`).digest("hex");
+  try {
+    const rows = await prisma.$queryRaw<{ count: number }[]>`SELECT "count" FROM "LoginThrottle" WHERE "key" = ${key} AND "expiresAt" > NOW()`;
+    return (rows[0]?.count ?? 0) >= rule.limit;
+  } catch { return false; }
+}

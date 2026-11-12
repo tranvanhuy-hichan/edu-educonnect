@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { downloadCsv } from "@/lib/credentials-csv";
+import { confirmAction } from "@/lib/feedback";
 
 type Option = { value: string; label: string };
 type Row = { fullName: string; username: string; className: string; roles: string; password: string };
@@ -48,7 +49,9 @@ export function BulkResetPasswords({ roles, classes, batchSize, preview, run }: 
   }
 
   async function doRun() {
-    if (!found || !window.confirm(`Cấp lại mật khẩu cho ${found.total} tài khoản?\nMật khẩu cũ sẽ không dùng được nữa và mọi người bị đăng xuất.`)) return;
+    if (!found) return;
+    const go = await confirmAction({ title: `Cấp lại mật khẩu cho ${found.total} tài khoản?`, message: "Mật khẩu cũ sẽ không dùng được nữa và mọi người bị đăng xuất khỏi các thiết bị. Mật khẩu mới chỉ hiện trong file CSV tải về ngay sau đó.", confirmLabel: "Cấp lại mật khẩu", tone: "danger" });
+    if (!go) return;
     running.current = true; setPhase("running"); setError(""); setRows([]);
     const done: Row[] = [];
     for (let i = 0; i < found.ids.length; i += batchSize) {

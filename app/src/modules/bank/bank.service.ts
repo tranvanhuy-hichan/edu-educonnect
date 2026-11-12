@@ -49,7 +49,7 @@ export async function updateLesson(user: SessionUser, id: string, raw: unknown) 
 }
 export async function archiveLesson(user: SessionUser, id: string) {
   await ownLesson(user, id);
-  await repo.archiveLesson(id);
+  await repo.archiveLesson(id, user.email);
 }
 export const getLesson = (user: SessionUser, id: string) => ownLesson(user, id);
 

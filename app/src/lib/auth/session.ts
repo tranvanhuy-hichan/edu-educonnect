@@ -7,6 +7,9 @@ export type SessionUser = {
   roles: Role[];
   teacherId: string | null;
   studentId: string | null;
+  /** Mã phiên đăng nhập (UserSession) và thời điểm cấp token (giây) — do máy chủ gắn khi đăng nhập. */
+  sid?: string;
+  iat?: number;
 };
 
 export function hasRole(user: SessionUser, role: Role): boolean {

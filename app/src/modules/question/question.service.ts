@@ -46,7 +46,7 @@ export async function updateQuestion(user: SessionUser, id: string, raw: unknown
 export async function deleteQuestion(user: SessionUser, id: string) {
   const q = await repo.findQuestion(id);
   if (!q || q.archivedAt || q.teacherId !== user.teacherId) throw new ForbiddenError("Không tìm thấy câu hỏi hoặc không có quyền xóa");
-  await repo.deleteOrArchive(id);
+  await repo.deleteOrArchive(id, user.email);
 }
 
 export async function listQuestions(user: SessionUser, filter: repo.QuestionFilter, skip: number, take: number) {

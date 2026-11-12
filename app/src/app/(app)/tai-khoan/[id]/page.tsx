@@ -9,7 +9,8 @@ import { Card, Table, Tabs } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
 import { fmtDate } from "@/lib/format";
 import { getPaging } from "@/lib/paging";
-import { resetAccountPassword, toggleAccount, updateAccountRoles } from "../actions";
+import { adminLogoutEverywhere, adminUnlockLogin, resetAccountPassword, toggleAccount, updateAccountRoles } from "../actions";
+import * as sessionRepo from "@/modules/auth/session.repository";
 
 const TABS = [["overview", "Tổng quan"], ["roles", "Vai trò"], ["security", "Bảo mật"], ["activity", "Nhật ký"]] as const;
 const TEACHER_ROLES: Role[] = ["HOMEROOM_TEACHER", "SUBJECT_TEACHER"];
@@ -45,6 +46,8 @@ export default async function AccountDetail({ params, searchParams }: { params: 
   const [logTotal, logs] = tab === "activity"
     ? await Promise.all([db.activityLog.count({ where: logWhere }), db.activityLog.findMany({ where: logWhere, orderBy: { createdAt: "desc" }, skip: ap.skip, take: ap.take })])
     : [0, []];
+  const liveSessions = tab === "security" ? await sessionRepo.listLiveSessions(u.id) : [];
+  const lockedNow = !!u.lockedUntil && u.lockedUntil.getTime() > new Date().getTime();
   const isSelf = u.id === me.id;
   const hue = [...u.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   const cls = u.student?.enrollments[0]?.schoolClass;
@@ -154,6 +157,18 @@ export default async function AccountDetail({ params, searchParams }: { params: 
               <input type="hidden" name="userId" value={u.id} /><input type="hidden" name="lock" value={u.isActive ? "1" : "0"} />
             </ActionForm>
             {isSelf && <p className="text-xs text-slate-500">Đây là tài khoản của bạn nên không thể tự khoá.</p>}
+          </Card>
+          <Card mobile="flat" className="space-y-3 xl:col-span-2">
+            <h2 className="font-semibold">Phiên đăng nhập và khoá tạm</h2>
+            <p className="text-sm text-slate-600">Đăng nhập gần nhất: <b>{u.lastLoginAt ? fmtTime(u.lastLoginAt) : "chưa từng"}</b>. Sai mật khẩu 5 lần liên tiếp thì khoá tạm 15 phút.{lockedNow && u.lockedUntil && <> <b className="text-red-600">Đang bị khoá tạm đến {fmtTime(u.lockedUntil)}.</b></>}</p>
+            <div className="flex flex-wrap gap-2">
+              <ActionForm action={adminLogoutEverywhere} submit="Đăng xuất mọi thiết bị" compact danger reset={false} className="flex" confirmText="Đăng xuất tài khoản này khỏi mọi thiết bị?"><input type="hidden" name="userId" value={u.id} /></ActionForm>
+              {lockedNow && <ActionForm action={adminUnlockLogin} submit="Mở khoá đăng nhập" compact reset={false} className="flex"><input type="hidden" name="userId" value={u.id} /></ActionForm>}
+            </div>
+            <Table head={["Thiết bị", "Địa chỉ", "Đăng nhập lúc", "Hoạt động gần nhất"]}>
+              {liveSessions.map((s) => <tr key={s.id}><td>{s.device}</td><td className="font-mono text-xs">{s.ipMasked}</td><td className="whitespace-nowrap text-xs">{fmtTime(s.createdAt)}</td><td className="whitespace-nowrap text-xs">{fmtTime(s.lastSeenAt)}</td></tr>)}
+              {!liveSessions.length && <tr><td colSpan={4} className="text-center text-slate-500">Không có phiên nào đang đăng nhập.</td></tr>}
+            </Table>
           </Card>
         </div>
       )}

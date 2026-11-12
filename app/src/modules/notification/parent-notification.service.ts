@@ -16,7 +16,7 @@ export function phoneKeyOf(raw: string | null | undefined): string | null {
 }
 
 export type GuardianTarget = { id: string; fullName: string; guardianPhone: string | null };
-export type GuardianNotice = { title: string; content: string; type: "GRADE" | "ATTENDANCE" | "SYSTEM"; link?: string; /** Bản ngắn gửi SMS (không dấu, ≤160 ký tự). Bỏ trống = không gửi SMS cho thông báo này. */ sms?: string };
+export type GuardianNotice = { title: string; content: string; type: "GRADE" | "ATTENDANCE" | "SYSTEM" | "ASSIGNMENT" | "EXAM" | "LIBRARY"; link?: string; /** Bản ngắn gửi SMS (không dấu, ≤160 ký tự). Bỏ trống = không gửi SMS cho thông báo này. */ sms?: string };
 
 /** Ghi thông báo cho phụ huynh của từng học sinh. Học sinh chưa có SĐT người giám hộ hợp lệ thì bỏ qua (được đếm trong skipped). */
 export async function notifyGuardians(students: GuardianTarget[], build: (student: GuardianTarget) => GuardianNotice, opts: { smsEvent?: SmsEvent; school?: string } = {}) {

@@ -9,14 +9,14 @@ import type { SessionUser } from "@/lib/auth/session";
 export type Role = "ADMIN" | "PRINCIPAL" | "VICE_PRINCIPAL" | "HOMEROOM_TEACHER" | "SUBJECT_TEACHER" | "LIBRARIAN" | "STUDENT";
 
 /** Người dùng hiện tại. Tương thích SessionUser nên truyền thẳng được vào các service trong src/modules. */
-export type Me = SessionUser & { id: string; name: string; mustChangePwd: boolean };
+export type Me = SessionUser & { id: string; name: string; mustChangePwd: boolean; onboarded: boolean };
 
 /** Đọc phiên đăng nhập (cookie JWT) + đối chiếu lại DB để tài khoản bị khoá có hiệu lực ngay. */
 export const getMe = cache(async (): Promise<Me | null> => {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   const session = token ? verifySessionToken(token) : null;
   if (!session) return null;
-  return resolveSessionIdentity(session.userId, session.credentialTag);
+  return resolveSessionIdentity(session.userId, session.credentialTag, { sid: session.sid, iat: session.iat });
 });
 
 const hasAny = (me: Me, roles: Role[]) => !roles.length || me.roles.some((r) => roles.includes(r));

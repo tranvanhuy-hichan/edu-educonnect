@@ -2,13 +2,14 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, MonitorSmartphone, X } from "lucide-react";
 import clsx from "clsx";
 import { buildNav, buildMobileNav, ROLE_LABEL, titleOf, type NavGroup, type NavItem } from "@/lib/nav";
 import type { Role } from "@/lib/guard";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { GlobalSearch } from "@/components/layout/global-search";
+import { HelpButton } from "@/components/layout/help-button";
 
 const HOMEROOM_MAIN_TABS = [null, "overview", "students"];
 const LIBRARY_MAIN_TABS = [null, "", "titles"];
@@ -86,13 +87,16 @@ function toggleGroup(title: string) {
   collapseListeners.forEach((f) => f());
 }
 
+/** Mục menu đang được chọn: đúng trang của nó hoặc một trang con dạng tab (NavItem.also). */
+const itemActive = (path: string, it: NavItem, tab: string | null) => isActive(path, it.href, tab) || !!it.also?.some((p) => path === p || path.startsWith(p + "/"));
+
 function Links({ groups, path, badges, onNavigate, compact }: { groups: NavGroup[]; path: string; badges: Record<string, number>; onNavigate?: () => void; compact?: boolean }) {
   const tab = useSearchParams().get("tab");
   const collapsed = new Set(useSyncExternalStore(subscribeCollapsed, readCollapsed, () => "").split("|").filter(Boolean));
   return (
     <>
       {groups.map((g, i) => {
-        const hasActive = g.items.some((it) => isActive(path, it.href, tab) || it.children?.some((k) => isActive(path, k.href, tab)));
+        const hasActive = g.items.some((it) => itemActive(path, it, tab) || it.children?.some((k) => isActive(path, k.href, tab)));
         const open = !g.title || !collapsed.has(g.title) || hasActive; // nhóm đang chứa trang hiện tại luôn mở
         return (
         <div key={i} className="mb-1">
@@ -107,7 +111,7 @@ function Links({ groups, path, badges, onNavigate, compact }: { groups: NavGroup
             {g.items.map((it) => it.children ? (
               <Group key={it.href} it={it} path={path} onNavigate={onNavigate} compact={compact} />
             ) : (
-              <Link key={it.href} href={it.href} onClick={onNavigate} title={it.label} data-active={isActive(path, it.href, tab)}
+              <Link key={it.href} href={it.href} onClick={onNavigate} title={it.label} data-active={itemActive(path, it, tab)}
                 className="nav-item relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors">
                 <it.icon className="size-[18px] shrink-0" />
                 <span className={clsx("flex-1 truncate", compact && "hidden lg:inline")}>{it.label}</span>
@@ -122,7 +126,7 @@ function Links({ groups, path, badges, onNavigate, compact }: { groups: NavGroup
   );
 }
 
-export function Shell({ roles, userName, name, logo, mustChange, children }: { roles: Role[]; userName: string; name: string; logo: string; mustChange: boolean; children: React.ReactNode }) {
+export function Shell({ roles, userName, name, logo, mustChange, showOnboarding = false, children }: { roles: Role[]; userName: string; name: string; logo: string; mustChange: boolean; showOnboarding?: boolean; children: React.ReactNode }) {
   const path = usePathname();
   const tab = useSearchParams().get("tab");
   const router = useRouter();
@@ -192,6 +196,7 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
             </span>
           </nav>
           <GlobalSearch groups={groups} />
+          <HelpButton roles={roles} showOnboarding={showOnboarding && !mustChange} />
           <NotificationBell />
           <ModeToggle />
           <div className="relative" ref={ref}>
@@ -202,6 +207,7 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
             {menu && (
               <div className="absolute right-0 mt-1 w-52 rounded-md border bg-white p-1 shadow-lg">
                 <Link href="/doi-mat-khau" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-slate-100"><KeyRound className="size-4" />Đổi mật khẩu</Link>
+                <Link href="/phien-dang-nhap" className="flex items-center gap-2 rounded px-3 py-2 text-sm hover:bg-slate-100"><MonitorSmartphone className="size-4" />Phiên đăng nhập</Link>
                 <button onClick={async () => { await fetch("/api/auth/logout", { method: "POST" }); router.push("/login"); router.refresh(); }} className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-red-600 hover:bg-slate-100"><LogOut className="size-4" />Đăng xuất</button>
               </div>
             )}

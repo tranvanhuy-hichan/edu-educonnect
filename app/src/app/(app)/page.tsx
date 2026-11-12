@@ -6,7 +6,9 @@ import Link from "next/link";
 import { Activity, AlertTriangle, ArrowUpRight, BookOpen, CalendarClock, CheckCircle2, ChevronDown, ClipboardList, DoorOpen, GraduationCap, Library, Presentation, School, Settings2, ShieldCheck, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
-import { Card, Title } from "@/components/ui";
+import { Card } from "@/components/ui";
+import { HeroBanner, QuickTile, StatTile, SubjectTimeline, greetingNow, type Tone } from "@/components/dashboard";
+import { ROLE_LABEL } from "@/lib/nav";
 import { fmtDate, todayUTC } from "@/lib/format";
 
 type TodaySlot = { kind: "lesson" | "activity"; id: string; periodNo: number; schoolClass: { className: string }; assignment: { subject: { subjectName: string }; teacher: { fullName: string } }; room: { roomName: string } };
@@ -22,29 +24,18 @@ const ACTION_LABEL: Record<string, string> = {
 function TodayList({ slots, empty = "Hôm nay không có tiết nào.", write = false }: { slots: TodaySlot[]; empty?: string; write?: boolean }) {
   if (!slots.length) return <p className="px-4 py-10 text-center text-sm text-slate-500">{empty}</p>;
   return (
-    <ul className="divide-y">
-      {slots.map((s) => (
-        <li key={s.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-x-4">
-          <div className="text-sm font-semibold tabular-nums sm:w-20 sm:shrink-0">Tiết {s.periodNo}</div>
-          <div className="min-w-0 sm:flex-1">
-            <div className="font-medium sm:truncate">{s.schoolClass.className} · {s.assignment.subject.subjectName}</div>
-            <div className="text-xs text-slate-500 sm:truncate">{s.assignment.teacher.fullName} · Phòng {s.room.roomName}</div>
-          </div>
-          {write && s.kind !== "activity" && <Link href="/so-dau-bai" className="inline-flex h-9 w-full items-center justify-center rounded-md border bg-white px-3 text-sm font-medium text-orange-700 hover:bg-orange-50 sm:h-8 sm:w-auto">Ghi sổ đầu bài</Link>}
-        </li>
-      ))}
-    </ul>
+    <SubjectTimeline
+      slots={slots}
+      action={(s) => write && s.kind !== "activity" ? <Link href="/so-dau-bai" className="inline-flex h-9 w-full items-center justify-center rounded-md border bg-white px-3 text-sm font-medium text-orange-700 hover:bg-orange-50 sm:h-8 sm:w-auto">Ghi sổ đầu bài</Link> : null}
+    />
   );
 }
 
-const Stat = ({ icon: I, label, value, href, tone = "bg-orange-100 text-orange-700", valueTone = "" }: { icon: typeof Users; label: string; value: React.ReactNode; href: string; tone?: string; valueTone?: string }) => (
-  <Link href={href}>
-    <Card className="flex h-full items-center gap-2 p-3 transition-colors hover:border-orange-400 sm:gap-3 sm:p-4">
-      <span className={`grid size-9 shrink-0 place-items-center rounded-lg sm:size-11 ${tone}`}><I className="size-4 sm:size-5" /></span>
-      <div className="min-w-0"><div className="truncate text-xs text-slate-500">{label}</div><div className={`truncate text-xl font-bold leading-tight sm:text-2xl ${valueTone}`}>{value}</div></div>
-    </Card>
-  </Link>
-);
+/** Giữ chữ ký cũ của Stat; đổi sang thẻ nhiều màu. tone cũ là lớp Tailwind nên quy đổi theo từ khoá. */
+const Stat = ({ icon, label, value, href, tone = "", valueTone = "" }: { icon: typeof Users; label: string; value: React.ReactNode; href: string; tone?: string; valueTone?: string }) => {
+  const t: Tone = /green/.test(tone) ? "emerald" : /sky/.test(tone) ? "sky" : /red/.test(tone) ? "rose" : /yellow|amber/.test(tone) ? "slate" : "teal";
+  return <StatTile icon={icon} label={label} value={value} href={href} tone={t} valueClass={valueTone} />;
+};
 
 export default async function Home() {
   const me = await requireRole();
@@ -104,39 +95,18 @@ export default async function Home() {
     const completion = lessonCount ? Math.round((lessonCount - unlogged.length) / lessonCount * 100) : null;
     blocks.push(
       <div key="manager" className="design-sample manager-dashboard">
-        <header className="dashboard-heading flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="min-w-0">
-            <p className="sample-brand-link mb-1 text-xs font-semibold">{isAdmin ? "Quản trị hệ thống" : "Điều hành nhà trường"}</p>
-            <h1 className="text-xl font-bold tracking-tight sm:text-2xl">Tổng quan nhà trường</h1>
-            <p className="sample-muted mt-1 text-sm">Xin chào, {me.name}.</p>
-          </div>
-          <div className="sample-muted flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:justify-end">
-            <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-3.5" />{fmtDate(today)}</span>
-            {term && <span className="sample-filter-tag rounded-md px-2 py-1">{term.termName} · {term.academicYear.yearName}</span>}
-          </div>
-        </header>
+        <HeroBanner
+          eyebrow={isAdmin ? "Quản trị hệ thống" : "Điều hành nhà trường"}
+          title={`${greetingNow()}, ${me.name}`}
+          chips={[<><CalendarClock className="size-3.5" />{fmtDate(today)}</>, ...(term ? [`${term.termName} · ${term.academicYear.yearName}`] : [])]}
+          actions={[{ href: "/so-dau-bai", label: "Sổ đầu bài", icon: ClipboardList }, isAdmin ? { href: "/van-hanh", label: "Vận hành", icon: ShieldCheck } : { href: "/lich-hoc", label: "Thời khóa biểu", icon: CalendarClock }]}
+        />
 
         <div className="dashboard-stats grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-          {[
-            { icon: GraduationCap, label: "Học sinh", value: students, href: "/hoc-sinh" },
-            { icon: Users, label: "Giáo viên", value: teachers, href: "/giao-vien" },
-            { icon: School, label: "Lớp học", value: classes, href: "/lop-hoc" },
-            { icon: DoorOpen, label: "Phòng học", value: rooms, href: "/phong-hoc" },
-          ].map(({ icon: Icon, label, value, href }) => (
-            <Link
-              key={href}
-              href={href}
-              className="sample-surface dashboard-stat group flex min-w-0 items-center justify-between gap-2 p-3 transition-colors sm:p-4"
-            >
-              <div>
-                <p className="text-xs font-medium text-slate-500 sm:text-sm">{label}</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">{value.toLocaleString("vi-VN")}</p>
-              </div>
-              <span className="sample-brand-icon grid size-8 shrink-0 place-items-center rounded-lg sm:size-10">
-                <Icon className="size-5" strokeWidth={1.75} />
-              </span>
-            </Link>
-          ))}
+          <StatTile icon={GraduationCap} label="Học sinh" value={students.toLocaleString("vi-VN")} href="/hoc-sinh" tone="teal" />
+          <StatTile icon={Users} label="Giáo viên" value={teachers.toLocaleString("vi-VN")} href="/giao-vien" tone="sky" />
+          <StatTile icon={School} label="Lớp học" value={classes.toLocaleString("vi-VN")} href="/lop-hoc" tone="emerald" sub={term ? `Năm học ${term.academicYear.yearName}` : undefined} />
+          <StatTile icon={DoorOpen} label="Phòng học" value={rooms.toLocaleString("vi-VN")} href="/phong-hoc" tone="slate" />
         </div>
 
         <section className="dashboard-operations grid gap-3 xl:grid-cols-3" aria-label="Điều hành trong ngày">
@@ -167,11 +137,19 @@ export default async function Home() {
         <section aria-label="Truy cập nhanh">
           <h2 className="mb-3 text-sm font-semibold">Truy cập nhanh</h2>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {[
-              { icon: CalendarClock, label: "Thời khóa biểu", href: "/lich-hoc" },
-              { icon: Presentation, label: "Phân công giảng dạy", href: "/phan-cong" },
-              ...(isAdmin ? [{ icon: ShieldCheck, label: "Quản lý tài khoản", href: "/tai-khoan" }, { icon: Settings2, label: "Cấu hình hệ thống", href: "/cau-hinh" }] : [{ icon: ClipboardList, label: "Sổ đầu bài", href: "/so-dau-bai" }, { icon: GraduationCap, label: "Quản lý học sinh", href: "/hoc-sinh" }]),
-            ].map(({ icon: Icon, label, href }) => <Link key={href} href={href} className="flex items-center gap-3 rounded-xl border bg-white px-4 py-3 text-xs font-medium transition hover:border-orange-400 hover:text-orange-700"><Icon className="size-4 shrink-0 text-orange-700" /><span className="flex-1">{label}</span><ArrowUpRight className="size-3.5 shrink-0 text-slate-400" /></Link>)}
+            <QuickTile icon={CalendarClock} label="Thời khóa biểu" hint="Xem và xếp lịch" href="/lich-hoc" tone="teal" />
+            <QuickTile icon={Presentation} label="Phân công giảng dạy" hint="Giáo viên - lớp - môn" href="/phan-cong" tone="teal" />
+            {isAdmin ? (
+              <>
+                <QuickTile icon={ShieldCheck} label="Quản lý tài khoản" hint="Cấp lại mật khẩu hàng loạt" href="/tai-khoan" tone="teal" />
+                <QuickTile icon={Settings2} label="Cấu hình hệ thống" hint="Thông tin trường, quy chế" href="/cau-hinh" tone="teal" />
+              </>
+            ) : (
+              <>
+                <QuickTile icon={ClipboardList} label="Sổ đầu bài" hint="Theo dõi ghi sổ" href="/so-dau-bai" tone="teal" />
+                <QuickTile icon={GraduationCap} label="Quản lý học sinh" hint="Hồ sơ và lớp" href="/hoc-sinh" tone="teal" />
+              </>
+            )}
           </div>
         </section>
         {unlogged.length > 0 && (
@@ -398,7 +376,14 @@ export default async function Home() {
 
   return (
     <div className="space-y-4">
-      {!isManager && <Title>{isStudent && !isTeacher ? "Tổng quan" : `Xin chào, ${me.name}`}</Title>}
+      {!isManager && (
+        <HeroBanner
+          eyebrow={me.roles.map((r) => ROLE_LABEL[r]).join(" · ")}
+          title={`${greetingNow()}, ${me.name}`}
+          chips={[<><CalendarClock className="size-3.5" />{fmtDate(today)}</>, ...(term ? [`${term.termName} · ${term.academicYear.yearName}`] : [])]}
+          actions={isTeacher ? [{ href: "/so-dau-bai", label: "Ghi sổ đầu bài", icon: ClipboardList }, { href: "/nhap-diem", label: "Nhập điểm", icon: BookOpen }] : isStudent ? [{ href: "/lich-hoc", label: "Thời khóa biểu", icon: CalendarClock }, { href: "/diem-cua-toi", label: "Điểm của tôi", icon: ClipboardList }] : isLibrarian ? [{ href: "/thu-vien", label: "Thư viện", icon: Library }] : []}
+        />
+      )}
       {blocks.length ? blocks : <Card className="text-sm text-slate-600">Tài khoản của bạn chưa có chức năng nào để hiển thị. Hãy liên hệ quản trị viên.</Card>}
     </div>
   );

@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { trashLibraryLesson } from "@/modules/trash/trash.repository";
 
 /* ---------- Bài học mẫu ---------- */
 const lessonCounts = { _count: { select: { questions: { where: { archivedAt: null } }, exercises: { where: { archivedAt: null } } } } } as const;
@@ -18,13 +19,7 @@ export const maxLessonOrder = (teacherId: string, subjectId: string, gradeLevelI
 export const createLesson = (data: Prisma.LibraryLessonUncheckedCreateInput) => prisma.libraryLesson.create({ data });
 export const updateLesson = (id: string, data: Prisma.LibraryLessonUncheckedUpdateInput) => prisma.libraryLesson.update({ where: { id }, data });
 /** Xóa bài học = lưu trữ: câu hỏi về "chưa phân bài", bài tập mẫu của bài cũng được lưu trữ. */
-export const archiveLesson = (id: string) =>
-  prisma.$transaction([
-    prisma.question.updateMany({ where: { libraryLessonId: id }, data: { libraryLessonId: null } }),
-    prisma.libraryExercise.updateMany({ where: { lessonId: id }, data: { archivedAt: new Date() } }),
-    prisma.libraryExerciseSource.deleteMany({ where: { lessonId: id } }),
-    prisma.libraryLesson.update({ where: { id }, data: { archivedAt: new Date() } }),
-  ]);
+export const archiveLesson = (id: string, actorEmail: string) => trashLibraryLesson(actorEmail, id); // lưu trữ và chụp vào thùng rác
 
 /* ---------- Bài tập mẫu ---------- */
 export const listExercises = (lessonId: string) =>

@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [me, brand] = await Promise.all([getMe(), getSchoolSetting()]);
   if (!me) redirect("/login");
   return (
-    <Shell roles={me.roles} userName={me.name} name={brand.schoolName} logo={brand.logoUrl ?? ""} mustChange={me.mustChangePwd}>
+    <Shell roles={me.roles} userName={me.name} name={brand.schoolName} logo={brand.logoUrl ?? ""} mustChange={me.mustChangePwd} showOnboarding={!me.onboarded}>
       {children}
     </Shell>
   );

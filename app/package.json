@@ -14,7 +14,7 @@
     "seed": "tsx prisma/seed.ts && tsx prisma/seed-gv.ts && tsx prisma/seed-lessons.ts && tsx prisma/seed-yearend.ts && tsx prisma/seed-parent.ts && tsx prisma/seed-bank.ts && tsx prisma/seed-secure-exam.ts && tsx prisma/seed-quiz-variants.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:db": "RUN_DATABASE_TESTS=1 node --import tsx --test tests/*.integration.test.ts",
+    "test:db": "RUN_DATABASE_TESTS=1 node --import tsx --test --test-concurrency=1 tests/*.integration.test.ts",
     "openapi": "tsx scripts/openapi.ts",
     "ops:explain": "tsx scripts/ops/explain.ts"
   },

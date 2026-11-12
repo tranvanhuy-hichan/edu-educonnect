@@ -3,6 +3,8 @@ import { logger } from "@/lib/logger";
 import { registerJob } from "./queue";
 import { objectDownloadUrl } from "@/lib/storage/adapters";
 import { sendSms } from "@/modules/sms/sms.service";
+import { runDailyReminders } from "@/modules/reminders/reminders.service";
+import { purgeExpiredTrash } from "@/modules/trash/trash.repository";
 import { resolveWorkerIdentity } from "@/modules/auth/auth.service";
 import { runImportJob } from "@/modules/importer/importer.service";
 
@@ -45,6 +47,9 @@ export function ensureHandlers() {
     return { sent, failed, skipped };
   });
 
+  // Nhắc việc hằng ngày (sách đến hạn, bài tập hết hạn, lịch thi ngày mai) + nhắc rà soát tài khoản đầu tháng.
+  registerJob("reminders.daily", async () => runDailyReminders());
+
   // Dọn dẹp định kỳ: bảng giới hạn tốc độ, việc/lỗi cũ.
   registerJob("maintenance.cleanup", async () => {
     const throttle = await prisma.$executeRaw`DELETE FROM "LoginThrottle" WHERE "expiresAt" <= NOW()`;
@@ -52,7 +57,13 @@ export function ensureHandlers() {
     const errors = await prisma.$executeRaw`DELETE FROM "ErrorLog" WHERE "status" = 'RESOLVED' AND "lastSeenAt" < NOW() - INTERVAL '90 days'`;
     const otps = await prisma.$executeRaw`DELETE FROM "ParentOtp" WHERE "createdAt" < NOW() - INTERVAL '1 day'`;
     const smsLogs = await prisma.$executeRaw`DELETE FROM "SmsLog" WHERE "createdAt" < NOW() - INTERVAL '90 days'`;
-    logger.info({ throttle, jobs, errors, otps, smsLogs }, "maintenance_cleanup");
-    return { throttle, jobs, errors, otps, smsLogs };
+    const trash = await purgeExpiredTrash();
+    const apiLogs = await prisma.$executeRaw`DELETE FROM "ApiRequestLog" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    await prisma.$executeRaw`DELETE FROM "ApiIdempotency" WHERE "createdAt" < NOW() - INTERVAL '7 days'`;
+    await prisma.$executeRaw`DELETE FROM "ApiChange" WHERE "createdAt" < NOW() - INTERVAL '365 days'`;
+    const sessions = await prisma.$executeRaw`DELETE FROM "UserSession" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    const reminders = await prisma.$executeRaw`DELETE FROM "ReminderSent" WHERE "createdAt" < NOW() - INTERVAL '60 days'`;
+    logger.info({ throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs }, "maintenance_cleanup");
+    return { throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs };
   });
 }

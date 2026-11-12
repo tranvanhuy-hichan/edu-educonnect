@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { trashLessonPost } from "@/modules/trash/trash.repository";
 import type {
   CreateExerciseInput,
   CreateLessonPostInput,
@@ -149,11 +150,7 @@ export const deleteExercise = async (id: string) => {
   if (await prisma.quizAttempt.count({ where: { exerciseId: id } })) throw new Error("Bài tập đã có lượt làm, không thể xóa lịch sử");
   return prisma.$transaction(exerciseDeletion({ id }));
 };
-export const deleteLessonPost = async (id: string) => {
+export const deleteLessonPost = async (id: string, actorEmail: string) => {
   if (await prisma.quizAttempt.count({ where: { exercise: { lessonPostId: id } } })) throw new Error("Bài học đã có lượt làm, không thể xóa lịch sử");
-  return prisma.$transaction([
-  ...exerciseDeletion({ lessonPostId: id }),
-  prisma.lessonPostView.deleteMany({ where: { lessonPostId: id } }),
-  prisma.lessonPost.delete({ where: { id } }),
-]);
+  return trashLessonPost(actorEmail, id); // chụp vào thùng rác rồi xoá
 };

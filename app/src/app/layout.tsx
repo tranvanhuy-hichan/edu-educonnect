@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { getSchoolSetting } from "@/lib/school-setting";
+import { FeedbackProvider } from "@/components/feedback-provider";
 import { DEFAULT_THEME, PRIMARY_COLOR, fontsHref, themeCss } from "@/lib/theme";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -60,7 +61,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {href && <link rel="stylesheet" href={href} />}
         <style id="theme-vars" dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">{children}<FeedbackProvider /></body>
     </html>
   );
 }
