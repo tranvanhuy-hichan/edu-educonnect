@@ -3,7 +3,8 @@ import { uploadLimit } from "@/lib/storage/config";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import { uploadFile } from "@/modules/files/files.service";
 import { parseDocx } from "./docx-parser";
-import { anthropicExtractor, ImportError, type ExtractInput, type Extractor } from "./extractor";
+import { ImportError, type ExtractInput, type Extractor } from "./extractor";
+import { defaultExtractor } from "./providers";
 import * as repo from "./importer.repository";
 import { normalizeQuestion, type NormalizedQuestion } from "./normalize";
 
@@ -55,7 +56,7 @@ const failMessage = (e: unknown) => {
 };
 
 /** Hàng đợi nền: đọc tệp -> AI trích xuất -> chuẩn hóa -> lưu. Mọi lỗi được ghi vào phiên (FAILED), không ném ra ngoài. */
-export async function runImportJob(user: SessionUser, jobId: string, buffer: Buffer, extractor: Extractor = anthropicExtractor): Promise<void> {
+export async function runImportJob(user: SessionUser, jobId: string, buffer: Buffer, extractor: Extractor = defaultExtractor): Promise<void> {
   const job = await repo.findJob(jobId);
   if (!job || job.teacherId !== user.teacherId) return;
   await repo.updateJob(jobId, { status: "RUNNING", error: null });

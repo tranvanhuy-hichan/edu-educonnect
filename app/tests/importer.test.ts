@@ -156,12 +156,15 @@ test("database: nhập tệp Word bằng extractor giả -> câu hỏi, ảnh, b
     const failed = await prisma.importJob.findUniqueOrThrow({ where: { id: bad.id } });
     assert.equal(failed.status, "FAILED"); assert.equal(failed.error, "AI quá tải");
     // --- extractor mặc định, không có khóa -> FAILED với thông báo cấu hình
-    const savedKey = process.env.ANTHROPIC_API_KEY; delete process.env.ANTHROPIC_API_KEY;
+    const saved = { a: process.env.ANTHROPIC_API_KEY, g: process.env.GEMINI_API_KEY, p: process.env.AI_PROVIDER };
+    delete process.env.ANTHROPIC_API_KEY; delete process.env.GEMINI_API_KEY; delete process.env.AI_PROVIDER;
     const nokey = await createImportJob(user, { kind: "QUESTIONS", subjectId: subject.id, gradeLevelId: grade.id, libraryLessonId: null, fileName: "y.docx", buffer });
     jobIds.push(nokey.id);
     await runImportJob(user, nokey.id, buffer);
-    if (savedKey !== undefined) process.env.ANTHROPIC_API_KEY = savedKey;
-    assert.match((await prisma.importJob.findUniqueOrThrow({ where: { id: nokey.id } })).error!, /Chưa cấu hình khóa AI \(ANTHROPIC_API_KEY\)/);
+    if (saved.a !== undefined) process.env.ANTHROPIC_API_KEY = saved.a;
+    if (saved.g !== undefined) process.env.GEMINI_API_KEY = saved.g;
+    if (saved.p !== undefined) process.env.AI_PROVIDER = saved.p;
+    assert.match((await prisma.importJob.findUniqueOrThrow({ where: { id: nokey.id } })).error!, /Chưa cấu hình khóa AI \(GEMINI_API_KEY\)/);
     // --- không có câu nào -> FAILED rõ ràng
     const empty = await createImportJob(user, { kind: "QUESTIONS", subjectId: subject.id, gradeLevelId: grade.id, libraryLessonId: null, fileName: "z.docx", buffer });
     jobIds.push(empty.id);

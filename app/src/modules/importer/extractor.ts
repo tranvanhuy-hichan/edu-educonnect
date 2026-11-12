@@ -132,7 +132,7 @@ export const EXTRACTION_SCHEMA = {
   },
 };
 
-const SYSTEM = `Bạn là trợ lý số hóa đề kiểm tra và ngân hàng câu hỏi cho giáo viên phổ thông Việt Nam. Nhiệm vụ: đọc tài liệu giáo viên tải lên và trích xuất TỪNG CÂU HỎI thành dữ liệu có cấu trúc.
+export const SYSTEM = `Bạn là trợ lý số hóa đề kiểm tra và ngân hàng câu hỏi cho giáo viên phổ thông Việt Nam. Nhiệm vụ: đọc tài liệu giáo viên tải lên và trích xuất TỪNG CÂU HỎI thành dữ liệu có cấu trúc.
 
 Nguyên tắc bắt buộc:
 - Không bịa nội dung. Giữ nguyên chữ của đề, chỉ sửa lỗi gõ hiển nhiên. Không tự thêm hay bớt câu hỏi.
@@ -151,7 +151,7 @@ Nguyên tắc bắt buộc:
 - warnings: những điều giáo viên cần biết (câu bỏ qua, phần không đọc được, tài liệu không phải đề...).
 - Giữ nguyên thứ tự các câu như trong tài liệu.`;
 
-function userPrompt(input: ExtractInput, chunk?: { body: string; reference: string; index: number; total: number }) {
+export function userPrompt(input: ExtractInput, chunk?: { body: string; reference: string; index: number; total: number }) {
   const head = `Môn: ${input.subjectName}. Khối: ${input.gradeName}. Tên tệp: ${input.fileName}.`;
   const mode = input.kind === "TEST"
     ? "Đây là MỘT ĐỀ KIỂM TRA. Hãy điền testTitle (tên đề như trong tài liệu, nếu không có thì để rỗng) và points của từng câu theo thang điểm của đề nếu có."
