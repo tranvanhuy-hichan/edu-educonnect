@@ -1,13 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 
+/** Trạng thái tối/sáng nằm ở thuộc tính data-dark của <html>; đọc qua useSyncExternalStore để không phải setState trong effect. */
+const subscribe = (notify: () => void) => {
+  const observer = new MutationObserver(notify);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-dark"] });
+  return () => observer.disconnect();
+};
+
 export function ModeToggle() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => setDark(document.documentElement.dataset.dark === "1"), []);
+  const dark = useSyncExternalStore(subscribe, () => document.documentElement.dataset.dark === "1", () => false);
   function toggle() {
     const next = !dark;
-    setDark(next);
     document.documentElement.dataset.dark = next ? "1" : "0";
     document.cookie = `mode=${next ? "dark" : "light"}; path=/; max-age=31536000; samesite=lax`;
   }

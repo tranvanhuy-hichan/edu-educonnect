@@ -88,8 +88,12 @@ Run these commands from the repository root unless stated otherwise.
 | `npm run dev` | Start the development server. |
 | `npm run build` | Generate Prisma Client and build the production application. |
 | `npm run start --workspace=app` | Start the production application after building. |
-| `npm run lint --workspace=app` | Run ESLint. |
-| `npm exec --workspace=app -- tsc --noEmit` | Check TypeScript types. |
+| `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Check TypeScript types. |
+| `npm test` | Run unit tests (no database needed). |
+| `npm run test:db --workspace=app` | Run integration tests; needs a seeded **disposable** PostgreSQL (see `make services`). |
+| `npm run openapi` | Regenerate `docs/openapi.json` from the Zod schemas. |
+| `make backup` | Encrypted `pg_dump` backup (see the operations guide). |
 | `npm run prisma:migrate` | Apply or create migrations during development. |
 | `npm run prisma:deploy` | Apply pending migrations during deployment. |
 | `npm run prisma:status` | Inspect migration status. |
@@ -129,6 +133,10 @@ EduConnect/
 └── package.json            # Workspace configuration and root commands
 ```
 
+### Operations
+
+Production observability and recovery are built in: structured JSON logs (pino) with a per-request `x-request-id`, persistent error grouping at `/van-hanh` (admin only) plus optional Sentry, `/api/health` and `/api/ready` probes, a database-backed job queue with retries, shared rate limiting, security headers (CSP, HSTS), generated OpenAPI docs (`/api/docs`), GitHub Actions CI, and a nightly encrypted backup that is restore-tested. See the [operations runbook](docs/van-hanh.md).
+
 ### Deployment and documentation
 
 Production builds do **not** apply database migrations. Inspect migration status and apply pending migrations before releasing code that depends on schema changes:
@@ -148,6 +156,7 @@ Additional documentation is maintained in Vietnamese:
 - [Architecture and layering](docs/kien-truc-phan-tang.md)
 - [File storage](docs/luu-tru-tep.md)
 - [Exam scheduling workflows](docs/lich-thi-nghiep-vu.md)
+- [Operations runbook: logs, errors, backup and restore](docs/van-hanh.md)
 - [Mobile interface](docs/giao-dien-mobile.md)
 - [Detailed application workflows](app/README.md)
 
@@ -275,6 +284,10 @@ EduConnect/
 └── package.json            # Cấu hình workspace và lệnh tại thư mục gốc
 ```
 
+### Vận hành
+
+Hệ thống có sẵn khả năng quan sát và phục hồi cho production: log JSON có cấu trúc (pino) kèm `x-request-id` cho từng yêu cầu, gom lỗi bền vững tại `/van-hanh` (chỉ ADMIN) cùng Sentry tuỳ chọn, endpoint `/api/health` và `/api/ready`, hàng đợi tác vụ nền trong DB có thử lại, giới hạn tốc độ dùng chung, header bảo mật (CSP, HSTS), tài liệu OpenAPI tự sinh (`/api/docs`), CI bằng GitHub Actions và sao lưu mã hoá hằng đêm có khôi phục thử. Xem [hướng dẫn vận hành](docs/van-hanh.md).
+
 ### Triển khai và tài liệu
 
 Build production **không** tự áp dụng migration. Kiểm tra trạng thái và áp dụng migration trước khi phát hành mã nguồn phụ thuộc vào cấu trúc dữ liệu mới:
@@ -294,5 +307,6 @@ Tài liệu tham khảo:
 - [Kiến trúc và phân tầng](docs/kien-truc-phan-tang.md)
 - [Lưu trữ tệp](docs/luu-tru-tep.md)
 - [Nghiệp vụ lịch thi](docs/lich-thi-nghiep-vu.md)
+- [Hướng dẫn vận hành: log, lỗi, sao lưu và khôi phục](docs/van-hanh.md)
 - [Giao diện trên thiết bị di động](docs/giao-dien-mobile.md)
 - [Hướng dẫn nghiệp vụ chi tiết](app/README.md)

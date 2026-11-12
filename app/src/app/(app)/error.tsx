@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 
 /** Lỗi bất ngờ trong một trang: hiện thông báo và nút thử lại, thanh menu vẫn dùng được (không trắng màn hình). */
 export default function PageError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => { console.error(error); }, [error]);
+  useEffect(() => { Sentry.captureException(error); }, [error]);
   return (
     <div className="mx-auto mt-10 max-w-md space-y-4 rounded-xl border bg-white p-6 text-center">
       <h2 className="text-lg font-semibold">Trang gặp sự cố</h2>

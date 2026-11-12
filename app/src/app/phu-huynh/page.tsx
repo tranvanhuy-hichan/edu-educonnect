@@ -101,6 +101,7 @@ export default async function ParentPortalPage({
         orderBy: { dueDate: "asc" },
       },
       examSeats: {
+        where: { paper: { event: { status: "PUBLISHED" } } },
         include: {
           paper: {
             include: {

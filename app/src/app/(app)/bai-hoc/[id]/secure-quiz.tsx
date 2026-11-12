@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { AlertTriangle, Clock, Maximize, ShieldAlert } from "lucide-react";
 import type { Res } from "@/lib/action";
 
-type Report = (exerciseId: string, type: string, detail?: string) => Promise<{ count: number; max: number; exceeded: boolean } | { error: string }>;
+type Report = (exerciseId: string, type: string, detail?: string, answers?: FormData) => Promise<{ count: number; max: number; exceeded: boolean } | { error: string }>;
 type Start = (exerciseId: string) => Promise<{ attemptNo: number; startedAt: string; serverNow: string; timeLimitMinutes: number } | { error: string }>;
 const LABEL: Record<string, string> = {
   EXIT_FULLSCREEN: "Thoát chế độ toàn màn hình", TAB_SWITCH: "Chuyển tab hoặc sang ứng dụng khác", WINDOW_BLUR: "Rời khỏi cửa sổ làm bài", MOUSE_LEAVE: "Đưa chuột ra ngoài màn hình thi",
@@ -52,28 +52,18 @@ export function ExamRunner({ exerciseId, title, count: questionCount, secure, ma
     return r;
   }, null);
 
-  const autoSubmit = useCallback(() => {
-    if (ended.current) return;
-    ended.current = true;
-    setFinished(true);
-    setAutoSubmitted(true);
-    if (autoRef.current) autoRef.current.value = "1";
-    setConfirming(false);
-    formRef.current?.requestSubmit();
-  }, []);
-
   const flag = useCallback(async (type: string) => {
     if (ended.current) return;
     const t = Date.now();
     if (t - last.current < DEBOUNCE_MS) return; // một thao tác thường kích hoạt nhiều sự kiện trình duyệt
     last.current = t;
     setNotice(`Đang ghi nhận vi phạm: ${LABEL[type] ?? type}`);
-    const r = await report(exerciseId, type, LABEL[type]);
+    const r = await report(exerciseId, type, LABEL[type], formRef.current ? new FormData(formRef.current) : undefined);
     if ("error" in r) { setNotice(`Vi phạm: ${LABEL[type] ?? type}`); return; }
     setViolations(r.count);
     setNotice(`Vi phạm lần ${r.count}${r.max ? `/${r.max}` : ""}: ${LABEL[type] ?? type}.${r.exceeded ? " Bài của em được nộp tự động." : r.max ? " Vượt giới hạn bài sẽ bị nộp tự động." : ""}`);
-    if (r.exceeded) autoSubmit();
-  }, [autoSubmit, exerciseId, report]);
+    if (r.exceeded) { ended.current = true; setFinished(true); setAutoSubmitted(true); setConfirming(false); leaveFs(); window.location.reload(); }
+  }, [exerciseId, report]);
 
   async function begin() {
     setStartError("");

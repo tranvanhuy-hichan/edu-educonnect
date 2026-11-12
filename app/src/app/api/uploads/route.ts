@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
+import { observe } from "@/lib/observability/observe";
+import { LIMITS, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { getMe } from "@/lib/guard";
 import { uploadLimit } from "@/lib/storage/config";
 import { validateUpload } from "@/lib/storage/validation";
@@ -8,9 +11,11 @@ import { ApplicationError } from "@/shared/errors";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(request: Request) {
+export const POST = observe(async (request: Request) => {
   const user = await getMe();
   if (!user) return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
+  const rl = await rateLimit("upload", user.userId, LIMITS.upload);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec, "Bạn tải tệp quá nhanh. Vui lòng đợi một chút rồi thử lại.");
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: "Yêu cầu không hợp lệ" }, { status: 403 });
   let limit: number;
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json(saved, { status: 201 });
   } catch (error) {
     if (error instanceof ApplicationError) return NextResponse.json({ error: error.message }, { status: error.status });
+    logger.error({ err: error }, "upload_failed");
     return NextResponse.json({ error: "Không thể lưu tệp. Vui lòng kiểm tra cấu hình kho lưu trữ hoặc thử lại." }, { status: 503 });
   }
-}
+});

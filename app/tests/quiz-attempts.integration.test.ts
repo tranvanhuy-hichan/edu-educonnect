@@ -67,7 +67,7 @@ test("database: nhiều lượt làm, cách tính điểm, giờ làm bài, lư�
     await new Promise((r) => setTimeout(r, 1700));
     const v2 = await reportViolation(student, ex.id, "TAB_SWITCH");
     assert.deepEqual(v2, { count: 2, max: 2, exceeded: true });
-    await submitQuiz(student, ex.id, {}, { autoSubmitted: true });
+    assert.equal((await summary()).autoSubmitted, true);
     await new Promise((r) => setTimeout(r, 50));
     await startAttempt(student, ex.id);
     await new Promise((r) => setTimeout(r, 1700));

@@ -1,3 +1,5 @@
+import { consumeLoginAttempt } from "./login-throttle.repository";
+import { credentialTag, matchesCredential } from "@/lib/auth/credential-tag";
 import bcrypt from "bcryptjs";
 import * as authRepository from "@/modules/auth/auth.repository";
 import type { LoginInput } from "@/modules/auth/auth.schema";
@@ -18,11 +20,13 @@ export class AccountDisabledError extends Error {
 }
 
 export async function login(input: LoginInput): Promise<SessionUser> {
+  if (!await consumeLoginAttempt("user", input.email)) throw new InvalidCredentialsError();
   const user = await authRepository.findUserByEmail(input.email);
   if (!user) {
     throw new InvalidCredentialsError();
   }
 
+  if (!await consumeLoginAttempt("user-account", user.id)) throw new InvalidCredentialsError();
   const passwordMatches = await bcrypt.compare(
     input.password,
     user.passwordHash,
@@ -36,6 +40,7 @@ export async function login(input: LoginInput): Promise<SessionUser> {
   }
 
   return {
+    credentialTag: credentialTag(user.passwordHash),
     userId: user.id,
     email: user.email,
     roles: user.roles,
@@ -45,13 +50,20 @@ export async function login(input: LoginInput): Promise<SessionUser> {
 }
 
 /** Resolve the current database identity so disabled accounts take effect immediately. */
-export async function resolveSessionIdentity(userId: string) {
+export async function resolveSessionIdentity(userId: string, tag?: string) {
   const user = await authRepository.findSessionIdentity(userId);
-  if (!user?.isActive) return null;
+  if (!user?.isActive || !matchesCredential(tag, user.passwordHash)) return null;
   return {
     id: userId, userId, email: user.email,
     name: user.teacher?.fullName ?? user.student?.fullName ?? user.email,
     roles: user.roles, teacherId: user.teacher?.id ?? null,
     studentId: user.student?.id ?? null, mustChangePwd: user.mustChangePwd,
   };
+}
+
+/** Danh tính cho worker nền (không có cookie/credential tag): chỉ cần tài khoản còn hoạt động. */
+export async function resolveWorkerIdentity(userId: string) {
+  const user = await authRepository.findSessionIdentity(userId);
+  if (!user?.isActive) return null;
+  return { userId, email: user.email, roles: user.roles, teacherId: user.teacher?.id ?? null, studentId: user.student?.id ?? null };
 }

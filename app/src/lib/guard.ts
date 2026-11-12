@@ -16,7 +16,7 @@ export const getMe = cache(async (): Promise<Me | null> => {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   const session = token ? verifySessionToken(token) : null;
   if (!session) return null;
-  return resolveSessionIdentity(session.userId);
+  return resolveSessionIdentity(session.userId, session.credentialTag);
 });
 
 const hasAny = (me: Me, roles: Role[]) => !roles.length || me.roles.some((r) => roles.includes(r));

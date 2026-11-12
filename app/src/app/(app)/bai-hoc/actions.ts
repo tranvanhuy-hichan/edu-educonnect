@@ -155,9 +155,7 @@ export const removeQuizQuestion = wrap(async (fd) => {
   return "Đã bỏ câu hỏi khỏi bài tập";
 });
 
-/** Học sinh nộp bài trắc nghiệm: gom đáp án từ form thành { [questionId]: { optionId, text, picks } } rồi chấm tự động. */
-export const submitQuizWork = wrap(async (fd) => {
-  const me = await assertRole("STUDENT");
+function parseQuizAnswers(fd: FormData) {
   const answers: Record<string, { optionId?: string; text?: string; picks?: Record<string, boolean> }> = {};
   for (const [key, raw] of fd.entries()) {
     if (typeof raw !== "string") continue;
@@ -167,6 +165,13 @@ export const submitQuizWork = wrap(async (fd) => {
       if (qid && oid && (raw === "T" || raw === "F")) answers[qid] = { ...answers[qid], picks: { ...answers[qid]?.picks, [oid]: raw === "T" } };
     }
   }
+  return answers;
+}
+
+/** Học sinh nộp bài trắc nghiệm: gom đáp án từ form thành { [questionId]: { optionId, text, picks } } rồi chấm tự động. */
+export const submitQuizWork = wrap(async (fd) => {
+  const me = await assertRole("STUDENT");
+  const answers = parseQuizAnswers(fd);
   const exerciseId = str(fd, "exerciseId");
   const sub = await submitQuiz(me, exerciseId, answers, { autoSubmitted: str(fd, "autoSubmitted") === "1" });
   refreshQuiz(await exerciseOf(exerciseId));
@@ -183,10 +188,10 @@ export const resetQuiz = wrap(async (fd) => {
 });
 
 /** Máy học sinh báo một vi phạm khi đang làm bài thi nghiêm túc. Trả về số vi phạm hiện có và việc có phải tự nộp bài. */
-export async function reportViolation(exerciseId: string, type: string, detail?: string): Promise<{ count: number; max: number; exceeded: boolean } | { error: string }> {
+export async function reportViolation(exerciseId: string, type: string, detail?: string, answers?: FormData): Promise<{ count: number; max: number; exceeded: boolean } | { error: string }> {
   try {
     const me = await assertRole("STUDENT");
-    return await reportViolationService(me, exerciseId, type, detail ?? null);
+    return await reportViolationService(me, exerciseId, type, detail ?? null, answers ? parseQuizAnswers(answers) : {});
   } catch (e) {
     return { error: (e as Error).message || "Không ghi nhận được vi phạm" };
   }

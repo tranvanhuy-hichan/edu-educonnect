@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+  # Giá trị giả chỉ để build/test; không bao giờ trỏ tới DB thật.
+  JWT_SECRET: ci-only-secret-at-least-32-characters-long
+
+jobs:
+  quality:
+    name: Lint · Typecheck · Unit test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm run prisma:generate
+      - name: Prisma schema hợp lệ
+        run: npx prisma validate --schema app/prisma/schema.prisma
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - name: Tài liệu OpenAPI không lệch so với mã
+        run: |
+          npm run openapi
+          git diff --exit-code docs/openapi.json || { echo "::error::docs/openapi.json cũ. Chạy 'npm run openapi' và commit."; exit 1; }
+      - run: npm run build
+      - name: Cache Next.js
+        uses: actions/cache@v4
+        with:
+          path: app/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/src/**') }}
+          restore-keys: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+
+  integration:
+    name: Integration test (PostgreSQL thật)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: ci, POSTGRES_PASSWORD: ci, POSTGRES_DB: ci }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      RUN_DATABASE_TESTS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm run prisma:generate
+      # Dựng schema từ schema.prisma (chuỗi migration lịch sử chưa dựng được DB trống, xem job migration-chain bên dưới).
+      - run: npx prisma db push --skip-generate --schema app/prisma/schema.prisma
+      - run: npm run seed
+      - run: npm run test:db --workspace=app
+
+  migration-chain:
+    name: Migration chain (cảnh báo, chưa chặn)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Chuỗi migration hiện không dựng được DB trống (thiếu migration cho một số cột). Job này hiện cảnh báo để theo dõi;
+    # sau khi baseline xong hãy bỏ continue-on-error để chặn mọi PR làm lệch migration và schema.
+    continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: ci, POSTGRES_PASSWORD: ci, POSTGRES_DB: ci }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm ci
+      - run: npm run prisma:deploy
+      - name: Schema sau migration phải khớp schema.prisma
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel app/prisma/schema.prisma --exit-code
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
+      - run: npm audit --omit=dev --audit-level=high

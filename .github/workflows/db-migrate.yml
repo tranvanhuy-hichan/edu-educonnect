@@ -1,0 +1,47 @@
+name: Database migrate (production)
+
+# Chạy tay. Luôn sao lưu trước, xem trạng thái, rồi mới áp dụng migration. Cần environment "production" (bật Required reviewers để có bước duyệt).
+# LƯU Ý: nếu DB production chưa có lịch sử migration (xem docs/trien-khai.md), dừng ở bước "status" và baseline trước, đừng ép chạy deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Gõ "apply" để áp dụng migration; để trống chỉ xem trạng thái'
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    env:
+      DATABASE_URL: ${{ secrets.PROD_DIRECT_URL }}
+      DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm }
+      - run: npm ci
+      - name: Trạng thái migration
+        run: npm run prisma:status
+      - name: Sao lưu trước khi migrate
+        if: ${{ inputs.apply == 'apply' }}
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          PGURL: ${{ secrets.PROD_DIRECT_URL }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          scripts/ops/backup.sh --out backups
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.apply == 'apply' }}
+        with:
+          name: pre-migrate-backup-${{ github.run_id }}
+          path: backups/*
+          retention-days: 14
+      - name: Áp dụng migration
+        if: ${{ inputs.apply == 'apply' }}
+        run: npm run prisma:deploy

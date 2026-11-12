@@ -1,12 +1,13 @@
 "use server";
+import { consumeLoginAttempt } from "@/modules/auth/login-throttle.repository";
 
+import { credentialTag } from "@/lib/auth/credential-tag";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import {
   PARENT_COOKIE_NAME,
-  getParentSession,
   requireParentSession,
   signParentToken,
 } from "@/lib/auth/parent-session";
@@ -101,6 +102,9 @@ export async function parentLogin(formData: FormData) {
     return { success: false, error: "Vui lòng nhập mật khẩu (mặc định khởi tạo: 123456)." };
   }
 
+  const invalid = { success: false, error: "Thông tin đăng nhập không hợp lệ hoặc chưa thể đăng nhập. Vui lòng thử lại sau hoặc liên hệ nhà trường." };
+  if (input.length > 254 || password.length > 1024) return invalid;
+  if (!await consumeLoginAttempt("parent", input)) return invalid;
   const cleanedDigits = input.replace(/\D/g, "");
   const normalized = normalizePhone(input);
 
@@ -123,12 +127,7 @@ export async function parentLogin(formData: FormData) {
     select: { id: true, code: true, fullName: true, guardianName: true, guardianPhone: true },
   });
 
-  if (!students.length) {
-    return {
-      success: false,
-      error: `Không tìm thấy hồ sơ học sinh khớp với "${input}". Quý phụ huynh vui lòng kiểm tra lại Số điện thoại đã đăng ký hoặc Mã học sinh (VD: 0911111111 hoặc HS00000004).`,
-    };
-  }
+  if (!students.length) return invalid;
 
   // Số điện thoại dùng làm định danh tài khoản phụ huynh
   const matchedStudent = students[0];
@@ -141,6 +140,7 @@ export async function parentLogin(formData: FormData) {
     };
   }
 
+  if (!await consumeLoginAttempt("parent-phone", phone)) return invalid;
   const guardianName =
     matchedStudent.guardianName ?? `Phụ huynh em ${matchedStudent.fullName}`;
 
@@ -148,35 +148,13 @@ export async function parentLogin(formData: FormData) {
   let account = await dbFindParentAccount([phone, normalized, input]);
 
   if (!account) {
-    // Tài khoản chưa từng đăng nhập -> yêu cầu mật khẩu mặc định 123456
-    if (password !== "123456") {
-      return {
-        success: false,
-        error:
-          "Tài khoản phụ huynh đăng nhập lần đầu. Vui lòng nhập mật khẩu mặc định là: 123456",
-      };
-    }
-
-    const passwordHash = await bcrypt.hash("123456", 10);
-    account = await dbCreateParentAccount({
-      phone,
-      fullName: guardianName,
-      passwordHash,
-    });
-  } else {
-    // Đã có tài khoản -> đối chiếu mật khẩu
-    const isMatch = await bcrypt.compare(password, account.passwordHash);
-    if (!isMatch) {
-      return {
-        success: false,
-        error:
-          "Mật khẩu không chính xác. Mật khẩu mặc định là 123456. Nếu quên mật khẩu, vui lòng liên hệ GVCN để được đặt lại.",
-      };
-    }
-  }
+    if (password !== "123456") return invalid;
+    account = await dbCreateParentAccount({ phone, fullName: guardianName, passwordHash: await bcrypt.hash("123456", 10) });
+  } else if (!await bcrypt.compare(password, account.passwordHash)) return invalid;
 
   // 3. Cấp session cookie riêng biệt cho phụ huynh
   const token = signParentToken({
+    credentialTag: credentialTag(account.passwordHash),
     parentId: account.id,
     phone: account.phone,
     fullName: account.fullName,
