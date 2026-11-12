@@ -142,6 +142,9 @@ model ActivityLog {
 model AcademicYear {
   id             String                    @id @default(cuid())
   yearName       String                    @unique // vd "2026-2027"
+  /// Năm học tương ứng ở Cổng Đoàn (public."SchoolYear".startYear): 2026 = 2026-2027. Trigger giữ ngày bắt đầu/kết thúc/kỳ khớp hai bên.
+  schoolYear     Int?                      @unique
+  doanYear       DoanSchoolYear?           @relation(fields: [schoolYear], references: [startYear], onDelete: SetNull)
   startDate      DateTime
   endDate        DateTime
   terms          AcademicTerm[]
@@ -302,6 +305,9 @@ model SchoolClass {
   room              Room? @relation(fields: [roomId], references: [id])
   id                String                   @id @default(cuid())
   className         String // "10A1"
+  /// Chi đoàn tương ứng ở Cổng Đoàn (chi đoàn CHÍNH LÀ lớp). Chỉ lớp của năm học hiện hành được đồng bộ.
+  departmentId      String?
+  doanDepartment    DoanDepartment?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   gradeLevelId      String
   gradeLevel        GradeLevel               @relation(fields: [gradeLevelId], references: [id])
   academicYearId    String
@@ -319,6 +325,7 @@ model SchoolClass {
   emulationScores   ClassEmulationScore[]
 
   @@unique([className, academicYearId])
+  @@unique([academicYearId, departmentId])
   @@unique([academicYearId, roomId, shift])
 
   @@index([gradeLevelId])
@@ -1423,6 +1430,26 @@ model ApiIdempotency {
   @@schema("edu")
 }
 
+/// Công tắc đồng bộ dữ liệu dùng chung với Cổng Đoàn (năm học, lớp = chi đoàn, học sinh). Mặc định TẮT: DB thử nghiệm/CI/seed không bị đồng bộ.
+/// Bật bằng: UPDATE edu."SyncSetting" SET enabled = true (sau khi sao lưu). Xem docs/db-dung-chung.md.
+model SyncSetting {
+  id          Int     @id @default(1)
+  enabled     Boolean @default(false)
+  /// Tên miền email nội bộ cho học sinh tự nhận từ Cổng Đoàn (mã@tên-miền).
+  emailDomain String  @default("doan.local")
+  @@schema("edu")
+}
+
+/// Nhật ký đồng bộ lỗi (phía Cổng Đoàn → EduConnect không bao giờ làm hỏng thao tác của Cổng Đoàn; lỗi được ghi ở đây để đối chiếu).
+model SyncIssue {
+  id     BigInt   @id @default(autoincrement())
+  at     DateTime @default(now())
+  source String
+  detail String
+  @@index([at])
+  @@schema("edu")
+}
+
 // ───────────── Bản sao Cổng thông tin Đoàn (schema "public") ─────────────
 enum DoanRole {
   ADMIN
@@ -1582,6 +1609,7 @@ model DoanDepartment {
 
   @@unique([name, startYear])
   @@index([graduatedAt])
+  eduClasses SchoolClass[] // EduConnect: lớp (chi đoàn chính là lớp)
   @@map("Department")
   @@schema("public")
 }
@@ -2145,6 +2173,7 @@ model DoanSchoolYear {
   week1Start String // yyyy-MM-dd (giờ VN): ngày bắt đầu Tuần 1
   sem1Weeks  Int    @default(18) // số tuần học kỳ 1
   totalWeeks Int    @default(35) // tổng số tuần (HK1 + HK2)
+  eduYear AcademicYear? // EduConnect: năm học tương ứng
   @@map("SchoolYear")
   @@schema("public")
 }

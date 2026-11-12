@@ -25,6 +25,8 @@ const PREFIX = "Doan";
 const BACK_RELATIONS = {
   User: ["  eduUser User? // EduConnect: hồ sơ riêng của tài khoản này"],
   Member: ["  eduStudent Student? // EduConnect: hồ sơ học sinh"],
+  SchoolYear: ["  eduYear AcademicYear? // EduConnect: năm học tương ứng"],
+  Department: ["  eduClasses SchoolClass[] // EduConnect: lớp (chi đoàn chính là lớp)"],
 };
 
 export function buildDoanCopy(src) {
