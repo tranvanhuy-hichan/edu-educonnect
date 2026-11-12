@@ -4,7 +4,7 @@ export function curriculumRepository(context?: DatabaseContext) {
   const db = databaseFor(context);
   return {
     countSubjects: (ids: string[]) => db.subject.count({ where: { id: { in: ids } } }),
-    lockClass: (id: string) => db.$queryRaw`SELECT "id" FROM "SchoolClass" WHERE "id" = ${id} FOR UPDATE`,
+    lockClass: (id: string) => db.$queryRaw`SELECT "id" FROM "edu"."SchoolClass" WHERE "id" = ${id} FOR UPDATE`,
     schoolClass: (id: string) => db.schoolClass.findUniqueOrThrow({ where: { id } }),
     term: (id: string) => db.academicTerm.findUniqueOrThrow({ where: { id } }),
     membership: (schoolClassId: string, subjectId: string) => db.classSubject.findUnique({ where: { schoolClassId_subjectId: { schoolClassId, subjectId } } }),

@@ -52,17 +52,17 @@ export function ensureHandlers() {
 
   // Dọn dẹp định kỳ: bảng giới hạn tốc độ, việc/lỗi cũ.
   registerJob("maintenance.cleanup", async () => {
-    const throttle = await prisma.$executeRaw`DELETE FROM "LoginThrottle" WHERE "expiresAt" <= NOW()`;
-    const jobs = await prisma.$executeRaw`DELETE FROM "Job" WHERE "status" IN ('DONE','FAILED') AND "finishedAt" < NOW() - INTERVAL '30 days'`;
-    const errors = await prisma.$executeRaw`DELETE FROM "ErrorLog" WHERE "status" = 'RESOLVED' AND "lastSeenAt" < NOW() - INTERVAL '90 days'`;
-    const otps = await prisma.$executeRaw`DELETE FROM "ParentOtp" WHERE "createdAt" < NOW() - INTERVAL '1 day'`;
-    const smsLogs = await prisma.$executeRaw`DELETE FROM "SmsLog" WHERE "createdAt" < NOW() - INTERVAL '90 days'`;
+    const throttle = await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle" WHERE "expiresAt" <= NOW()`;
+    const jobs = await prisma.$executeRaw`DELETE FROM "edu"."Job" WHERE "status" IN ('DONE','FAILED') AND "finishedAt" < NOW() - INTERVAL '30 days'`;
+    const errors = await prisma.$executeRaw`DELETE FROM "edu"."ErrorLog" WHERE "status" = 'RESOLVED' AND "lastSeenAt" < NOW() - INTERVAL '90 days'`;
+    const otps = await prisma.$executeRaw`DELETE FROM "edu"."ParentOtp" WHERE "createdAt" < NOW() - INTERVAL '1 day'`;
+    const smsLogs = await prisma.$executeRaw`DELETE FROM "edu"."SmsLog" WHERE "createdAt" < NOW() - INTERVAL '90 days'`;
     const trash = await purgeExpiredTrash();
-    const apiLogs = await prisma.$executeRaw`DELETE FROM "ApiRequestLog" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
-    await prisma.$executeRaw`DELETE FROM "ApiIdempotency" WHERE "createdAt" < NOW() - INTERVAL '7 days'`;
-    await prisma.$executeRaw`DELETE FROM "ApiChange" WHERE "createdAt" < NOW() - INTERVAL '365 days'`;
-    const sessions = await prisma.$executeRaw`DELETE FROM "UserSession" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
-    const reminders = await prisma.$executeRaw`DELETE FROM "ReminderSent" WHERE "createdAt" < NOW() - INTERVAL '60 days'`;
+    const apiLogs = await prisma.$executeRaw`DELETE FROM "edu"."ApiRequestLog" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    await prisma.$executeRaw`DELETE FROM "edu"."ApiIdempotency" WHERE "createdAt" < NOW() - INTERVAL '7 days'`;
+    await prisma.$executeRaw`DELETE FROM "edu"."ApiChange" WHERE "createdAt" < NOW() - INTERVAL '365 days'`;
+    const sessions = await prisma.$executeRaw`DELETE FROM "edu"."UserSession" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    const reminders = await prisma.$executeRaw`DELETE FROM "edu"."ReminderSent" WHERE "createdAt" < NOW() - INTERVAL '60 days'`;
     logger.info({ throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs }, "maintenance_cleanup");
     return { throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs };
   });

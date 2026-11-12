@@ -16,9 +16,9 @@ async function main() {
   // 1. Tài khoản phụ huynh (mật khẩu mặc định 123456)
   const hash = await bcrypt.hash("123456", 10);
   const now = new Date();
-  const found = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM "ParentAccount" WHERE phone = ${PHONE} LIMIT 1`;
-  if (found.length) await prisma.$executeRaw`UPDATE "ParentAccount" SET "passwordHash" = ${hash}, "updatedAt" = ${now} WHERE phone = ${PHONE}`;
-  else await prisma.$executeRaw`INSERT INTO "ParentAccount" ("id","phone","fullName","passwordHash","createdAt","updatedAt") VALUES (${"pa_" + Date.now().toString(36)}, ${PHONE}, ${"Lê Văn Hùng"}, ${hash}, ${now}, ${now})`;
+  const found = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM "edu"."ParentAccount" WHERE phone = ${PHONE} LIMIT 1`;
+  if (found.length) await prisma.$executeRaw`UPDATE "edu"."ParentAccount" SET "passwordHash" = ${hash}, "updatedAt" = ${now} WHERE phone = ${PHONE}`;
+  else await prisma.$executeRaw`INSERT INTO "edu"."ParentAccount" ("id","phone","fullName","passwordHash","createdAt","updatedAt") VALUES (${"pa_" + Date.now().toString(36)}, ${PHONE}, ${"Lê Văn Hùng"}, ${hash}, ${now}, ${now})`;
   await prisma.student.update({ where: { id: student.id }, data: { guardianPhone: PHONE, guardianName: "Lê Văn Hùng" } });
 
   // 1b. Con thứ hai của cùng phụ huynh (lớp 11A1): cổng sổ liên lạc cho chọn giữa 2 con

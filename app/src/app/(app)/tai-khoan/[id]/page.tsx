@@ -34,6 +34,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
   const u = await db.user.findUnique({
     where: { id },
     include: {
+      account: { select: { mustChangePassword: true, username: true } },
       teacher: { select: { id: true, fullName: true, code: true, phone: true, homeroomClasses: { select: { id: true, className: true } }, _count: { select: { assignments: true } } } },
       student: { select: { id: true, fullName: true, code: true, enrollments: { take: 1, orderBy: { academicYear: { startDate: "desc" } }, select: { schoolClass: { select: { id: true, className: true } } } } } },
     },
@@ -93,7 +94,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             <Stat icon={ShieldCheck} label="Vai trò" value={u.roles.length} />
-            <Stat icon={KeyRound} label="Mật khẩu" value={u.mustChangePwd ? "Chưa đổi" : "Đã đổi"} tone="bg-sky-100 text-sky-700" vt={u.mustChangePwd ? "text-yellow-700" : ""} />
+            <Stat icon={KeyRound} label="Mật khẩu" value={u.account.mustChangePassword ? "Chưa đổi" : "Đã đổi"} tone="bg-sky-100 text-sky-700" vt={u.account.mustChangePassword ? "text-yellow-700" : ""} />
             <Stat icon={u.student ? GraduationCap : School} label={u.student ? "Lớp đang học" : "Lớp chủ nhiệm"} value={u.student ? (cls?.className ?? "—") : (u.teacher?.homeroomClasses.length ?? "—")} tone="bg-green-100 text-green-700" />
             <Stat icon={CalendarDays} label="Ngày tạo" value={fmtDate(u.createdAt)} tone="bg-yellow-100 text-yellow-700" />
           </div>
@@ -148,7 +149,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
             <h2 className="font-semibold">Đặt lại mật khẩu</h2>
             <p className="text-sm text-slate-600">Hệ thống sinh mật khẩu ngẫu nhiên và chỉ hiện <b>một lần</b>. Người dùng bị bắt đổi mật khẩu khi đăng nhập kế tiếp.</p>
             <ActionForm action={resetAccountPassword} submit="Cấp lại mật khẩu" reset={false} confirmText="Cấp lại mật khẩu cho tài khoản này?" className="flex flex-col gap-2 [&>button]:self-start"><input type="hidden" name="userId" value={u.id} /></ActionForm>
-            <div className="border-t pt-3 text-sm text-slate-600">Trạng thái mật khẩu: <b>{u.mustChangePwd ? "Chưa đổi (đang dùng mật khẩu được cấp)" : "Người dùng đã tự đổi"}</b></div>
+            <div className="border-t pt-3 text-sm text-slate-600">Trạng thái mật khẩu: <b>{u.account.mustChangePassword ? "Chưa đổi (đang dùng mật khẩu được cấp)" : "Người dùng đã tự đổi"}</b></div>
           </Card>
           <Card mobile="flat" className="space-y-3">
             <h2 className="font-semibold">Khoá / mở khoá tài khoản</h2>

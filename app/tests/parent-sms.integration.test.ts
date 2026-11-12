@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, afterEach, test } from "node:test";
 import bcrypt from "bcryptjs";
@@ -19,7 +20,7 @@ const codeOf = (content: string) => content.match(/\b(\d{6})\b/)![1];
 
 async function makeStudent(phone: string | null, name = "Hoc Sinh Thu") {
   const tag = `sms${Date.now().toString(36)}${rnd()}`;
-  const u = await prisma.user.create({ data: { email: `${tag}@test.invalid`, passwordHash: "x", roles: ["STUDENT"], student: { create: { fullName: name, code: `HS${tag}`.toUpperCase().slice(0, 14), guardianPhone: phone, guardianName: "Phu huynh thu" } } }, include: { student: true } });
+  const u = await prisma.user.create({ data: { email: `${tag}@test.invalid`, accountId: await testAccount("x"), roles: ["STUDENT"], student: { create: { fullName: name, code: `HS${tag}`.toUpperCase().slice(0, 14), guardianPhone: phone, guardianName: "Phu huynh thu" } } }, include: { student: true } });
   return { user: u, student: u.student! };
 }
 const cleanupPhone = async (phone: string) => {
@@ -67,7 +68,7 @@ test("database: OTP is sent once per cooldown, stored hashed, single-use, locked
     // khoá sau 5 lần sai, kể cả khi sau đó nhập đúng
     await prisma.parentOtp.deleteMany({ where: { phoneKey: phone.slice(-9) } });
     const fresh = `ip-${rnd()}`;
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
     assert.equal((await requestParentOtp(phone, fresh)).ok, true);
     const code2 = codeOf(sent[sent.length - 1].content);
     const bad = code2 === "111111" ? "222222" : "111111";
@@ -75,14 +76,14 @@ test("database: OTP is sent once per cooldown, stored hashed, single-use, locked
     assert.equal((await verifyParentOtp(phone, code2, fresh)).ok, false, "đã sai 5 lần thì vô hiệu");
 
     // hết hạn
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
     assert.equal((await requestParentOtp(phone, `ip-${rnd()}`)).ok, true);
     const code3 = codeOf(sent[sent.length - 1].content);
     await prisma.parentOtp.updateMany({ where: { phoneKey: phone.slice(-9), consumedAt: null }, data: { expiresAt: new Date(Date.now() - 1000) } });
     assert.equal((await verifyParentOtp(phone, code3, `ip-${rnd()}`)).ok, false);
 
     // nhà cung cấp lỗi → báo lỗi, huỷ mã, ghi FAILED
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
     setSmsProvider(fake({ ok: false, code: "103", error: "Tài khoản eSMS không đủ tiền" }));
     const failed = await requestParentOtp(phone, `ip-${rnd()}`);
     assert.equal(failed.ok, false);
@@ -115,7 +116,7 @@ test("database: first login by SMS creates a verified account that must set a st
     assert.ok(await bcrypt.compare("Mat-khau-moi-2026", after.passwordHash));
     assert.notEqual(after.passwordHash, acc.passwordHash, "mã thông hành cũ hết hiệu lực");
     // quên mật khẩu: OTP lại → bắt đặt mật khẩu mới nhưng không tạo tài khoản thứ hai
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
     assert.equal((await requestParentOtp(phone, ip)).ok, true);
     const v2 = await verifyParentOtp(phone, codeOf(sent[sent.length - 1].content), ip);
     assert.ok(v2.ok);

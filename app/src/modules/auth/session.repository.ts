@@ -26,7 +26,7 @@ export const LOCK_MINUTES = 15;
 /** Nguyên tử: tăng bộ đếm; chạm ngưỡng thì khoá LOCK_MINUTES và đặt lại bộ đếm. Trả lockedUntil nếu vừa bị khoá. */
 export async function recordFailedLogin(userId: string): Promise<Date | null> {
   const rows = await prisma.$queryRaw<{ lockedUntil: Date | null; failedLogins: number }[]>`
-    UPDATE "User" SET
+    UPDATE "edu"."User" SET
       "failedLogins" = CASE WHEN "failedLogins" + 1 >= ${LOCK_AFTER_FAILURES} THEN 0 ELSE "failedLogins" + 1 END,
       "lockedUntil" = CASE WHEN "failedLogins" + 1 >= ${LOCK_AFTER_FAILURES} THEN NOW() + ${LOCK_MINUTES}::double precision * INTERVAL '1 minute' ELSE "lockedUntil" END
     WHERE "id" = ${userId} RETURNING "lockedUntil", "failedLogins"`;

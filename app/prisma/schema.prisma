@@ -1,3 +1,10 @@
+// =====================================================================================
+// TỆP ĐƯỢC SINH TỰ ĐỘNG bởi scripts/build-schema.mjs — KHÔNG SỬA TAY.
+//   Sửa phần EduConnect ở prisma/edu.prisma, rồi chạy: npm run db:schema
+//   Phần "Doan*" là bản sao schema Cổng thông tin Đoàn (khkt) lấy từ prisma/vendor/khkt.schema.prisma.
+// Hai schema Postgres: "edu" (bảng của EduConnect) và "public" (bảng của khkt, EduConnect chỉ tham chiếu).
+// QUY TẮC: không chạy migrate/db push của EduConnect lên "public" (xem docs/db-dung-chung.md).
+// =====================================================================================
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,8 +13,10 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["public", "edu"]
 }
 
+// ───────────── EduConnect (schema "edu") ─────────────
 enum Role {
   ADMIN
   PRINCIPAL
@@ -16,22 +25,26 @@ enum Role {
   SUBJECT_TEACHER
   LIBRARIAN
   STUDENT
+  @@schema("edu")
 }
 
 enum ScoreType {
   THUONG_XUYEN
   GIUA_KY
   CUOI_KY
+  @@schema("edu")
 }
 
 enum AssessmentType {
   SCORE
   COMMENT
+  @@schema("edu")
 }
 
 enum AssessmentOutcome {
   DAT
   CHUA_DAT
+  @@schema("edu")
 }
 
 enum ReviewStatus {
@@ -39,6 +52,7 @@ enum ReviewStatus {
   SUBMITTED
   APPROVED
   REJECTED
+  @@schema("edu")
 }
 
 enum PromotionResult {
@@ -46,6 +60,7 @@ enum PromotionResult {
   LEN_LOP
   O_LAI
   THI_LAI
+  @@schema("edu")
 }
 
 enum LoanStatus {
@@ -54,12 +69,14 @@ enum LoanStatus {
   PARTIALLY_RETURNED
   OVERDUE
   LOST
+  @@schema("edu")
 }
 
 enum BookCopyStatus {
   AVAILABLE
   BORROWED
   LOST
+  @@schema("edu")
 }
 
 enum PromotionJobStatus {
@@ -67,20 +84,25 @@ enum PromotionJobStatus {
   RUNNING
   DONE
   FAILED
+  @@schema("edu")
 }
 
 enum StudyShift {
   MORNING
   AFTERNOON
+  @@schema("edu")
 }
 
 model User {
   id           String   @id @default(cuid())
+  /// Tài khoản đăng nhập DÙNG CHUNG với Cổng thông tin Đoàn (bảng public."User"): tên đăng nhập, mật khẩu,
+  /// trạng thái khoá và cờ "phải đổi mật khẩu" chỉ lưu ở đó. Bảng này chỉ giữ phần riêng của EduConnect.
+  accountId    String   @unique
+  account      DoanUser @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  /// Email liên hệ/đăng nhập phụ (vd quản trị viên cũ). Không phải khoá đăng nhập chính.
   email        String   @unique
-  passwordHash String
   roles        Role[]
   isActive     Boolean  @default(true)
-  mustChangePwd Boolean @default(false)
   tokenVersion Int      @default(1)
   /// Lần đăng nhập thành công gần nhất (phục vụ rà soát tài khoản lâu không dùng).
   lastLoginAt      DateTime?
@@ -97,6 +119,7 @@ model User {
   sessions     UserSession[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  @@schema("edu")
 }
 
 model ActivityLog {
@@ -113,17 +136,22 @@ model ActivityLog {
   @@index([createdAt])
   @@index([actorEmail])
   @@index([targetType, createdAt])
+  @@schema("edu")
 }
 
 model AcademicYear {
   id             String                    @id @default(cuid())
   yearName       String                    @unique // vd "2026-2027"
+  /// Năm học tương ứng ở Cổng Đoàn (public."SchoolYear".startYear): 2026 = 2026-2027. Trigger giữ ngày bắt đầu/kết thúc/kỳ khớp hai bên.
+  schoolYear     Int?                      @unique
+  doanYear       DoanSchoolYear?           @relation(fields: [schoolYear], references: [startYear], onDelete: SetNull)
   startDate      DateTime
   endDate        DateTime
   terms          AcademicTerm[]
   classes        SchoolClass[]
   enrollments    StudentClassEnrollment[]
   yearEndResults YearEndResult[]
+  @@schema("edu")
 }
 
 model AcademicTerm {
@@ -151,6 +179,7 @@ model AcademicTerm {
   emulationScores    ClassEmulationScore[]
 
   @@unique([academicYearId, termName])
+  @@schema("edu")
 }
 
 model GradeLevel {
@@ -162,6 +191,7 @@ model GradeLevel {
   questions Question[]
   libraryLessons LibraryLesson[]
   importJobs ImportJob[]
+  @@schema("edu")
 }
 
 model Room {
@@ -172,6 +202,7 @@ model Room {
   capacity       Int
   classes        SchoolClass[]
   timetableSlots TimetableSlot[]
+  @@schema("edu")
 }
 
 model Subject {
@@ -187,6 +218,7 @@ model Subject {
   questions             Question[]
   libraryLessons        LibraryLesson[]
   importJobs            ImportJob[]
+  @@schema("edu")
 }
 
 model Teacher {
@@ -211,6 +243,7 @@ model Teacher {
   subjects        TeacherSubject[] // các môn giáo viên được phụ trách (chỉ được phân công dạy các môn này)
   homeroomClasses SchoolClass[]
   assignments     ClassSubjectAssignment[]
+  @@schema("edu")
 }
 
 model TeacherSubject {
@@ -222,6 +255,7 @@ model TeacherSubject {
   @@id([teacherId, subjectId])
 
   @@index([subjectId])
+  @@schema("edu")
 }
 
 model Student {
@@ -236,6 +270,9 @@ model Student {
   code            String?                  @unique
   userId          String                   @unique
   user            User                     @relation(fields: [userId], references: [id])
+  /// Hồ sơ đoàn viên tương ứng ở Cổng thông tin Đoàn (null: học sinh chưa có hồ sơ bên đó).
+  memberId        String?                  @unique
+  member          DoanMember?              @relation(fields: [memberId], references: [id], onDelete: Restrict)
   fullName        String
   dob             DateTime?
   guardianName    String?
@@ -259,6 +296,7 @@ model Student {
   subjectAverages SubjectTermAverage[]
   loans           LibraryLoan[]
   yearEndResults  YearEndResult[]
+  @@schema("edu")
 }
 
 model SchoolClass {
@@ -267,6 +305,9 @@ model SchoolClass {
   room              Room? @relation(fields: [roomId], references: [id])
   id                String                   @id @default(cuid())
   className         String // "10A1"
+  /// Chi đoàn tương ứng ở Cổng Đoàn (chi đoàn CHÍNH LÀ lớp). Chỉ lớp của năm học hiện hành được đồng bộ.
+  departmentId      String?
+  doanDepartment    DoanDepartment?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   gradeLevelId      String
   gradeLevel        GradeLevel               @relation(fields: [gradeLevelId], references: [id])
   academicYearId    String
@@ -284,10 +325,12 @@ model SchoolClass {
   emulationScores   ClassEmulationScore[]
 
   @@unique([className, academicYearId])
+  @@unique([academicYearId, departmentId])
   @@unique([academicYearId, roomId, shift])
 
   @@index([gradeLevelId])
   @@index([homeroomTeacherId])
+  @@schema("edu")
 }
 
 model StudentClassEnrollment {
@@ -303,6 +346,7 @@ model StudentClassEnrollment {
   @@unique([studentId, academicYearId])
 
   @@index([schoolClassId, academicYearId])
+  @@schema("edu")
 }
 
 model ClassSubject {
@@ -313,6 +357,7 @@ model ClassSubject {
   assignments ClassSubjectAssignment[]
 
   @@id([schoolClassId, subjectId])
+  @@schema("edu")
 }
 
 model ClassSubjectAssignment {
@@ -337,6 +382,7 @@ model ClassSubjectAssignment {
 
   @@index([teacherId, academicTermId])
   @@index([subjectId])
+  @@schema("edu")
 }
 
 /// Bài học. Bài tập (Exercise) là phần đính kèm của một bài học, không đứng riêng.
@@ -355,6 +401,7 @@ model LessonPost {
   @@index([sourceLessonId])
 
   @@index([assignmentId])
+  @@schema("edu")
 }
 
 /// Bài tập thuộc một bài học (tab "Bài tập" trong bài học). quizMode=true: bài trắc nghiệm gồm các câu hỏi lấy từ ngân hàng câu hỏi, hệ thống tự chấm.
@@ -384,6 +431,7 @@ model Exercise {
   createdAt    DateTime               @default(now())
 
   @@index([lessonPostId])
+  @@schema("edu")
 }
 
 /// Ngân hàng câu hỏi: mỗi câu thuộc riêng một giáo viên (không chia sẻ), gắn với môn + khối.
@@ -426,6 +474,7 @@ model Question {
   @@index([importJobId])
 
   @@index([subjectId, gradeLevelId])
+  @@schema("edu")
 }
 
 model QuestionOption {
@@ -439,6 +488,7 @@ model QuestionOption {
   order      Int      @default(0)
 
   @@index([questionId])
+  @@schema("edu")
 }
 
 /// Câu hỏi được chọn vào một bài tập: thứ tự + số điểm riêng của câu trong bài đó.
@@ -452,6 +502,7 @@ model ExerciseQuestion {
   points     Float    @default(1)
 
   @@unique([exerciseId, questionId])
+  @@schema("edu")
 }
 
 /// Ngân hàng bài học: bài học mẫu riêng của từng giáo viên, theo môn + khối. Đăng cho lớp = sao chép thành LessonPost.
@@ -476,6 +527,7 @@ model LibraryLesson {
   updatedAt    DateTime                @updatedAt
 
   @@index([teacherId, subjectId, gradeLevelId, archivedAt])
+  @@schema("edu")
 }
 
 /// Bài tập mẫu của một bài học trong kho. kind: NORMAL (câu hỏi của chính bài học) | REVIEW (bài ôn tập, lấy câu hỏi từ các bài học đã liên kết).
@@ -503,6 +555,7 @@ model LibraryExercise {
   sources      LibraryExerciseSource[]
   createdAt    DateTime                  @default(now())
   updatedAt    DateTime                  @updatedAt
+  @@schema("edu")
 }
 
 model LibraryExerciseQuestion {
@@ -515,6 +568,7 @@ model LibraryExerciseQuestion {
   points     Float           @default(1)
 
   @@unique([exerciseId, questionId])
+  @@schema("edu")
 }
 
 /// Bài ôn tập liên kết với các bài học trước.
@@ -525,6 +579,7 @@ model LibraryExerciseSource {
   lesson     LibraryLesson   @relation(fields: [lessonId], references: [id])
 
   @@id([exerciseId, lessonId])
+  @@schema("edu")
 }
 
 /// Phiên nhập câu hỏi/đề kiểm tra từ tệp bằng AI. kind: QUESTIONS | TEST. status: PENDING | RUNNING | DONE | FAILED.
@@ -551,6 +606,7 @@ model ImportJob {
   finishedAt        DateTime?
 
   @@index([teacherId, createdAt])
+  @@schema("edu")
 }
 
 /// Một lượt làm bài trắc nghiệm của học sinh (bắt đầu lúc startedAt, nộp lúc submittedAt). Dùng để đếm số lần làm, tính giờ phía máy chủ và lưu lịch sử điểm.
@@ -572,6 +628,7 @@ model QuizAttempt {
   @@unique([exerciseId, studentId, attemptNo])
 
   @@index([studentId])
+  @@schema("edu")
 }
 
 /// Vi phạm ghi nhận khi học sinh làm bài ở chế độ thi nghiêm túc. type: EXIT_FULLSCREEN | TAB_SWITCH | WINDOW_BLUR | MOUSE_LEAVE | RELOAD
@@ -586,6 +643,7 @@ model ExamViolation {
   createdAt  DateTime @default(now())
 
   @@index([exerciseId, studentId])
+  @@schema("edu")
 }
 
 model LessonPostView {
@@ -599,6 +657,7 @@ model LessonPostView {
   @@unique([lessonPostId, studentId])
 
   @@index([studentId])
+  @@schema("edu")
 }
 
 model AssignmentSubmission {
@@ -623,6 +682,7 @@ model AssignmentSubmission {
   @@unique([exerciseId, studentId])
 
   @@index([studentId])
+  @@schema("edu")
 }
 
 /// Bài làm của học sinh cho một câu hỏi. answer: SINGLE_CHOICE -> { optionId }, TRUE_FALSE_GROUP -> { [optionId]: boolean }, SHORT_ANSWER -> { text }
@@ -640,6 +700,7 @@ model StudentAnswer {
   @@unique([submissionId, questionId])
 
   @@index([questionId])
+  @@schema("edu")
 }
 
 model LessonPlan {
@@ -650,6 +711,7 @@ model LessonPlan {
   content      String
   attachment   String?
   publishedAt  DateTime               @default(now())
+  @@schema("edu")
 }
 
 model ScoreWeightConfig {
@@ -659,6 +721,7 @@ model ScoreWeightConfig {
   txWeight       Float        @default(1)
   gkWeight       Float        @default(2)
   ckWeight       Float        @default(3)
+  @@schema("edu")
 }
 
 model ScoreEntry {
@@ -675,6 +738,7 @@ model ScoreEntry {
 
   @@index([studentId, academicTermId])
   @@index([assignmentId])
+  @@schema("edu")
 }
 
 model SubjectTermAverage {
@@ -690,6 +754,7 @@ model SubjectTermAverage {
   @@unique([studentId, assignmentId, academicTermId])
 
   @@index([assignmentId])
+  @@schema("edu")
 }
 
 model TimetableVersion {
@@ -705,6 +770,7 @@ model TimetableVersion {
   activities     TimetableActivity[]
 
   @@unique([academicTermId, startsOn])
+  @@schema("edu")
 }
 
 model TimetableActivity {
@@ -718,6 +784,7 @@ model TimetableActivity {
   periodNo      Int
 
   @@unique([versionId, schoolClassId, dayOfWeek, periodNo])
+  @@schema("edu")
 }
 
 model TimetableSlot {
@@ -744,6 +811,7 @@ model TimetableSlot {
 
   @@index([schoolClassId, versionId])
   @@index([versionId])
+  @@schema("edu")
 }
 
 model ClassPeriodLog {
@@ -762,6 +830,7 @@ model ClassPeriodLog {
   @@unique([timetableSlotId, logDate])
 
   @@index([schoolClassId])
+  @@schema("edu")
 }
 
 /// Học sinh vắng trong một tiết (có phép / không phép). attendanceAbsentCount của sổ = số dòng này khi có danh sách.
@@ -776,12 +845,14 @@ model ClassPeriodAbsence {
   @@unique([logId, studentId])
 
   @@index([studentId])
+  @@schema("edu")
 }
 
 model EmulationCriteria {
   id           String @id @default(cuid())
   criteriaName String
   weight       Float
+  @@schema("edu")
 }
 
 model ClassEmulationScore {
@@ -795,6 +866,7 @@ model ClassEmulationScore {
   rank           Int?
 
   @@unique([schoolClassId, academicTermId, periodLabel])
+  @@schema("edu")
 }
 
 model LibraryBookTitle {
@@ -812,6 +884,7 @@ model LibraryBookTitle {
   copies        LibraryBookCopy[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @default(now()) @updatedAt
+  @@schema("edu")
 }
 
 model LibraryBookCopy {
@@ -826,6 +899,7 @@ model LibraryBookCopy {
   createdAt   DateTime          @default(now())
 
   @@index([bookTitleId])
+  @@schema("edu")
 }
 
 model LibraryLoan {
@@ -845,6 +919,7 @@ model LibraryLoan {
   updatedAt    DateTime          @default(now()) @updatedAt
 
   @@index([studentId])
+  @@schema("edu")
 }
 
 model LibraryLoanItem {
@@ -860,6 +935,7 @@ model LibraryLoanItem {
 
   @@index([loanId])
   @@index([bookCopyId])
+  @@schema("edu")
 }
 
 model YearEndResult {
@@ -881,6 +957,7 @@ model YearEndResult {
   @@unique([studentId, academicYearId])
 
   @@index([academicYearId])
+  @@schema("edu")
 }
 
 model ClassPromotionJob {
@@ -890,6 +967,7 @@ model ClassPromotionJob {
   status             PromotionJobStatus  @default(PENDING)
   log                String?
   createdAt          DateTime            @default(now())
+  @@schema("edu")
 }
 
 /// Cấu hình chung của trường (tên, logo) — luôn chỉ có đúng 1 dòng, id cố định "school".
@@ -900,17 +978,20 @@ model SchoolSetting {
   logoPublicId  String?
   policy        Json? // quy chế học tập & danh mục do admin cấu hình (xem src/lib/policy-schema.ts); null = dùng mặc định
   updatedAt     DateTime @updatedAt
+  @@schema("edu")
 }
 
 enum ExamStatus {
   DRAFT
   PUBLISHED
   CANCELLED
+  @@schema("edu")
 }
 
 enum ExamGrouping {
   CLASS
   ALPHABET
+  @@schema("edu")
 }
 
 model ExamEvent {
@@ -931,6 +1012,7 @@ model ExamEvent {
   papers         ExamPaper[]
 
   @@index([academicTermId, gradeLevelId, status])
+  @@schema("edu")
 }
 
 model ExamPaper {
@@ -951,6 +1033,7 @@ model ExamPaper {
 
   @@unique([eventId, subjectId])
   @@index([startsAt, endsAt])
+  @@schema("edu")
 }
 
 model ExamRoom {
@@ -966,6 +1049,7 @@ model ExamRoom {
 
   @@unique([paperId, groupKey])
   @@index([roomId])
+  @@schema("edu")
 }
 
 model ExamSeat {
@@ -986,6 +1070,7 @@ model ExamSeat {
   @@unique([paperId, registrationNo])
   @@unique([examRoomId, seatNo])
   @@index([studentId])
+  @@schema("edu")
 }
 
 model ExamInvigilation {
@@ -998,6 +1083,7 @@ model ExamInvigilation {
   @@id([examRoomId, teacherId])
 
   @@index([teacherId])
+  @@schema("edu")
 }
 
 model Notification {
@@ -1012,6 +1098,7 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, isRead])
+  @@schema("edu")
 }
 
 /// Tài khoản Cổng Phụ huynh (Sổ liên lạc điện tử) — tách riêng với tài khoản cán bộ/học sinh.
@@ -1029,6 +1116,7 @@ model ParentAccount {
   updatedAt    DateTime @updatedAt
 
   @@index([phone])
+  @@schema("edu")
 }
 
 // Kết quả nhận xét và các quyết định miễn/điều chỉnh theo môn, học kỳ.
@@ -1048,6 +1136,7 @@ model StudentAssessment {
   @@unique([studentId, assignmentId])
 
   @@index([assignmentId])
+  @@schema("edu")
 }
 
 // Lưu vết chuyển lớp; enrollment hiện tại vẫn là con trỏ lớp đang theo học.
@@ -1065,6 +1154,7 @@ model ClassTransfer {
   actorEmail String
   createdAt DateTime @default(now())
   @@index([studentId, academicYearId, effectiveAt])
+  @@schema("edu")
 }
 
 // Mở quyền sửa có thời hạn cho đúng người yêu cầu và đúng lớp-môn.
@@ -1083,6 +1173,7 @@ model ScoreUnlockRequest {
   expiresAt DateTime?
   createdAt DateTime @default(now())
   @@index([assignmentId, requestedBy, status, expiresAt])
+  @@schema("edu")
 }
 
 // Đường dẫn nội bộ ổn định; backend lưu trữ được ghi theo từng tệp.
@@ -1101,6 +1192,7 @@ model StoredFile {
   createdAt DateTime @default(now())
   @@index([assignmentId, purpose])
   @@index([uploadedBy, createdAt])
+  @@schema("edu")
 }
 
 model LoginThrottle {
@@ -1108,6 +1200,7 @@ model LoginThrottle {
   count Int
   expiresAt DateTime
   @@index([expiresAt])
+  @@schema("edu")
 }
 
 /// Hàng đợi tác vụ nền (nhập AI, dọn dẹp...). Worker nhận việc bằng FOR UPDATE SKIP LOCKED nên nhiều instance chạy song song không trùng việc.
@@ -1131,6 +1224,7 @@ model Job {
 
   @@index([status, runAt])
   @@index([type, createdAt])
+  @@schema("edu")
 }
 
 /// Lỗi hệ thống được gom theo "dấu vân tay" (cùng lỗi, cùng route chỉ một dòng, tăng count). Quản trị xem tại /van-hanh.
@@ -1150,6 +1244,7 @@ model ErrorLog {
   lastSeenAt  DateTime @default(now())
 
   @@index([status, lastSeenAt])
+  @@schema("edu")
 }
 
 /// Thông báo cho phụ huynh. Khoá theo SĐT người giám hộ (9 số cuối) vì tài khoản Cổng Phụ huynh chỉ được tạo khi đăng nhập lần đầu,
@@ -1167,6 +1262,7 @@ model ParentNotification {
 
   @@index([phoneKey, isRead])
   @@index([phoneKey, createdAt])
+  @@schema("edu")
 }
 
 /// Mã OTP xác minh số điện thoại phụ huynh (chỉ lưu băm HMAC, hết hạn nhanh, giới hạn số lần thử).
@@ -1180,6 +1276,7 @@ model ParentOtp {
   createdAt  DateTime  @default(now())
 
   @@index([phoneKey, createdAt])
+  @@schema("edu")
 }
 
 /// Nhật ký gửi SMS: không lưu số điện thoại rõ (chỉ băm để đếm hạn mức và dạng che 090****123 để tra cứu) và không lưu nội dung.
@@ -1198,6 +1295,7 @@ model SmsLog {
   @@index([createdAt])
   @@index([phoneHash, createdAt])
   @@index([status, createdAt])
+  @@schema("edu")
 }
 
 /// Một phiên đăng nhập (một thiết bị/trình duyệt). Mã phiên nằm trong cookie; thu hồi ở đây là vô hiệu ngay.
@@ -1212,6 +1310,7 @@ model UserSession {
   revokedAt  DateTime?
 
   @@index([userId, revokedAt])
+  @@schema("edu")
 }
 
 /// Thùng rác của quản trị: bản chụp dữ liệu đã xoá (kèm các bản ghi phụ thuộc) để khôi phục trong thời hạn lưu.
@@ -1228,6 +1327,7 @@ model TrashItem {
 
   @@index([kind, deletedAt])
   @@index([expiresAt])
+  @@schema("edu")
 }
 
 /// Đã gửi nhắc việc nào (khoá duy nhất) để chạy lại tác vụ nhắc không gửi trùng.
@@ -1236,6 +1336,7 @@ model ReminderSent {
   createdAt DateTime @default(now())
 
   @@index([createdAt])
+  @@schema("edu")
 }
 
 /// Khoá API cấp cho hệ thống bên ngoài (vd hệ thống Đoàn). Chỉ lưu băm SHA-256 của khoá; khoá gốc hiện đúng một lần khi tạo.
@@ -1257,6 +1358,7 @@ model ApiKey {
   logs            ApiRequestLog[]
   changes         ApiChange[]
   idempotency     ApiIdempotency[]
+  @@schema("edu")
 }
 
 /// Nhật ký gọi API theo khoá (không lưu địa chỉ IP đầy đủ, không lưu nội dung phản hồi). Giữ 30 ngày.
@@ -1273,6 +1375,7 @@ model ApiRequestLog {
 
   @@index([keyId, createdAt])
   @@index([createdAt])
+  @@schema("edu")
 }
 
 /// Thông tin Đoàn của học sinh (do hệ thống Đoàn cập nhật qua API ngoài; tách khỏi hồ sơ học tập).
@@ -1286,6 +1389,7 @@ model StudentYouth {
   note      String?
   updatedBy String
   updatedAt DateTime @updatedAt
+  @@schema("edu")
 }
 
 /// Mỗi lần hệ thống ngoài GHI dữ liệu: lưu trước/sau để quản trị xem và hoàn tác.
@@ -1307,6 +1411,7 @@ model ApiChange {
   @@index([createdAt])
   @@index([keyId, createdAt])
   @@index([entityType, entityId])
+  @@schema("edu")
 }
 
 /// Chống gửi trùng: cùng Idempotency-Key + cùng nội dung thì trả lại đúng kết quả lần đầu, không tạo bản ghi thứ hai.
@@ -1322,4 +1427,1082 @@ model ApiIdempotency {
 
   @@unique([keyId, idemKey])
   @@index([createdAt])
+  @@schema("edu")
+}
+
+/// Công tắc đồng bộ dữ liệu dùng chung với Cổng Đoàn (năm học, lớp = chi đoàn, học sinh). Mặc định TẮT: DB thử nghiệm/CI/seed không bị đồng bộ.
+/// Bật bằng: UPDATE edu."SyncSetting" SET enabled = true (sau khi sao lưu). Xem docs/db-dung-chung.md.
+model SyncSetting {
+  id          Int     @id @default(1)
+  enabled     Boolean @default(false)
+  /// Tên miền email nội bộ cho học sinh tự nhận từ Cổng Đoàn (mã@tên-miền).
+  emailDomain String  @default("doan.local")
+  @@schema("edu")
+}
+
+/// Nhật ký đồng bộ lỗi (phía Cổng Đoàn → EduConnect không bao giờ làm hỏng thao tác của Cổng Đoàn; lỗi được ghi ở đây để đối chiếu).
+model SyncIssue {
+  id     BigInt   @id @default(autoincrement())
+  at     DateTime @default(now())
+  source String
+  detail String
+  @@index([at])
+  @@schema("edu")
+}
+
+// ───────────── Bản sao Cổng thông tin Đoàn (schema "public") ─────────────
+enum DoanRole {
+  ADMIN
+  SECRETARY
+  MONITOR // Cờ đỏ: đoàn viên được gán thêm vai trò theo dõi nề nếp, báo cáo vi phạm của Chi đoàn
+  MEMBER
+  DEPARTMENT_ACCOUNT // Tài khoản chung của một Chi đoàn (Admin cấp đầu năm học, không gắn hồ sơ đoàn viên)
+  EXTERNAL // Tài khoản dùng chung với hệ thống khác (EduConnect) nhưng KHÔNG có quyền vào Cổng thông tin Đoàn: không đăng nhập được, không nhận thông báo
+  @@map("Role")
+  @@schema("public")
+}
+enum DoanAccountStatus {
+  ACTIVE
+  LOCKED
+  @@map("AccountStatus")
+  @@schema("public")
+}
+enum DoanMemberStatus {
+  ACTIVE // Đang sinh hoạt
+  TRANSFERRED // Đã chuyển sinh hoạt
+  GRADUATED // Đã ra trường
+  @@map("MemberStatus")
+  @@schema("public")
+}
+enum DoanRegistrationStatus {
+  REGISTERED
+  CANCELLED
+  @@map("RegistrationStatus")
+  @@schema("public")
+}
+enum DoanAttendanceMethod {
+  QR
+  MANUAL
+  @@map("AttendanceMethod")
+  @@schema("public")
+}
+enum DoanPointType {
+  ACTIVITY
+  ADJUSTMENT
+  GAME // Điểm từ trò chơi tích điểm (có trần mỗi tuần)
+  DAILY // Điểm danh hằng ngày (+1 mỗi ngày, thưởng khi đạt chuỗi 7 và 30 ngày)
+  @@map("PointType")
+  @@schema("public")
+}
+enum DoanBadgeCriteria {
+  ACTIVITY_COUNT
+  VOLUNTEER_HOURS
+  TOTAL_POINTS
+  CATEGORY_COUNT
+  GAME_COUNT // Số trò chơi đã hoàn thành
+  @@map("BadgeCriteria")
+  @@schema("public")
+}
+enum DoanArticleKind {
+  NEWS // Tin tức
+  PLAN // Kế hoạch
+  EVENT // Sự kiện
+  ANNOUNCEMENT // Thông báo
+  STORY // Câu chuyện đẹp (Chi đoàn đăng mỗi tuần)
+  GAME // Trò chơi (BCH đăng, học sinh tương tác)
+  CAREER // Định hướng nghề nghiệp
+  DOCUMENT // Tài liệu sinh hoạt Chi đoàn (kèm tệp đính kèm)
+  @@map("ArticleKind")
+  @@schema("public")
+}
+enum DoanFeedbackStatus {
+  NEW
+  READ
+  RESOLVED
+  @@map("FeedbackStatus")
+  @@schema("public")
+}
+enum DoanNotificationType {
+  ACTIVITY_CREATED
+  ACTIVITY_REMINDER
+  ACTIVITY_CANCELLED
+  REGISTRATION
+  CHECKIN
+  POINTS
+  BADGE
+  FEED
+  POLL
+  SYSTEM
+  CERTIFICATE
+  VIOLATION
+  @@map("NotificationType")
+  @@schema("public")
+}
+model DoanUser {
+  id                 String        @id @default(cuid())
+  username           String        @unique
+  passwordHash       String
+  fullName           String
+  role               DoanRole
+  status             DoanAccountStatus @default(ACTIVE)
+  mustChangePassword Boolean       @default(true)
+  superAdmin         Boolean       @default(false) // quản trị tối cao hệ thống (chỉ vai trò ADMIN); ADMIN không phải superAdmin = Ban chấp hành Đoàn trường
+  position           String? // chức danh (Bí thư Đoàn trường, Phó Bí thư Đoàn trường...)
+  avatarUrl          String? // ảnh đại diện của tài khoản không có hồ sơ đoàn viên (vd Admin)
+  avatarPublicId     String?
+  lastLoginAt        DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  member             DoanMember?
+  secretaryOf        DoanDepartment?
+  notifications      DoanNotification[]
+  auditLogs          DoanAuditLog[]
+  createdActivities  DoanActivity[]         @relation("ActivityCreator")
+  pointTransactions  DoanPointTransaction[] @relation("PointCreator")
+  manualCheckins     DoanAttendance[]       @relation("CheckedInBy")
+  posts              DoanPost[]
+  postLikes          DoanPostLike[]
+  postComments       DoanPostComment[]
+  emulationRecords   DoanEmulationRecord[]
+  pushSubscriptions  DoanPushSubscription[]
+  passkeys           DoanPasskey[]
+  teamMessages       DoanTeamMessage[]
+  teamChatRead       DoanTeamChatRead?
+  articles           DoanArticle[]
+  quizzes            DoanQuiz[]
+  chapterReports     DoanChapterReport[]
+  reportPeriods      DoanReportPeriod[]
+  monitorOf          DoanDepartmentMonitor?
+  recordedViolations DoanViolation[]        @relation("ViolationRecorder")
+  managesDepartment  DoanDepartment?        @relation("DepartmentAccount")
+
+  @@index([role, status])
+  eduUser User? // EduConnect: hồ sơ riêng của tài khoản này
+  @@map("User")
+  @@schema("public")
+}
+model DoanDepartment {
+  id          String    @id @default(cuid())
+  name        String // tên hiện tại, tự đổi theo năm học: 10A1 -> 11A1 -> 12A1
+  description String?
+  startYear   Int? // năm vào lớp 10 (khóa): 2026 => niên khóa 2026–2029
+  graduatedAt DateTime? // đã ra trường (tài khoản bị khóa, không còn trong thi đua)
+  isTeacher   Boolean   @default(false) // Chi đoàn giáo viên: không có khối/khóa, không lên lớp, không tính vào thống kê và thi đua của học sinh
+  secretaryId String?   @unique
+  accountId   String?   @unique // tài khoản chung của Chi đoàn (role DEPARTMENT_ACCOUNT), Admin cấp đầu năm học
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  secretary         DoanUser?               @relation(fields: [secretaryId], references: [id], onDelete: SetNull)
+  account           DoanUser?               @relation("DepartmentAccount", fields: [accountId], references: [id], onDelete: SetNull)
+  classes           DoanClass[]
+  members           DoanMember[]
+  activities        DoanActivity[]
+  volunteerRequests DoanVolunteerRequest[]
+  posts             DoanPost[]
+  emulationRecords  DoanEmulationRecord[]
+  chapterReports    DoanChapterReport[]
+  articles          DoanArticle[]
+  monitors          DoanDepartmentMonitor[]
+  violations        DoanViolation[]
+
+  @@unique([name, startYear])
+  @@index([graduatedAt])
+  eduClasses SchoolClass[] // EduConnect: lớp (chi đoàn chính là lớp)
+  @@map("Department")
+  @@schema("public")
+}
+model DoanClass {
+  id           String   @id @default(cuid())
+  name         String
+  grade        Int?
+  departmentId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department DoanDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  members    DoanMember[]
+
+  @@unique([departmentId, name])
+  @@map("Class")
+  @@schema("public")
+}
+model DoanMember {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  userId           String       @unique
+  fullName         String
+  gender           String?
+  dateOfBirth      DateTime?
+  joinedAt         DateTime? // ngày vào Đoàn (chỉ đoàn viên)
+  isDoanVien       Boolean      @default(true) // true: đoàn viên; false: thanh niên (học sinh chưa vào Đoàn)
+  cohort           Int? // Khóa (năm nhập học)
+  status           DoanMemberStatus @default(ACTIVE)
+  classId          String
+  departmentId     String
+  avatarUrl        String?
+  avatarPublicId   String?
+  qrToken          String       @unique @default(cuid())
+  totalPoints      Int          @default(0)
+  volunteerMinutes Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  user          DoanUser                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class         DoanClass                  @relation(fields: [classId], references: [id], onDelete: Restrict)
+  department    DoanDepartment             @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  registrations DoanActivityRegistration[]
+  attendances   DoanAttendance[]
+  points        DoanPointTransaction[]
+  badges        DoanMemberBadge[]
+  quizAttempts  DoanQuizAttempt[]
+  dailyCheckins DoanDailyCheckin[]
+  certificates  DoanCertificate[]
+  detail        DoanMemberDetail?
+  violations    DoanViolation[]
+
+  @@index([departmentId, status])
+  @@index([classId])
+  @@index([cohort])
+  @@index([fullName])
+  eduStudent Student? // EduConnect: hồ sơ học sinh
+  @@map("Member")
+  @@schema("public")
+}
+model DoanDepartmentMonitor {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  departmentId String
+  createdAt    DateTime @default(now())
+
+  user       DoanUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department DoanDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@index([departmentId])
+  @@map("DepartmentMonitor")
+  @@schema("public")
+}
+model DoanViolation {
+  id           String   @id @default(cuid())
+  departmentId String
+  memberId     String
+  type         String // loại vi phạm (vd: đồng phục, tác phong, vệ sinh, giờ giấc...)
+  content      String // nội dung chi tiết
+  recordedAt   DateTime @default(now())
+  recordedById String
+  createdAt    DateTime @default(now())
+
+  department DoanDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  member     DoanMember     @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  recordedBy DoanUser       @relation("ViolationRecorder", fields: [recordedById], references: [id], onDelete: Restrict)
+
+  @@index([departmentId, recordedAt])
+  @@index([memberId])
+  @@index([recordedAt])
+  @@map("Violation")
+  @@schema("public")
+}
+model DoanActivityCategory {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  defaultPoints Int      @default(3)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  activities DoanActivity[]
+  badges     DoanBadge[]
+  @@map("ActivityCategory")
+  @@schema("public")
+}
+model DoanActivity {
+  id              String    @id @default(cuid())
+  title           String
+  description     String?
+  location        String
+  startAt         DateTime
+  endAt           DateTime
+  categoryId      String
+  departmentId    String? // null = hoạt động toàn trường
+  maxParticipants Int?
+  points          Int       @default(0)
+  volunteerHours  Float     @default(0)
+  imageUrl        String?
+  imagePublicId   String?
+  cancelledAt     DateTime?
+  reminderSentAt  DateTime? // đã gửi nhắc lịch cho người đăng ký
+  checkinOpen     Boolean   @default(false)
+  qrNonce         String    @default(cuid()) // đổi nonce => mọi QR cũ vô hiệu
+  createdById     String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  category          DoanActivityCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  department        DoanDepartment?            @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdBy         DoanUser                   @relation("ActivityCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  registrations     DoanActivityRegistration[]
+  attendances       DoanAttendance[]
+  images            DoanActivityImage[]
+  pointTransactions DoanPointTransaction[]
+  volunteerRequest  DoanVolunteerRequest?
+
+  @@index([startAt])
+  @@index([departmentId, startAt])
+  @@index([categoryId])
+  @@map("Activity")
+  @@schema("public")
+}
+model DoanActivityImage {
+  id         String   @id @default(cuid())
+  activityId String
+  imageUrl   String
+  publicId   String
+  createdAt  DateTime @default(now())
+
+  activity DoanActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+  @@map("ActivityImage")
+  @@schema("public")
+}
+model DoanActivityRegistration {
+  id         String             @id @default(cuid())
+  activityId String
+  memberId   String
+  status     DoanRegistrationStatus @default(REGISTERED)
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+
+  activity DoanActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  member   DoanMember   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, memberId])
+  @@index([memberId])
+  @@map("ActivityRegistration")
+  @@schema("public")
+}
+model DoanAttendance {
+  id            String           @id @default(cuid())
+  activityId    String
+  memberId      String
+  checkedInAt   DateTime         @default(now())
+  method        DoanAttendanceMethod @default(QR)
+  deviceInfo    String? // user-agent
+  ipAddress     String?
+  latitude      Float? // dự phòng cho xác thực GPS
+  longitude     Float?
+  checkedInById String? // người điểm danh hộ (nếu MANUAL)
+  createdAt     DateTime         @default(now())
+
+  activity    DoanActivity          @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  member      DoanMember            @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  checkedInBy DoanUser?             @relation("CheckedInBy", fields: [checkedInById], references: [id], onDelete: SetNull)
+  point       DoanPointTransaction?
+
+  @@unique([activityId, memberId])
+  @@index([memberId, checkedInAt])
+  @@map("Attendance")
+  @@schema("public")
+}
+model DoanPointTransaction {
+  id           String    @id @default(cuid())
+  memberId     String
+  activityId   String?
+  attendanceId String?   @unique
+  type         DoanPointType
+  points       Int
+  reason       String
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  member     DoanMember      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  activity   DoanActivity?   @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  attendance DoanAttendance? @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+  createdBy  DoanUser?       @relation("PointCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([memberId, createdAt])
+  @@map("PointTransaction")
+  @@schema("public")
+}
+model DoanDailyCheckin {
+  id        String   @id @default(cuid())
+  memberId  String
+  day       String // ngày điểm danh theo giờ Việt Nam, dạng YYYY-MM-DD
+  streak    Int      @default(1) // số ngày học điểm danh liên tiếp tính tới ngày này
+  createdAt DateTime @default(now())
+
+  member DoanMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, day])
+  @@index([day])
+  @@map("DailyCheckin")
+  @@schema("public")
+}
+model DoanBadge {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String
+  icon        String        @default("award") // tên icon Lucide
+  criteria    DoanBadgeCriteria
+  threshold   Int
+  categoryId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  category DoanActivityCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  members  DoanMemberBadge[]
+  @@map("Badge")
+  @@schema("public")
+}
+model DoanMemberBadge {
+  id        String   @id @default(cuid())
+  memberId  String
+  badgeId   String
+  awardedAt DateTime @default(now())
+
+  member DoanMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  badge  DoanBadge  @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, badgeId])
+  @@map("MemberBadge")
+  @@schema("public")
+}
+model DoanNotification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      DoanNotificationType
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("Notification")
+  @@schema("public")
+}
+model DoanAuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  target    String
+  targetId  String?
+  metadata  Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user DoanUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([target, targetId])
+  @@index([userId])
+  @@map("AuditLog")
+  @@schema("public")
+}
+model DoanPost {
+  id            String   @id @default(cuid())
+  authorId      String
+  departmentId  String? // null = toàn trường (chỉ Admin đăng)
+  content       String
+  imageUrl      String?
+  imagePublicId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  author     DoanUser          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  department DoanDepartment?   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  likes      DoanPostLike[]
+  comments   DoanPostComment[]
+
+  @@index([createdAt])
+  @@index([departmentId, createdAt])
+  @@map("Post")
+  @@schema("public")
+}
+model DoanPostLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post DoanPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("PostLike")
+  @@schema("public")
+}
+model DoanPostComment {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post DoanPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@map("PostComment")
+  @@schema("public")
+}
+model DoanEmulationRecord {
+  id           String   @id @default(cuid())
+  departmentId String
+  points       Int
+  reason       String
+  recordedAt   DateTime
+  createdById  String?
+  createdAt    DateTime @default(now())
+
+  department DoanDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdBy  DoanUser?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([departmentId, recordedAt])
+  @@index([recordedAt])
+  @@map("EmulationRecord")
+  @@schema("public")
+}
+model DoanPushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("PushSubscription")
+  @@schema("public")
+}
+model DoanArticle {
+  id            String      @id @default(cuid())
+  kind          DoanArticleKind
+  title         String
+  slug          String      @unique
+  summary       String?
+  content       String
+  coverUrl      String?
+  coverPublicId String?
+  eventAt       DateTime? // dùng cho Sự kiện
+  eventLocation String?
+  departmentId  String? // Câu chuyện đẹp: Chi đoàn thực hiện
+  categoryId    String? // Danh mục (hiện dùng cho Kế hoạch: kế hoạch tháng, chào cờ, diễn đàn...)
+  embedUrl      String? // Trò chơi: đường dẫn nhúng (Wordwall, Kahoot, Google Forms...)
+  published     Boolean     @default(true)
+  publishedAt   DateTime?
+  viewCount     Int         @default(0) // số lượt xem trang công khai
+  authorId      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  author      DoanUser?               @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  department  DoanDepartment?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  category    DoanArticleCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  attachments DoanArticleAttachment[]
+
+  @@index([kind, published, publishedAt])
+  @@map("Article")
+  @@schema("public")
+}
+model DoanArticleViewDay {
+  articleId String
+  day       String // YYYY-MM-DD
+  count     Int    @default(0)
+
+  @@id([articleId, day])
+  @@index([day])
+  @@map("ArticleViewDay")
+  @@schema("public")
+}
+model DoanSitePage {
+  slug        String   @id
+  viewCount   Int      @default(0) // số lượt xem trang công khai
+  title       String
+  content     String
+  tabs        Json? // chia nhiều tab: [{ title, content, attachments }]; có tab thì trang công khai hiện các tab, bỏ qua content
+  attachments Json? // tệp đính kèm của trang khi KHÔNG chia tab: [{ name, url, publicId, size, mime }]
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  @@map("SitePage")
+  @@schema("public")
+}
+model DoanReportPeriod {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  startDate    DateTime?
+  endDate      DateTime?
+  academicYear String?
+  status       String    @default("OPEN") // OPEN | CLOSED
+  createdById  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  createdBy DoanUser?           @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  reports   DoanChapterReport[]
+
+  @@index([status, createdAt])
+  @@map("ReportPeriod")
+  @@schema("public")
+}
+model DoanChapterReport {
+  id               String   @id @default(cuid())
+  viewCount        Int      @default(0) // số lượt xem trang công khai
+  departmentId     String
+  periodId         String?
+  title            String
+  content          String
+  imageUrl         String?
+  imagePublicId    String?
+  participantCount Int? // số đoàn viên tham gia hoạt động nêu trong báo cáo (trống ở báo cáo cũ)
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  department DoanDepartment    @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  period     DoanReportPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  createdBy  DoanUser?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([departmentId, periodId])
+  @@index([departmentId, createdAt])
+  @@index([periodId])
+  @@map("ChapterReport")
+  @@schema("public")
+}
+model DoanSiteSetting {
+  key   String @id
+  value String
+  @@map("SiteSetting")
+  @@schema("public")
+}
+model DoanArticleAttachment {
+  id        String   @id @default(cuid())
+  articleId String
+  name      String
+  url       String
+  publicId  String
+  size      Int      @default(0)
+  mime      String?
+  createdAt DateTime @default(now())
+
+  article DoanArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId])
+  @@map("ArticleAttachment")
+  @@schema("public")
+}
+model DoanMarqueeItem {
+  id        String   @id @default(cuid())
+  text      String
+  link      String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([active, sortOrder])
+  @@map("MarqueeItem")
+  @@schema("public")
+}
+model DoanFeedback {
+  id        String         @id @default(cuid())
+  category  String?
+  content   String
+  contact   String? // cách liên hệ (không bắt buộc)
+  status    DoanFeedbackStatus @default(NEW)
+  note      String? // ghi chú xử lý của Admin
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([status, createdAt])
+  @@map("Feedback")
+  @@schema("public")
+}
+model DoanPoll {
+  id          String    @id @default(cuid())
+  question    String
+  description String?
+  multiple    Boolean   @default(false)
+  closesAt    DateTime?
+  closed      Boolean   @default(false)
+  createdById String?
+  createdAt   DateTime  @default(now())
+
+  options DoanPollOption[]
+  votes   DoanPollVote[]
+
+  @@index([createdAt])
+  @@map("Poll")
+  @@schema("public")
+}
+model DoanPollOption {
+  id        String @id @default(cuid())
+  pollId    String
+  text      String
+  sortOrder Int    @default(0)
+
+  poll  DoanPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes DoanPollVote[]
+
+  @@index([pollId])
+  @@map("PollOption")
+  @@schema("public")
+}
+model DoanPollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  optionId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  poll   DoanPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  option DoanPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId, optionId])
+  @@index([pollId, userId])
+  @@map("PollVote")
+  @@schema("public")
+}
+model DoanSchoolYear {
+  startYear  Int    @id // năm bắt đầu của năm học (2026 = năm học 2026–2027)
+  week1Start String // yyyy-MM-dd (giờ VN): ngày bắt đầu Tuần 1
+  sem1Weeks  Int    @default(18) // số tuần học kỳ 1
+  totalWeeks Int    @default(35) // tổng số tuần (HK1 + HK2)
+  eduYear AcademicYear? // EduConnect: năm học tương ứng
+  @@map("SchoolYear")
+  @@schema("public")
+}
+model DoanWeeklySchedule {
+  id          String    @id @default(cuid())
+  startYear   Int // năm học (2026 = 2026–2027)
+  week        Int // tuần trong năm học
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items DoanWeeklyScheduleItem[]
+
+  @@unique([startYear, week])
+  @@map("WeeklySchedule")
+  @@schema("public")
+}
+model DoanWeeklyScheduleItem {
+  id         String   @id @default(cuid())
+  scheduleId String
+  date       DateTime // ngày (00:00 giờ VN) thuộc tuần
+  time       String? // vd "07:30" hoặc "Cả ngày"
+  content    String // nội dung công việc
+  assignee   String? // người/đơn vị phụ trách
+  place      String? // địa điểm
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  schedule DoanWeeklySchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([scheduleId, date])
+  @@map("WeeklyScheduleItem")
+  @@schema("public")
+}
+model DoanPasskey {
+  id           String    @id @default(cuid())
+  userId       String
+  credentialId String    @unique // base64url
+  publicKey    String // base64url
+  counter      Int       @default(0)
+  transports   String? // danh sách, cách nhau bằng dấu phẩy
+  deviceName   String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("Passkey")
+  @@schema("public")
+}
+enum DoanQuestionKind {
+  CHOICE // Trắc nghiệm / đúng-sai (một đáp án đúng)
+  FILL // Điền từ / đuổi hình bắt chữ
+  ORDER // Sắp xếp đúng thứ tự
+  @@map("QuestionKind")
+  @@schema("public")
+}
+model DoanQuiz {
+  id                 String    @id @default(cuid())
+  title              String
+  description        String?
+  theme              String    @default("quiz") // quiz | truefalse | picture | order | mix (chỉ để hiển thị biểu tượng, màu)
+  points             Int       @default(5) // điểm tối đa khi trả lời đúng hết (còn bị trần điểm trò chơi mỗi tuần giới hạn)
+  secondsPerQuestion Int       @default(20)
+  startsAt           DateTime?
+  endsAt             DateTime?
+  published          Boolean   @default(false)
+  departmentIds      String[]  @default([]) // rỗng: toàn trường; có giá trị: chỉ các Chi đoàn này được chơi
+  authorId           String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  author    DoanUser?          @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  questions DoanQuizQuestion[]
+  attempts  DoanQuizAttempt[]
+
+  @@index([published, createdAt])
+  @@map("Quiz")
+  @@schema("public")
+}
+model DoanQuizQuestion {
+  id            String       @id @default(cuid())
+  quizId        String
+  position      Int
+  kind          DoanQuestionKind @default(CHOICE)
+  text          String
+  imageUrl      String?
+  imagePublicId String?
+  /// CHOICE: các lựa chọn; ORDER: các mục theo ĐÚNG thứ tự; FILL: các đáp án được chấp nhận
+  options       Json
+  correct       Int          @default(0) // CHOICE: chỉ số đáp án đúng
+  explanation   String?
+
+  quiz    DoanQuiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  answers DoanQuizAnswer[]
+
+  @@index([quizId, position])
+  @@map("QuizQuestion")
+  @@schema("public")
+}
+model DoanQuizAttempt {
+  id              String    @id @default(cuid())
+  quizId          String
+  memberId        String
+  startedAt       DateTime  @default(now())
+  questionShownAt DateTime  @default(now()) // thời điểm câu hiện tại được hiển thị (máy chủ tính giờ)
+  questionStarted Boolean   @default(false) // câu hiện tại đã được gửi cho người chơi chưa (đồng hồ chỉ chạy từ lúc đó)
+  currentIndex    Int       @default(0)
+  finishedAt      DateTime?
+  total           Int
+  correctCount    Int       @default(0)
+  bestStreak      Int       @default(0)
+  earnedPoints    Int       @default(0) // điểm đạt được theo kết quả
+  pointsAwarded   Int       @default(0) // điểm thực nhận sau khi áp trần tuần
+
+  quiz    DoanQuiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  member  DoanMember       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  answers DoanQuizAnswer[]
+
+  @@unique([quizId, memberId])
+  @@index([memberId, finishedAt])
+  @@map("QuizAttempt")
+  @@schema("public")
+}
+model DoanQuizAnswer {
+  id         String   @id @default(cuid())
+  attemptId  String
+  questionId String
+  response   Json?
+  correct    Boolean
+  timeMs     Int
+  answeredAt DateTime @default(now())
+
+  attempt  DoanQuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question DoanQuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("QuizAnswer")
+  @@schema("public")
+}
+model DoanArticleCategory {
+  id        String      @id @default(cuid())
+  kind      DoanArticleKind
+  name      String
+  sortOrder Int         @default(0)
+  createdAt DateTime    @default(now())
+
+  articles DoanArticle[]
+
+  @@unique([kind, name])
+  @@index([kind, sortOrder])
+  @@map("ArticleCategory")
+  @@schema("public")
+}
+enum DoanCertificateKind {
+  COMMENDATION // Giấy khen (tuyên dương)
+  VOLUNTEER // Giấy chứng nhận giờ tình nguyện
+  CAMPAIGN // Giấy chứng nhận hoàn thành chiến dịch / hoạt động
+  OTHER // Giấy chứng nhận khác
+  @@map("CertificateKind")
+  @@schema("public")
+}
+model DoanCertificate {
+  id             String          @id @default(cuid())
+  code           String          @unique // mã xác thực, ví dụ GK-7F3K9Q2M
+  kind           DoanCertificateKind
+  title          String // tiêu đề trên giấy, ví dụ "Giấy khen"
+  reason         String // lý do, nội dung ghi trên giấy
+  memberId       String
+  fullName       String // lưu lại tên và Chi đoàn tại thời điểm cấp (đổi sau không ảnh hưởng giấy đã cấp)
+  departmentName String
+  volunteerHours Float? // giờ tình nguyện (cho giấy loại VOLUNTEER)
+  activityId     String?
+  issuedAt       DateTime
+  issuedById     String?
+  issuerName     String? // chức danh người ký, ví dụ "Bí thư Đoàn trường"
+  revokedAt      DateTime?
+  revokedReason  String?
+  createdAt      DateTime        @default(now())
+
+  member DoanMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId, issuedAt])
+  @@index([issuedAt])
+  @@map("Certificate")
+  @@schema("public")
+}
+model DoanMemberDetail {
+  id                String    @id @default(cuid())
+  memberId          String    @unique
+  ethnicity         String? // Dân tộc
+  religion          String? // Tôn giáo
+  idNumber          String? // CMND/CCCD (nhạy cảm)
+  idIssuedAt        DateTime?
+  idIssuedPlace     String?
+  educationLevel    String? // Trình độ văn hóa
+  specialization    String? // Trình độ chuyên môn
+  politicalTheory   String? // Lý luận chính trị
+  itSkill           String? // Trình độ tin học
+  foreignLanguage   String? // Ngoại ngữ
+  hometownProvince  String? // Quê quán
+  hometownWard      String?
+  hometownAddress   String? // số nhà, đường, thôn/xóm
+  permanentProvince String? // Thường trú
+  permanentWard     String?
+  permanentAddress  String? // số nhà, đường, thôn/xóm
+  currentProvince   String? // Nơi ở hiện nay
+  currentWard       String?
+  currentAddress    String? // số nhà, đường, thôn/xóm
+  occupation        String? // Nghề nghiệp hiện nay
+  phone             String?
+  email             String?
+  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+
+  member DoanMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  @@map("MemberDetail")
+  @@schema("public")
+}
+enum DoanVolunteerStatus {
+  PENDING // chờ Ban chấp hành duyệt
+  APPROVED // đã duyệt: hiện trên lịch tình nguyện; bí thư bấm Hoàn thành sau buổi làm việc
+  COMPLETED // bí thư đã xác nhận hoàn thành: điểm đã tự động cộng cho các đoàn viên của Chi đoàn
+  REJECTED // bị từ chối
+  @@map("VolunteerStatus")
+  @@schema("public")
+}
+model DoanVolunteerRequest {
+  id            String          @id @default(cuid())
+  departmentId  String
+  task          String
+  startAt       DateTime
+  endAt         DateTime
+  location      String
+  hours         Float // giờ tình nguyện mỗi em
+  points        Int // điểm mỗi em
+  note          String?
+  status        DoanVolunteerStatus @default(PENDING)
+  requestedById String
+  reviewedById  String?
+  reviewedAt    DateTime?
+  rejectReason  String?
+  completedAt   DateTime? // lúc bí thư bấm Hoàn thành
+  activityId    String?         @unique // không còn dùng (trước đây gắn với hoạt động)
+  createdAt     DateTime        @default(now())
+
+  department DoanDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  activity   DoanActivity?  @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([departmentId, startAt])
+  @@map("VolunteerRequest")
+  @@schema("public")
+}
+enum DoanConfessionStatus {
+  PENDING // chờ Admin/Ban chấp hành duyệt
+  APPROVED // đã duyệt: hiện công khai
+  REJECTED // không được duyệt
+  @@map("ConfessionStatus")
+  @@schema("public")
+}
+model DoanConfession {
+  id           String           @id @default(cuid())
+  content      String
+  nickname     String? // biệt danh tự đặt (không bắt buộc), không phải danh tính thật
+  status       DoanConfessionStatus @default(PENDING)
+  rejectReason String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+
+  likes    DoanConfessionLike[]
+  comments DoanConfessionComment[]
+
+  @@index([status, createdAt])
+  @@map("Confession")
+  @@schema("public")
+}
+model DoanConfessionLike {
+  id           String   @id @default(cuid())
+  confessionId String
+  userId       String?
+  anonKey      String?
+  createdAt    DateTime @default(now())
+
+  confession DoanConfession @relation(fields: [confessionId], references: [id], onDelete: Cascade)
+
+  @@unique([confessionId, userId])
+  @@unique([confessionId, anonKey])
+  @@map("ConfessionLike")
+  @@schema("public")
+}
+model DoanConfessionComment {
+  id           String   @id @default(cuid())
+  confessionId String
+  userId       String?
+  authorName   String
+  content      String
+  createdAt    DateTime @default(now())
+
+  confession DoanConfession @relation(fields: [confessionId], references: [id], onDelete: Cascade)
+
+  @@index([confessionId, createdAt])
+  @@map("ConfessionComment")
+  @@schema("public")
+}
+model DoanTeamMessage {
+  id          String    @id @default(cuid())
+  authorId    String
+  content     String? // có thể trống nếu chỉ gửi tệp
+  attachments Json? // [{ url, publicId, name, size, mime, kind: "image" | "video" | "file" }]
+  deletedAt   DateTime? // thu hồi tin nhắn: nội dung bị xóa, vẫn giữ dấu vết "đã thu hồi"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  author DoanUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("TeamMessage")
+  @@schema("public")
+}
+model DoanTeamChatRead {
+  userId     String   @id
+  lastReadAt DateTime @default(now())
+
+  user DoanUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("TeamChatRead")
+  @@schema("public")
 }

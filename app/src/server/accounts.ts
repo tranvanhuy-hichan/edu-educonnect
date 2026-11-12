@@ -1,3 +1,4 @@
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { genPassword } from "@/lib/password";
@@ -5,7 +6,8 @@ import type { Role } from "@prisma/client";
 
 export async function resetPassword(userId: string) {
   const password = genPassword();
-  await db.user.update({ where: { id: userId }, data: { passwordHash: await bcrypt.hash(password, 10), mustChangePwd: true } });
+  const { accountId } = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { accountId: true } });
+  await setSharedPassword(db, accountId, await bcrypt.hash(password, 10), true);
   return password;
 }
 

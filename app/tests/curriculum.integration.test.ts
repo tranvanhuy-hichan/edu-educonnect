@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import { contextFor } from "@/infrastructure/database/unit-of-work";
 import type { Room, Teacher } from "@prisma/client";
 import assert from "node:assert/strict";
@@ -25,7 +26,7 @@ test("class curriculum is the shared source for assignments, timetable and exam 
     const teachers: Teacher[] = [];
     for (let i = 0; i < 2; i++) {
       rooms.push(await tx.room.create({ data: { roomName: `${tag}-${i}`, roomType: "THUONG", capacity: 40 } }));
-      teachers.push(await tx.teacher.create({ data: { fullName: `Teacher ${i}`, user: { create: { email: `${tag}-t${i}@test.invalid`, passwordHash: "test-only", roles: ["SUBJECT_TEACHER"] } } } }));
+      teachers.push(await tx.teacher.create({ data: { fullName: `Teacher ${i}`, user: { create: { email: `${tag}-t${i}@test.invalid`, accountId: await testAccount("test-only"), roles: ["SUBJECT_TEACHER"] } } } }));
     }
     const classData = (i: number) => ({ className: `A${i}`, academicYearId: year.id, gradeLevelId: grade.id, roomId: rooms[i].id });
     const a = await createClassWithSubjects(classData(0), [subjects[0].id], contextFor(tx));
@@ -40,7 +41,7 @@ test("class curriculum is the shared source for assignments, timetable and exam 
     await tx.$executeRawUnsafe("ROLLBACK TO SAVEPOINT invalid_curriculum_assignment");
     await tx.classSubjectAssignment.create({ data: { schoolClassId: a.id, subjectId: subjects[0].id, teacherId: teachers[0].id, academicTermId: term.id } });
     for (const cls of [a, b]) {
-      const student = await tx.student.create({ data: { fullName: `Học sinh ${cls.className}`, code: `${tag}-${cls.className}`, user: { create: { email: `${tag}-${cls.className}@test.invalid`, passwordHash: "test-only", roles: ["STUDENT"] } } } });
+      const student = await tx.student.create({ data: { fullName: `Học sinh ${cls.className}`, code: `${tag}-${cls.className}`, user: { create: { email: `${tag}-${cls.className}@test.invalid`, accountId: await testAccount("test-only"), roles: ["STUDENT"] } } } });
       await tx.studentClassEnrollment.create({ data: { schoolClassId: cls.id, studentId: student.id, academicYearId: year.id } });
     }
     const manager: SessionUser = { userId: "test-admin", email: "test@test.invalid", roles: ["ADMIN"], teacherId: null, studentId: null };

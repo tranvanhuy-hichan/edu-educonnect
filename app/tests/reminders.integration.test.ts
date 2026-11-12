@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -66,7 +67,7 @@ test("database: book, assignment and exam reminders go to the right people exact
   } finally {
     await prisma.notification.deleteMany({ where: { createdAt: { gte: startedAt }, type: { in: ["LIBRARY", "ASSIGNMENT", "EXAM"] } } });
     await prisma.parentNotification.deleteMany({ where: { phoneKey: key } });
-    await prisma.$executeRaw`DELETE FROM "ReminderSent" WHERE "createdAt" >= ${startedAt}`;
+    await prisma.$executeRaw`DELETE FROM "edu"."ReminderSent" WHERE "createdAt" >= ${startedAt}`;
     await prisma.examEvent.deleteMany({ where: { title: { startsWith: `Thi ${t}` } } });
     await prisma.assignmentSubmission.deleteMany({ where: { exercise: { lessonPostId: made.post ?? "x" } } });
     await prisma.exercise.deleteMany({ where: { lessonPostId: made.post ?? "x" } });
@@ -79,7 +80,7 @@ test("database: book, assignment and exam reminders go to the right people exact
 test("database: account review lists stale, never-used, idle-teacher and class-less accounts; locking logs them out and skips the admin themself", { skip: !enabled }, async () => {
   const t = tag();
   const day = 86_400_000;
-  const mk = (suffix: string, data: object) => prisma.user.create({ data: { email: `${t}${suffix}@test.invalid`, passwordHash: "x", roles: ["LIBRARIAN"], ...data }, include: { teacher: true, student: true } });
+  const mk = async (suffix: string, data: object) => prisma.user.create({ data: { email: `${t}${suffix}@test.invalid`, accountId: await testAccount("x"), roles: ["LIBRARIAN"], ...data }, include: { teacher: true, student: true } });
   const admin = await mk("adm", { roles: ["ADMIN"], lastLoginAt: new Date() });
   const tracker = await mk("trk", { lastLoginAt: new Date(Date.now() - 45 * day) }); // đã ghi nhận đăng nhập từ 45 ngày trước → "chưa từng" có nghĩa
   const stale = await mk("old", { lastLoginAt: new Date(Date.now() - 120 * day) });
@@ -123,7 +124,7 @@ test("database: account review lists stale, never-used, idle-teacher and class-l
     assert.equal(await notes(), 1, "chỉ nhắc vào ngày 1");
   } finally {
     await prisma.notification.deleteMany({ where: { title: "Đến kỳ rà soát tài khoản" } });
-    await prisma.$executeRaw`DELETE FROM "ReminderSent" WHERE "key" LIKE 'review:2027-3:%'`;
+    await prisma.$executeRaw`DELETE FROM "edu"."ReminderSent" WHERE "key" LIKE 'review:2027-3:%'`;
     await prisma.activityLog.deleteMany({ where: { targetId: { in: ids } } });
     await prisma.userSession.deleteMany({ where: { userId: { in: ids } } });
     await prisma.student.deleteMany({ where: { userId: { in: ids } } });

@@ -1,3 +1,4 @@
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { genPassword, genStudentCode } from "@/lib/password";
@@ -19,11 +20,15 @@ export async function createStudentWithAccount(d: NewStudent): Promise<Created> 
       continue;
     }
     try {
-      await db.student.create({
-        data: {
-          code, fullName: d.fullName, dob: d.dob, guardianName: d.guardianName ?? null, guardianPhone: d.guardianPhone ?? null,
-          user: { create: { email, passwordHash, roles: ["STUDENT"], mustChangePwd: true } },
-        },
+      // Tài khoản dùng chung (mã HS = tên đăng nhập) + hồ sơ EduConnect trong một transaction.
+      await db.$transaction(async (tx) => {
+        const account = await createSharedAccount(tx, { username: code, passwordHash, fullName: d.fullName });
+        await tx.student.create({
+          data: {
+            code, fullName: d.fullName, dob: d.dob, guardianName: d.guardianName ?? null, guardianPhone: d.guardianPhone ?? null,
+            user: { create: { accountId: account.id, email, roles: ["STUDENT"] } },
+          },
+        });
       });
       return { code, password, fullName: d.fullName, email };
     } catch (e) {
@@ -91,7 +96,7 @@ export async function loadStudents(where: object = {}) {
   const attentionBelow = policy.promotion.attentionBelow;
   const list = await db.student.findMany({
     where, orderBy: { fullName: "asc" },
-    include: { user: { select: { email: true, isActive: true, createdAt: true, mustChangePwd: true } }, enrollments: { include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true } }, academicYear: true } } },
+    include: { user: { select: { email: true, isActive: true, createdAt: true, account: { select: { mustChangePassword: true, status: true } } } }, enrollments: { include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true } }, academicYear: true } } },
   });
   const avgs = term ? await db.subjectTermAverage.groupBy({ by: ["studentId"], where: { academicTermId: term.id, studentId: { in: list.map((s) => s.id) } }, _avg: { averageValue: true } }) : [];
   const avg = new Map(avgs.map((a) => [a.studentId, a._avg.averageValue]));

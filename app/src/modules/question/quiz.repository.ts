@@ -53,7 +53,7 @@ export const recordAttempt = (d: {
   snapshot: Prisma.InputJsonValue; autoSubmitted: boolean; overtime: boolean; answers: GradedAnswer[]; shouldReplace: (existingGrade: number | null) => boolean;
 }) =>
   prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT id FROM "Student" WHERE id = ${d.studentId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM "edu"."Student" WHERE id = ${d.studentId} FOR UPDATE`;
     const attemptData = { snapshot: d.snapshot, submittedAt: d.submittedAt, grade: d.grade, isLate: d.isLate, autoSubmitted: d.autoSubmitted, overtime: d.overtime };
     if (d.attemptId) {
       const closed = await tx.quizAttempt.updateMany({ where: { id: d.attemptId, exerciseId: d.exerciseId, studentId: d.studentId, submittedAt: null }, data: attemptData });

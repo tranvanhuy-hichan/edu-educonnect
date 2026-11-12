@@ -1,3 +1,4 @@
+import { testAccount, passwordHashOf } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import bcrypt from "bcryptjs";
@@ -11,8 +12,8 @@ after(async () => { await prisma.$disconnect(); });
 test("database: bulk password reset targets the chosen classes/roles, forces change, revokes sessions and is admin-only", { skip: !enabled }, async () => {
   process.env.JWT_SECRET ||= "test-secret-only";
   const tag = `bulk${Date.now()}`;
-  const mk = (suffix: string, roles: ("ADMIN" | "SUBJECT_TEACHER" | "STUDENT" | "LIBRARIAN")[], extra: object = {}) =>
-    prisma.user.create({ data: { email: `${tag}-${suffix}@test.invalid`, passwordHash: bcrypt.hashSync("old-pass-1", 4), roles, mustChangePwd: false, ...extra }, include: { teacher: true, student: true } });
+  const mk = async (suffix: string, roles: ("ADMIN" | "SUBJECT_TEACHER" | "STUDENT" | "LIBRARIAN")[], extra: object = {}) =>
+    prisma.user.create({ data: { email: `${tag}-${suffix}@test.invalid`, accountId: await testAccount(bcrypt.hashSync("old-pass-1", 4)), roles, ...extra }, include: { teacher: true, student: true } });
   const grade = await prisma.gradeLevel.create({ data: { gradeName: `G-${tag}`, sortOrder: 99 } });
   const year = await prisma.academicYear.create({ data: { yearName: `Y-${tag}`, startDate: new Date(Date.now() - 1000), endDate: new Date(Date.now() + 86400_000 * 300) } });
   const klass = (name: string) => prisma.schoolClass.create({ data: { className: `${name}-${tag}`, gradeLevelId: grade.id, academicYearId: year.id } });
@@ -46,7 +47,7 @@ test("database: bulk password reset targets the chosen classes/roles, forces cha
     await assert.rejects(bulkResetPasswords({ ...sys, roles: ["SUBJECT_TEACHER"] }, [s1.id]), /Quản trị hệ thống/);
 
     // chạy thật
-    const oldTag = credentialTag(s1.passwordHash);
+    const oldTag = credentialTag(await passwordHashOf(s1.id));
     const rows = await bulkResetPasswords(sys, [s1.id, teacher.id, admin.id, lockedTeacher.id]);
     assert.equal(rows.length, 2, "bỏ qua chính mình và tài khoản khoá");
     const byUser = Object.fromEntries(rows.map((r) => [r.username, r]));
@@ -55,11 +56,11 @@ test("database: bulk password reset targets the chosen classes/roles, forces cha
     assert.equal(sRow.fullName, "HS s1");
     assert.ok(sRow.password.length >= 8);
     assert.notEqual(sRow.password, rows.find((r) => r !== sRow)!.password, "mỗi người một mật khẩu riêng");
-    const after1 = await prisma.user.findUniqueOrThrow({ where: { id: s1.id } });
-    assert.equal(after1.mustChangePwd, true);
+    const mustChange = async (id: string) => (await prisma.user.findUniqueOrThrow({ where: { id }, select: { account: { select: { mustChangePassword: true } } } })).account.mustChangePassword;
+    assert.equal(await mustChange(s1.id), true);
     assert.equal(await resolveSessionIdentity(s1.id, oldTag), null, "phiên cũ mất hiệu lực");
-    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: admin.id } })).mustChangePwd, false, "người thực hiện không bị đổi");
-    assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: lockedTeacher.id } })).mustChangePwd, false);
+    assert.equal(await mustChange(admin.id), false, "người thực hiện không bị đổi");
+    assert.equal(await mustChange(lockedTeacher.id), false);
     // đăng nhập được bằng mật khẩu mới (mã học sinh), bị buộc đổi, mật khẩu cũ không còn dùng được
     const session = await login({ email: s1.student!.code!, password: sRow.password });
     assert.equal(session.userId, s1.id);

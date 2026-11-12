@@ -41,6 +41,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     db.user.findMany({
       where: { ...base, ...tabWhere }, orderBy, skip: pg.skip, take: pg.take,
       include: {
+        account: { select: { mustChangePassword: true } },
         teacher: { select: { fullName: true, code: true } },
         student: { select: { fullName: true, code: true, enrollments: { take: 1, orderBy: { academicYear: { startDate: "desc" } }, select: { schoolClass: { select: { className: true } } } } } },
       },
@@ -134,7 +135,7 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
                 </td>
                 <td className="max-w-xs"><div className="flex flex-wrap gap-1">{u.roles.map((r) => <span key={r} className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">{ROLE_LABEL[r]}</span>)}</div></td>
                 <td className="text-sm text-slate-600">{profileOf(u)}</td>
-                <td><div className={`flex items-center gap-2 text-sm font-semibold ${u.isActive ? "text-green-700" : "text-red-600"}`}><i className={`inline-block size-2 rounded-full ${u.isActive ? "bg-green-500" : "bg-red-500"}`} />{u.isActive ? "Hoạt động" : "Đã khoá"}</div>{u.mustChangePwd && <div className="mt-0.5 pl-4 text-xs text-slate-500">Chưa đổi mật khẩu</div>}{u.lockedUntil && u.lockedUntil.getTime() > new Date().getTime() && <div className="mt-0.5 pl-4 text-xs font-semibold text-red-600">Tạm khoá do nhập sai</div>}</td>
+                <td><div className={`flex items-center gap-2 text-sm font-semibold ${u.isActive ? "text-green-700" : "text-red-600"}`}><i className={`inline-block size-2 rounded-full ${u.isActive ? "bg-green-500" : "bg-red-500"}`} />{u.isActive ? "Hoạt động" : "Đã khoá"}</div>{u.account.mustChangePassword && <div className="mt-0.5 pl-4 text-xs text-slate-500">Chưa đổi mật khẩu</div>}{u.lockedUntil && u.lockedUntil.getTime() > new Date().getTime() && <div className="mt-0.5 pl-4 text-xs font-semibold text-red-600">Tạm khoá do nhập sai</div>}</td>
                 <td><div className="flex items-center justify-end gap-2"><RowActions u={u} /></div></td>
               </tr>
             );

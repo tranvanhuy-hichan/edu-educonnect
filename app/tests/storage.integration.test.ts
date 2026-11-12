@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -10,7 +11,7 @@ test("database: uploaded documents bind to assignments, staged files stay privat
   const userIds: string[] = [], studentIds: string[] = [], classIds: string[] = [], fileIds: string[] = [];
   let yearId = "", teacherId = "", subjectId = "", assignmentId = "", postId = "";
   try {
-    const staff = await prisma.user.create({ data: { email: `${tag}-teacher@example.test`, passwordHash: "test", roles: ["SUBJECT_TEACHER"] } }); userIds.push(staff.id);
+    const staff = await prisma.user.create({ data: { email: `${tag}-teacher@example.test`, accountId: await testAccount("test"), roles: ["SUBJECT_TEACHER"] } }); userIds.push(staff.id);
     const teacher = await prisma.teacher.create({ data: { userId: staff.id, fullName: tag } }); teacherId = teacher.id;
     const teacherSession: SessionUser = { userId: staff.id, email: staff.email, roles: staff.roles, teacherId, studentId: null };
     const year = await prisma.academicYear.create({ data: { yearName: tag, startDate: new Date("2099-01-01"), endDate: new Date("2099-12-31") } }); yearId = year.id;
@@ -20,7 +21,7 @@ test("database: uploaded documents bind to assignments, staged files stay privat
     const other = await prisma.schoolClass.create({ data: { className: `${tag}-B`, gradeLevelId: grade.id, academicYearId: yearId } }); classIds.push(other.id);
     const students: SessionUser[] = [];
     for (let i = 0; i < 3; i++) {
-      const user = await prisma.user.create({ data: { email: `${tag}-${i}@example.test`, passwordHash: "test", roles: ["STUDENT"] } }); userIds.push(user.id);
+      const user = await prisma.user.create({ data: { email: `${tag}-${i}@example.test`, accountId: await testAccount("test"), roles: ["STUDENT"] } }); userIds.push(user.id);
       const student = await prisma.student.create({ data: { userId: user.id, fullName: `${tag}-${i}` } }); studentIds.push(student.id);
       await prisma.studentClassEnrollment.create({ data: { studentId: student.id, academicYearId: yearId, schoolClassId: i === 2 ? other.id : cls.id } });
       students.push({ userId: user.id, email: user.email, roles: user.roles, studentId: student.id, teacherId: null });

@@ -50,7 +50,7 @@ async function cleanup() {
   await prisma.trashItem.deleteMany({ where: { OR: [{ label: { contains: tag } }] } });
   await prisma.activityLog.deleteMany({ where: { OR: [{ actorEmail: { startsWith: "api:ZW" } }, { actorEmail: "t-admin@test.invalid" }] } });
   await prisma.apiKey.deleteMany({ where: { name: { startsWith: `ZW ${tag}` } } });
-  await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+  await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
 }
 
 test("database: creating a student is validated, idempotent, scoped per field group, logged and reversible", { skip: !enabled }, async () => {
@@ -90,8 +90,8 @@ test("database: creating a student is validated, idempotent, scoped per field gr
     assert.equal(dto.guardian.name, "Nguyễn B");
     assert.equal(dto.identity.idNumber, "051234567890");
     assert.ok(!JSON.stringify(created.body).toLowerCase().includes("password"), "không trả mật khẩu");
-    const user = await prisma.user.findFirstOrThrow({ where: { student: { id: dto.id } } });
-    assert.deepEqual([user.roles, user.mustChangePwd], [["STUDENT"], true]);
+    const user = await prisma.user.findFirstOrThrow({ where: { student: { id: dto.id } }, include: { account: true } });
+    assert.deepEqual([user.roles, user.account.mustChangePassword, user.account.role], [["STUDENT"], true, "EXTERNAL"]);
     const replay = await send(studentsPost, "POST", "/api/v1/students", full.secret, { body, idem: key });
     assert.equal(replay.status, 201);
     assert.equal(replay.headers.get("idempotent-replay"), "true");
@@ -221,8 +221,8 @@ test("database: teachers and classes follow the school's own rules; creations ar
     const tid = t.body.data.id;
     assert.deepEqual(t.body.data.subjects.map((s: { id: string }) => s.id), [subjects[0].id]);
     assert.equal(t.body.data.contact.phone, "0909000111");
-    const tUser = await prisma.user.findUniqueOrThrow({ where: { email } });
-    assert.deepEqual([tUser.roles, tUser.mustChangePwd], [["SUBJECT_TEACHER"], true]);
+    const tUser = await prisma.user.findUniqueOrThrow({ where: { email }, include: { account: true } });
+    assert.deepEqual([tUser.roles, tUser.account.mustChangePassword], [["SUBJECT_TEACHER"], true]);
     assert.equal((await send(teachersPost, "POST", "/api/v1/teachers", full.secret, { body: { ...tBody, fullName: `ZW ${tag} Trùng` }, idem: idem() })).body.error.code, "email_taken");
     const tp = await send(teacherPatch, "PATCH", `/api/v1/teachers/${tid}`, full.secret, { body: { degree: "Thạc sĩ", subjectIds: [subjects[1].id] }, params: { id: tid } });
     assert.deepEqual(tp.body.data.subjects.map((s: { id: string }) => s.id), [subjects[1].id], "subjectIds thay thế toàn bộ");

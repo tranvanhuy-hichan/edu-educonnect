@@ -1,3 +1,4 @@
+import { testAccount, setPasswordHashOf } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -49,12 +50,12 @@ test("database: shared limiter, current roles and revocation on password reset",
   const results = await Promise.all(Array.from({ length: 12 }, () => consumeLoginAttempt("test", key)));
   assert.equal(results.filter(Boolean).length, 10);
   const bcrypt = await import("bcryptjs");
-  const u = await prisma.user.create({ data: { email: key, passwordHash: await bcrypt.hash("test-pass", 4), roles: ["STUDENT"] } });
+  const u = await prisma.user.create({ data: { email: key, accountId: await testAccount(await bcrypt.hash("test-pass", 4)), roles: ["STUDENT"] } });
   try {
     const session = await login({ email: key, password: "test-pass" });
     await prisma.user.update({ where: { id: u.id }, data: { roles: ["LIBRARIAN"] } });
     assert.deepEqual((await resolveSessionIdentity(u.id, session.credentialTag))?.roles, ["LIBRARIAN"]);
-    await prisma.user.update({ where: { id: u.id }, data: { passwordHash: await bcrypt.hash("changed", 4) } });
+    await setPasswordHashOf(u.id, await bcrypt.hash("changed", 4));
     assert.equal(await resolveSessionIdentity(u.id, session.credentialTag), null);
     assert.equal(await resolveSessionIdentity(u.id), null);
   } finally { await prisma.user.delete({ where: { id: u.id } }); }

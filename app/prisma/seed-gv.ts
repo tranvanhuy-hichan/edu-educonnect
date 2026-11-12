@@ -13,7 +13,8 @@ const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
 
 async function user(email: string, roles: ("HOMEROOM_TEACHER" | "SUBJECT_TEACHER" | "STUDENT")[]) {
   const passwordHash = await bcrypt.hash(PASSWORD, 10);
-  return prisma.user.upsert({ where: { email }, update: { roles, passwordHash }, create: { email, passwordHash, roles } });
+  const account = await prisma.doanUser.upsert({ where: { username: email }, update: { passwordHash }, create: { username: email, passwordHash, fullName: email, role: "EXTERNAL", mustChangePassword: false } });
+  return prisma.user.upsert({ where: { email }, update: { roles }, create: { email, accountId: account.id, roles } });
 }
 
 async function main() {
