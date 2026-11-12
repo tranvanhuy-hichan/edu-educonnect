@@ -78,7 +78,7 @@ export default async function LessonBankDetail({ params, searchParams }: { param
                 </DialogButton>
               )}
               <ImportDialog subjectId={lesson.subjectId} gradeLevelId={lesson.gradeLevelId} lessons={siblings} defaultLessonId={id} maxBytes={uploadLimit()} />
-              <Link href={`/ngan-hang-cau-hoi/moi?${ctx}`} className="inline-flex h-8 items-center rounded-md bg-orange-600 px-3 text-xs font-medium text-white hover:bg-orange-700">+ Thêm câu hỏi</Link>
+              <Link href={`/ngan-hang-cau-hoi/moi?${ctx}`} className="inline-flex h-8 items-center rounded-md bg-coral-600 px-3 text-xs font-medium text-white hover:bg-coral-700">+ Thêm câu hỏi</Link>
             </div>
   );
   const addExerciseAction = (

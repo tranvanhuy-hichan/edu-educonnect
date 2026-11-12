@@ -8,6 +8,7 @@ import { buildNav, buildMobileNav, ROLE_LABEL, titleOf, type NavGroup, type NavI
 import type { Role } from "@/lib/guard";
 import { ModeToggle } from "@/components/layout/mode-toggle";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { GlobalSearch } from "@/components/layout/global-search";
 
 const HOMEROOM_MAIN_TABS = [null, "overview", "students"];
 const LIBRARY_MAIN_TABS = [null, "", "titles"];
@@ -190,6 +191,7 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
             ))}
             </span>
           </nav>
+          <GlobalSearch groups={groups} />
           <NotificationBell />
           <ModeToggle />
           <div className="relative" ref={ref}>

@@ -14,6 +14,7 @@ export const maxDuration = 60;
 export const POST = observe(async (request: Request) => {
   const user = await getMe();
   if (!user) return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
+  if (user.mustChangePwd) return NextResponse.json({ error: "Vui lòng đổi mật khẩu được cấp trước khi tiếp tục" }, { status: 403 });
   const rl = await rateLimit("upload", user.userId, LIMITS.upload);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec, "Bạn tải tệp quá nhanh. Vui lòng đợi một chút rồi thử lại.");
   const origin = request.headers.get("origin");

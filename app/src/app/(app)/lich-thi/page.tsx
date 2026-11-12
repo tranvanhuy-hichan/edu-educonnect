@@ -27,7 +27,7 @@ export default async function Exams({ searchParams }: { searchParams: Promise<{ 
     db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }), db.subject.findMany({ orderBy: { subjectName: "asc" } }),
   ]);
   return <div className="space-y-4">
-    <Title actionsInline right={manager && <><div className="hidden md:block"><Link href="/lich-thi/them" className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white">+ Tạo lịch thi</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lịch thi"><Link href="/lich-thi/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Tạo lịch thi</Link></ActionMenu></div></>}>{staff ? "Lịch thi" : "Lịch thi của tôi"}</Title>
+    <Title actionsInline right={manager && <><div className="hidden md:block"><Link href="/lich-thi/them" className="rounded-md bg-coral-600 px-4 py-2 text-sm font-medium text-white">+ Tạo lịch thi</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lịch thi"><Link href="/lich-thi/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Tạo lịch thi</Link></ActionMenu></div></>}>{staff ? "Lịch thi" : "Lịch thi của tôi"}</Title>
     <AutoForm className="flex flex-wrap gap-2">
       <input name="q" defaultValue={sp.q} placeholder="Tìm kỳ thi..." className={inputCls + " min-w-0 flex-1"} aria-label="Tìm kỳ thi" />
       <MobileCollapse active={[sp.grade, sp.subject, sp.status, sp.mine].filter(Boolean).length}>

@@ -1010,6 +1010,10 @@ model ParentAccount {
   phone        String   @unique
   fullName     String?
   passwordHash String
+  /// Đã xác minh quyền sử dụng số điện thoại bằng mã SMS. Khi bật SMS, chưa xác minh thì chưa được xem thông tin.
+  phoneVerifiedAt DateTime?
+  /// Bắt buộc đặt mật khẩu mới trước khi xem thông tin (lần đầu qua SMS, hoặc đang dùng mật khẩu mặc định).
+  mustChangePwd   Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1135,4 +1139,52 @@ model ErrorLog {
   lastSeenAt  DateTime @default(now())
 
   @@index([status, lastSeenAt])
+}
+
+/// Thông báo cho phụ huynh. Khoá theo SĐT người giám hộ (9 số cuối) vì tài khoản Cổng Phụ huynh chỉ được tạo khi đăng nhập lần đầu,
+/// còn thông báo có thể phát sinh trước đó. Cùng cách ghép phụ huynh với học sinh như trang /phu-huynh.
+model ParentNotification {
+  id        String   @id @default(cuid())
+  phoneKey  String
+  studentId String?
+  title     String
+  content   String
+  type      String   @default("SYSTEM") // GRADE | ATTENDANCE | SYSTEM
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phoneKey, isRead])
+  @@index([phoneKey, createdAt])
+}
+
+/// Mã OTP xác minh số điện thoại phụ huynh (chỉ lưu băm HMAC, hết hạn nhanh, giới hạn số lần thử).
+model ParentOtp {
+  id         String    @id @default(cuid())
+  phoneKey   String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phoneKey, createdAt])
+}
+
+/// Nhật ký gửi SMS: không lưu số điện thoại rõ (chỉ băm để đếm hạn mức và dạng che 090****123 để tra cứu) và không lưu nội dung.
+model SmsLog {
+  id           String   @id @default(cuid())
+  purpose      String // OTP | NOTICE
+  phoneHash    String
+  phoneMasked  String
+  status       String // SENT | FAILED | SKIPPED
+  provider     String
+  providerCode String?
+  providerRef  String?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([phoneHash, createdAt])
+  @@index([status, createdAt])
 }

@@ -54,7 +54,7 @@ export function DialogButton({
       <button
         type="button"
         onClick={open}
-        className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium transition-colors ${block ? "h-9 w-full px-2 text-sm" : size === "sm" ? "h-8 px-3 text-xs" : "h-9 px-4 text-sm"} ${variant === "primary" ? "bg-orange-600 text-white hover:bg-orange-700" : variant === "ghost" ? "text-orange-700 hover:bg-orange-50" : "border bg-white hover:bg-slate-50"}`}
+        className={`inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md font-medium transition-colors ${block ? "h-9 w-full px-2 text-sm" : size === "sm" ? "h-8 px-3 text-xs" : "h-9 px-4 text-sm"} ${variant === "primary" ? "bg-coral-600 text-white hover:bg-coral-700" : variant === "ghost" ? "text-orange-700 hover:bg-orange-50" : "border bg-white hover:bg-slate-50"}`}
       >
         {label}
       </button>

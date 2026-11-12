@@ -187,7 +187,7 @@ export default async function Home() {
                   {unlogged.slice(0, 6).map((s) => (
                     <li key={s.id} className="flex flex-col gap-2 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0"><b>{s.schoolClass.className} · {s.assignment.subject.subjectName}</b><div className="text-xs text-slate-500">Tiết {s.periodNo} · {s.assignment.teacher.fullName}</div></div>
-                      <Link href="/so-dau-bai" className="inline-flex h-9 w-full items-center justify-center rounded-md bg-orange-600 px-3 text-xs font-medium text-white hover:bg-orange-700 sm:h-8 sm:w-auto">Mở sổ đầu bài</Link>
+                      <Link href="/so-dau-bai" className="inline-flex h-9 w-full items-center justify-center rounded-md bg-coral-600 px-3 text-xs font-medium text-white hover:bg-coral-700 sm:h-8 sm:w-auto">Mở sổ đầu bài</Link>
                     </li>
                   ))}
                 </ul>

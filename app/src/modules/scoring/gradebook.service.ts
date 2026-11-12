@@ -7,6 +7,7 @@ import { yearResultRepository } from "@/modules/promotion/promotion.repository";
 import { gradingRepository } from "./scoring.repository";
 import { assertScoreWrite } from "./locking";
 import { roundGrade } from "./annual";
+import { notifyScoresChanged, scoresDiffer, type ScoreSet } from "@/modules/notification/guardian-events";
 const score = z.number().min(0).max(10);
 export const saveScoresInput = z.object({ assignmentId: z.string().min(1), reason: z.string().min(5), rows: z.array(z.object({ studentId: z.string().min(1), tx: z.array(score).max(20), gk: score.nullable(), ck: score.nullable() })).min(1).max(100) });
 export async function saveClassScores(me: SessionUser, input: z.infer<typeof saveScoresInput>) {
@@ -17,7 +18,9 @@ export async function saveClassScores(me: SessionUser, input: z.infer<typeof sav
   if (a.subject.assessmentType !== "SCORE") throw new Error("Môn này đánh giá bằng nhận xét, không nhập điểm số");
   if (new Set(rows.map((row) => row.studentId)).size !== rows.length) throw new Error("Học sinh bị lặp");
   if (reason.length < 5) throw new Error("Nhập lý do cập nhật điểm (ít nhất 5 ký tự)");
+  const changes: { studentId: string; after: ScoreSet }[] = [];
   await withTransaction(async (tx) => {
+    changes.length = 0; // giao dịch có thể được thử lại
     const assignment = await assertScoreWrite(me, assignmentId, tx);
     const enrolled = new Set((await records.listClassStudentIds(a.schoolClassId, a.schoolClass.academicYearId, tx)).map((row) => row.studentId));
     for (const row of rows) {
@@ -40,8 +43,13 @@ export async function saveClassScores(me: SessionUser, input: z.infer<typeof sav
         const averageValue = roundGrade((row.tx.reduce((sum, value) => sum + value, 0) + (row.gk ?? 0) * 2 + (row.ck ?? 0) * 3) / denominator);
         await gradingRepository(tx).average(row.studentId, assignmentId, assignment.academicTermId, averageValue);
       } else await gradingRepository(tx).removeAverage(row.studentId, assignmentId, assignment.academicTermId);
+      const was: ScoreSet = { tx: before.filter((e) => e.scoreType === "THUONG_XUYEN").map((e) => e.value), gk: before.find((e) => e.scoreType === "GIUA_KY")?.value ?? null, ck: before.find((e) => e.scoreType === "CUOI_KY")?.value ?? null };
+      const now: ScoreSet = { tx: row.tx, gk: row.gk, ck: row.ck };
+      if (scoresDiffer(was, now)) changes.push({ studentId: row.studentId, after: now });
       await records.appendAudit({ actorEmail: me.email, action: "save_scores", targetType: "ScoreEntry", targetId: row.studentId, reason, beforeData: JSON.parse(JSON.stringify(before)), afterData: JSON.parse(JSON.stringify(data)) }, tx);
     }
   }, { timeout: 30000 });
+  // Báo học sinh + phụ huynh những em có điểm thay đổi (chỉ khi điểm đang hiển thị). Lỗi thông báo không ảnh hưởng việc lưu điểm.
+  await notifyScoresChanged({ subjectName: a.subject.subjectName, termName: a.academicTerm.termName, gradesHidden: a.academicTerm.gradesHidden, changes });
   return { assignmentId, changed: rows.length };
 }

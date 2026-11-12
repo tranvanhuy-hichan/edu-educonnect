@@ -1,10 +1,10 @@
-import { requireRole } from "@/lib/guard";
+import { requireSignedIn } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { Card, Field, inputCls, Title } from "@/components/ui";
 import { changeMyPassword } from "./actions";
 
 export default async function ChangePassword() {
-  const me = await requireRole();
+  const me = await requireSignedIn();
   const forced = me.mustChangePwd;
   return (
     <div className=" space-y-4">

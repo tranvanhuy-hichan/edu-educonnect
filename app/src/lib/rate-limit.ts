@@ -12,6 +12,13 @@ export const LIMITS = {
   importAi: { limit: 5, windowSec: 600 },
   changePassword: { limit: 5, windowSec: 900 },
   jobsTrigger: { limit: 10, windowSec: 60 },
+  search: { limit: 90, windowSec: 60 }, // ô tìm kiếm gõ tới đâu gọi tới đó (đã debounce)
+  otpIp: { limit: 10, windowSec: 3600 }, // yêu cầu mã SMS theo IP
+  otpCooldown: { limit: 1, windowSec: 60 }, // 1 mã/phút/số
+  otpPhone: { limit: 3, windowSec: 600 }, // 3 mã/10 phút/số (chống nhắn tin gây phiền)
+  otpVerifyIp: { limit: 40, windowSec: 3600 },
+  otpVerifyPhone: { limit: 10, windowSec: 600 },
+  bulkReset: { limit: 150, windowSec: 600 }, // 150 lô x 40 = 6000 tài khoản / 10 phút
 } satisfies Record<string, RateLimitRule>;
 
 /**

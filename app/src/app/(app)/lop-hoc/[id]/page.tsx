@@ -204,7 +204,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         ]);
         return (
           <div className="space-y-3">
-            <div className="flex justify-end"><Link href={`/nhap-diem?class=${id}`} className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">Nhập / sửa điểm</Link></div>
+            <div className="flex justify-end"><Link href={`/nhap-diem?class=${id}`} className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">Nhập / sửa điểm</Link></div>
             <Table head={["Học sinh", "Số môn có điểm", "Điểm TB", "Xếp loại"]}>
               {list.map((e) => {
                 const mine = avgs.filter((a) => a.studentId === e.studentId);

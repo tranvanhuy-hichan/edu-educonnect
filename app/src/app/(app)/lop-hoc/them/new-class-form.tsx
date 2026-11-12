@@ -81,7 +81,7 @@ export function NewClassForm({ grades, years, teachers, rooms, subjects, default
             <div className="flex justify-between gap-3"><dt className="text-slate-500">Môn học</dt><dd>{subjectIds.length} môn</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-slate-500">GVCN</dt><dd className="font-medium text-orange-700">{label(teachers, teacherId) ?? "Chưa phân công"}</dd></div>
           </dl>
-          <button disabled={pending || !name.trim() || !gradeId || !yearId || !roomId || !subjectIds.length} className="h-10 w-full rounded-md bg-orange-600 text-sm font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50">{pending ? "Đang tạo..." : "Tạo lớp"}</button>
+          <button disabled={pending || !name.trim() || !gradeId || !yearId || !roomId || !subjectIds.length} className="h-10 w-full rounded-md bg-coral-600 text-sm font-medium text-white hover:bg-coral-700 disabled:cursor-not-allowed disabled:opacity-50">{pending ? "Đang tạo..." : "Tạo lớp"}</button>
           {res?.error && <p className="whitespace-pre-line text-sm text-red-600">{res.error}</p>}
         </div>
       </aside>

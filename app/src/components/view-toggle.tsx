@@ -14,7 +14,7 @@ export function ViewToggle({ path, params, view }: { path: string; params?: Reco
     p.set("v", v);
     return `${path}?${p}`;
   };
-  const cls = (on: boolean) => `inline-flex h-9 flex-1 items-center justify-center gap-1 px-3 md:flex-none ${on ? "bg-orange-600 text-white" : "hover:bg-slate-50"}`;
+  const cls = (on: boolean) => `inline-flex h-9 flex-1 items-center justify-center gap-1 px-3 md:flex-none ${on ? "bg-coral-600 text-white" : "hover:bg-slate-50"}`;
   return (
     <div className="col-span-full flex w-full min-w-0 shrink-0 overflow-hidden rounded-md border bg-white text-sm md:w-auto">
       <Link href={href("table")} className={cls(view === "table")}><Rows3 className="size-4" /> Bảng</Link>

@@ -3,7 +3,7 @@
 -- Cho biết DB thật đang thiếu bảng/cột nào mà code mới cần.
 -- ============================================================================
 SELECT 'bang' AS loai, t AS ten, EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=t) AS co_chua
-FROM unnest(ARRAY['LoginThrottle','Job','ErrorLog','QuizAttempt','StoredFile','ImportJob']) AS t
+FROM unnest(ARRAY['LoginThrottle','Job','ErrorLog','ParentNotification','ParentOtp','SmsLog','QuizAttempt','StoredFile','ImportJob']) AS t
 UNION ALL
 SELECT 'cot', 'QuizAttempt.snapshot', EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='QuizAttempt' AND column_name='snapshot')
 UNION ALL
@@ -106,4 +106,54 @@ CREATE INDEX IF NOT EXISTS "StudentAssessment_assignmentId_idx" ON "StudentAsses
 CREATE INDEX IF NOT EXISTS "TeacherSubject_subjectId_idx" ON "TeacherSubject"("subjectId");
 CREATE INDEX IF NOT EXISTS "SchoolClass_gradeLevelId_idx" ON "SchoolClass"("gradeLevelId");
 CREATE INDEX IF NOT EXISTS "SchoolClass_homeroomTeacherId_idx" ON "SchoolClass"("homeroomTeacherId");
+-- Thông báo cho phụ huynh + xác minh SMS (migration 20261115 và 20261116)
+-- Thông báo cho phụ huynh (khoá theo 9 số cuối SĐT người giám hộ)
+CREATE TABLE IF NOT EXISTS "ParentNotification" (
+  "id" TEXT NOT NULL,
+  "phoneKey" TEXT NOT NULL,
+  "studentId" TEXT,
+  "title" TEXT NOT NULL,
+  "content" TEXT NOT NULL,
+  "type" TEXT NOT NULL DEFAULT 'SYSTEM',
+  "link" TEXT,
+  "isRead" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ParentNotification_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "ParentNotification_phoneKey_isRead_idx" ON "ParentNotification"("phoneKey", "isRead");
+CREATE INDEX IF NOT EXISTS "ParentNotification_phoneKey_createdAt_idx" ON "ParentNotification"("phoneKey", "createdAt");
+
+-- Xác minh SMS cho phụ huynh + nhật ký SMS
+ALTER TABLE "ParentAccount" ADD COLUMN IF NOT EXISTS "phoneVerifiedAt" TIMESTAMP(3);
+ALTER TABLE "ParentAccount" ADD COLUMN IF NOT EXISTS "mustChangePwd" BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS "ParentOtp" (
+  "id" TEXT NOT NULL,
+  "phoneKey" TEXT NOT NULL,
+  "codeHash" TEXT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 0,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "consumedAt" TIMESTAMP(3),
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "ParentOtp_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "ParentOtp_phoneKey_createdAt_idx" ON "ParentOtp"("phoneKey", "createdAt");
+
+CREATE TABLE IF NOT EXISTS "SmsLog" (
+  "id" TEXT NOT NULL,
+  "purpose" TEXT NOT NULL,
+  "phoneHash" TEXT NOT NULL,
+  "phoneMasked" TEXT NOT NULL,
+  "status" TEXT NOT NULL,
+  "provider" TEXT NOT NULL,
+  "providerCode" TEXT,
+  "providerRef" TEXT,
+  "error" TEXT,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "SmsLog_pkey" PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "SmsLog_createdAt_idx" ON "SmsLog"("createdAt");
+CREATE INDEX IF NOT EXISTS "SmsLog_phoneHash_createdAt_idx" ON "SmsLog"("phoneHash", "createdAt");
+CREATE INDEX IF NOT EXISTS "SmsLog_status_createdAt_idx" ON "SmsLog"("status", "createdAt");
+
 COMMIT;

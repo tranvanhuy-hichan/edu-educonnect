@@ -107,7 +107,7 @@ export function ScheduleBuilder({ term, grades, classes, subjects, initial, sele
         </fieldset>; })}
         {!options.fixed.length && <p className="text-sm text-slate-400">Chưa có tiết cố định.</p>}
       </Card>
-      <button disabled={pending || !grades.length} className="rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">{pending ? "Đang xếp lịch..." : "Xếp lịch & xem trước"}</button>
+      <button disabled={pending || !grades.length} className="rounded-md bg-coral-600 px-4 py-2 text-sm font-semibold text-white hover:bg-coral-700 disabled:opacity-50">{pending ? "Đang xếp lịch..." : "Xếp lịch & xem trước"}</button>
       {response?.error && <p role="alert" className="text-sm text-red-600">{response.error}</p>}
     </form>
     {!preview && returned && <p className="text-sm text-slate-500">Cấu hình đã thay đổi. Bấm “Xếp lịch & xem trước” để tính lại.</p>}

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
@@ -89,3 +90,8 @@ export async function runPending(budgetMs = 240_000): Promise<RunSummary> {
 
 /** Kích hoạt worker mà không chờ (dùng trong after()). Lỗi chỉ được ghi log. */
 export const kick = () => runPending().catch((error) => logger.error({ err: error }, "job_kick_failed"));
+
+/** Chạy worker ngay sau khi phản hồi người dùng (trong request). Ngoài ngữ cảnh request (test, script) thì bỏ qua: cron/lần kích hoạt sau sẽ nhặt việc. */
+export function kickSoon() {
+  try { after(() => kick()); } catch { /* không ở trong request */ }
+}

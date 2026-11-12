@@ -73,7 +73,7 @@ function ImportForm({ subjectId, gradeLevelId, lessons, defaultLessonId, maxByte
       <p className="text-xs text-slate-500">AI đọc tệp và tự lưu câu hỏi vào ngân hàng (môn và khối đã chọn). Câu nào AI không chắc chắn được gắn nhãn &quot;Chờ kiểm tra&quot; để bạn duyệt trước khi dùng cho học sinh. Công thức Word được chuyển thành LaTeX; ảnh trong tệp Word được giữ lại. Hãy xem lại đáp án vì AI có thể sai.</p>
       <div className="sticky bottom-0 z-10 -mx-5 -mb-4 mt-2 flex flex-wrap items-center gap-3 border-t px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6" style={{ background: "var(--surface)" }}>
         <div className="min-w-0 flex-1 text-sm empty:hidden">{error && <p className="text-red-600">{error}</p>}</div>
-        <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-md bg-orange-600 px-5 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-60 max-sm:w-full max-sm:justify-center">
+        <button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-md bg-coral-600 px-5 text-sm font-medium text-white hover:bg-coral-700 disabled:opacity-60 max-sm:w-full max-sm:justify-center">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}{busy ? "Đang tải tệp lên…" : "Bắt đầu nhập"}
         </button>
       </div>

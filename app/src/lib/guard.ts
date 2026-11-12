@@ -21,10 +21,25 @@ export const getMe = cache(async (): Promise<Me | null> => {
 
 const hasAny = (me: Me, roles: Role[]) => !roles.length || me.roles.some((r) => roles.includes(r));
 
-/** Dùng trong page: chuyển hướng nếu chưa đăng nhập / không đủ quyền (có 1 trong các vai trò được liệt kê). */
-export async function requireRole(...roles: Role[]): Promise<Me> {
+/** Chỉ cần đã đăng nhập, kể cả khi đang phải đổi mật khẩu. Dành riêng cho trang/thao tác đổi mật khẩu. */
+export async function requireSignedIn(): Promise<Me> {
   const me = await getMe();
   if (!me) redirect("/login");
+  return me;
+}
+export async function assertSignedIn(): Promise<Me> {
+  const me = await getMe();
+  if (!me) throw new Error("Không có quyền");
+  return me;
+}
+
+/**
+ * Dùng trong page: chuyển hướng nếu chưa đăng nhập / không đủ quyền (có 1 trong các vai trò được liệt kê).
+ * Tài khoản đang dùng mật khẩu được cấp (mustChangePwd) bị chuyển thẳng sang trang đổi mật khẩu — chặn ở máy chủ, không chỉ ở giao diện.
+ */
+export async function requireRole(...roles: Role[]): Promise<Me> {
+  const me = await requireSignedIn();
+  if (me.mustChangePwd) redirect("/doi-mat-khau");
   if (!hasAny(me, roles)) redirect("/");
   return me;
 }
@@ -33,6 +48,7 @@ export async function requireRole(...roles: Role[]): Promise<Me> {
 export async function assertRole(...roles: Role[]): Promise<Me> {
   const me = await getMe();
   if (!me || !hasAny(me, roles)) throw new Error("Không có quyền");
+  if (me.mustChangePwd) throw new Error("Vui lòng đổi mật khẩu được cấp trước khi tiếp tục");
   return me;
 }
 

@@ -308,7 +308,7 @@ export default async function Schedule({
         {x.kind !== "activity" && !isLearner && (canLog(x) || isMine(x)) && (
           <Link
             href={`/so-dau-bai?class=${x.schoolClassId}&d=${isoDate(s.date)}`}
-            className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 font-medium text-white hover:bg-orange-700"
+            className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 font-medium text-white hover:bg-coral-700"
           >
             {s.done ? "Mở sổ đầu bài" : isOverdue(s) ? "Ghi sổ đầu bài bù" : "Ghi sổ đầu bài"}
           </Link>
@@ -339,7 +339,7 @@ export default async function Schedule({
     <Link
       href={q({ view: v })}
       className={`inline-flex h-10 min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md border px-2 text-xs sm:text-sm md:h-9 md:flex-none md:px-3 ${
-        view === v ? "border-orange-600 bg-orange-600 text-white" : "bg-white hover:bg-slate-50"
+        view === v ? "border-orange-600 bg-coral-600 text-white" : "bg-white hover:bg-slate-50"
       }`}
     >
       <Icon className="size-4 shrink-0" />
@@ -375,7 +375,7 @@ export default async function Schedule({
     : null;
 
   const btnPrimary =
-    "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-orange-600 px-3 text-sm font-medium text-white hover:bg-orange-700 sm:h-9";
+    "inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-md bg-coral-600 px-3 text-sm font-medium text-white hover:bg-coral-700 sm:h-9";
 
   if (!term) {
     return (
@@ -473,7 +473,7 @@ export default async function Schedule({
         {studentClass ? (
           <Card className="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-orange-50 via-white to-orange-50/40 p-4 border-orange-200">
             <div className="flex items-center gap-3">
-              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-orange-600 text-white shadow-sm">
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-coral-600 text-white shadow-sm">
                 <GraduationCap className="size-6" />
               </span>
               <div>
@@ -525,7 +525,7 @@ export default async function Schedule({
                   scroll={false}
                   className={`flex flex-col items-center rounded-lg border py-2 text-center transition-colors ${
                     on
-                      ? "border-orange-600 bg-orange-600 text-white shadow-sm"
+                      ? "border-orange-600 bg-coral-600 text-white shadow-sm"
                       : isCurrentDay
                       ? "border-orange-300 bg-orange-50 text-orange-950"
                       : "bg-white text-slate-700 hover:bg-slate-50"
@@ -811,7 +811,7 @@ export default async function Schedule({
             <Link
               href={q({ scope: "mine" })}
               className={`inline-flex h-9 items-center px-3 ${
-                scope === "mine" ? "bg-orange-600 text-white" : "hover:bg-slate-50"
+                scope === "mine" ? "bg-coral-600 text-white" : "hover:bg-slate-50"
               }`}
             >
               Lịch của tôi
@@ -819,7 +819,7 @@ export default async function Schedule({
             <Link
               href={q({ scope: "all" })}
               className={`inline-flex h-9 items-center border-l px-3 ${
-                scope === "all" ? "bg-orange-600 text-white" : "hover:bg-slate-50"
+                scope === "all" ? "bg-coral-600 text-white" : "hover:bg-slate-50"
               }`}
             >
               Tất cả
@@ -968,7 +968,7 @@ export default async function Schedule({
                         scroll={false}
                         className={`flex flex-col items-center rounded-lg border py-1.5 text-center ${
                           on
-                            ? "border-orange-600 bg-orange-600 text-white"
+                            ? "border-orange-600 bg-coral-600 text-white"
                             : isToday
                             ? "border-orange-300 bg-orange-50"
                             : "bg-white"

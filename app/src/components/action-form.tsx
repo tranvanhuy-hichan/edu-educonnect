@@ -62,7 +62,7 @@ export function ActionForm({
             {res?.ok && <span className="block whitespace-pre-line text-green-700">{res.ok}</span>}
             {res?.data?.credentials && <button type="button" onClick={() => downloadCredentials(JSON.parse(res.data!.credentials))} className="block text-orange-700 underline">Tải lại CSV tài khoản và mật khẩu ban đầu</button>}
           </div>
-          <button disabled={pending} className={`h-10 whitespace-nowrap rounded-md px-5 text-sm font-medium transition-colors disabled:opacity-50 max-sm:w-full ${danger ? "bg-red-700 text-white hover:bg-red-800" : ghost ? "text-orange-700 hover:bg-orange-50" : "bg-orange-600 text-white hover:bg-orange-700"}`}>{pending ? "..." : submit}</button>
+          <button disabled={pending} className={`h-10 whitespace-nowrap rounded-md px-5 text-sm font-medium transition-colors disabled:opacity-50 max-sm:w-full ${danger ? "bg-red-700 text-white hover:bg-red-800" : ghost ? "text-orange-700 hover:bg-orange-50" : "bg-coral-600 text-white hover:bg-coral-700"}`}>{pending ? "..." : submit}</button>
         </div>
       ) : (<>
       <button
@@ -73,7 +73,7 @@ export function ActionForm({
           ghost ? (danger ? "text-red-600 hover:bg-red-50" : "text-orange-700 hover:bg-orange-50")
             // nút nhỏ trong dòng/bảng: viền nhẹ thay vì khối màu đặc để danh sách không bị "đỏ rực"
             : compact ? (danger ? "border border-red-300 bg-white text-red-600 hover:bg-red-50" : "border bg-white text-orange-700 hover:bg-orange-50")
-            : `text-white ${danger ? "bg-red-700 hover:bg-red-800" : "bg-orange-600 hover:bg-orange-700"}`
+            : `text-white ${danger ? "bg-red-700 hover:bg-red-800" : "bg-coral-600 hover:bg-coral-700"}`
         }`}>
         {pending ? "..." : submit}
       </button>

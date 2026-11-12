@@ -40,7 +40,7 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
 
   return (
     <div className="design-sample class-directory space-y-4">
-      <Title actionsInline right={canEdit ? <><div className="hidden md:block"><Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm lớp học</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lớp học"><Link href="/lop-hoc/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm lớp học</Link></ActionMenu></div></> : undefined}>Danh sách lớp <span className="sample-count ml-1 inline-flex align-middle text-sm">{total}</span></Title>
+      <Title actionsInline right={canEdit ? <><div className="hidden md:block"><Link href="/lop-hoc/them" className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">+ Thêm lớp học</Link></div><div className="md:hidden"><ActionMenu label="Thao tác lớp học"><Link href="/lop-hoc/them" className="flex min-h-10 items-center rounded-md px-3 text-sm hover:bg-slate-50">Thêm lớp học</Link></ActionMenu></div></> : undefined}>Danh sách lớp <span className="sample-count ml-1 inline-flex align-middle text-sm">{total}</span></Title>
       <p className="sample-muted text-sm">Quản lý lớp học, sĩ số và giáo viên chủ nhiệm.</p>
       <AutoForm className="sample-toolbar flex flex-wrap items-center gap-2">
         <input type="hidden" name="v" value={v} />

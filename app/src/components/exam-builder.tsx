@@ -11,7 +11,7 @@ import { examDate, examTime, localExamTime, timeOverlap } from "@/modules/exams/
 import { previewExams, saveExams, checkExams, suggestExams } from "@/app/(app)/lich-thi/actions";
 
 const button = "inline-flex items-center justify-center gap-2 rounded-md border bg-white px-4 py-2 text-sm font-medium disabled:opacity-50";
-const primary = "inline-flex items-center justify-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50";
+const primary = "inline-flex items-center justify-center gap-2 rounded-md bg-coral-600 px-4 py-2 text-sm font-semibold text-white hover:bg-coral-700 disabled:opacity-50";
 const steps = ["Khối & môn thi", "Giờ thi & phân phòng", "Kiểm tra & lưu"];
 
 export function ExamBuilder({ data, initial, eventId }: { data: ExamFormData; initial?: ExamPlan; eventId?: string }) {

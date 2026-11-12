@@ -121,7 +121,7 @@ export function LoginForm({ name, logo }: { name: string; logo: string }) {
 
             <button
               disabled={busy}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 active:scale-[0.99] text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition disabled:opacity-60"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-coral-600 hover:bg-coral-700 active:scale-[0.99] text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition disabled:opacity-60"
             >
               {busy ? (
                 <>

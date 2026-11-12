@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { KeyRound, LogOut, Phone } from "lucide-react";
 import { ModeToggle } from "@/components/layout/mode-toggle";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { ChangePasswordModal } from "./change-password-modal";
 import { parentLogout } from "./actions";
 
@@ -36,7 +37,7 @@ export function ParentHeader({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={brandLogo} alt="" className="size-9 shrink-0 rounded-full object-cover" />
           ) : (
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-orange-600 font-bold text-white">{brandName.slice(0, 1).toUpperCase()}</span>
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-coral-600 font-bold text-white">{brandName.slice(0, 1).toUpperCase()}</span>
           )}
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold leading-tight">{brandName}</div>
@@ -53,6 +54,7 @@ export function ParentHeader({
               <LogOut className="size-4" /><span className="hidden sm:inline">Đăng xuất</span>
             </button>
           </form>
+          <NotificationBell endpoint="/api/parent/notifications" />
           <ModeToggle />
         </div>
       </header>

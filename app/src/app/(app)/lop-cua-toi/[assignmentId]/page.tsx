@@ -62,7 +62,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
             </DialogButton>
     </div>
   );
-  const tabsRight = tab === "posts" ? postActions : tab === "scores" ? <Link href={`/nhap-diem/${a.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700"><PenLine className="size-4" />Nhập / sửa điểm</Link> : undefined;
+  const tabsRight = tab === "posts" ? postActions : tab === "scores" ? <Link href={`/nhap-diem/${a.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700"><PenLine className="size-4" />Nhập / sửa điểm</Link> : undefined;
 
   return (
     <div className="space-y-4">
@@ -78,7 +78,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
           </div>
         </div>
         <div className="btn-row flex flex-wrap gap-2">
-          <Link href={`/nhap-diem/${a.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700"><PenLine className="size-4" />Nhập điểm</Link>
+          <Link href={`/nhap-diem/${a.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700"><PenLine className="size-4" />Nhập điểm</Link>
           <Link href={`/so-dau-bai?classId=${a.schoolClassId}`} className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm hover:bg-slate-50"><ScrollText className="size-4" />Sổ đầu bài</Link>
         </div>
       </Card>

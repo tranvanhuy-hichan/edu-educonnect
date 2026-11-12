@@ -1,5 +1,7 @@
 export type Theme = {
   primary: string;
+  /** Màu nhấn (xanh lam ngọc): nút hành động chính, điểm nhấn. Màu chủ đạo (primary) dùng cho khung, menu, liên kết. */
+  accent: string;
   background: string;
   surface: string;
   text: string;
@@ -13,11 +15,13 @@ export type Theme = {
   dark: boolean;
 };
 
-export const PRIMARY_COLOR = "#30794B";
+export const PRIMARY_COLOR = "#0D9488"; // xanh teal
+export const ACCENT_COLOR = "#0E7490"; // xanh lam ngọc (cyan), cùng họ màu với teal nên hài hoà
+const SIDEBAR_COLOR = "#115E59";
 
 export const DEFAULT_THEME: Theme = {
-  primary: PRIMARY_COLOR, background: "#f3f6f5", surface: "#ffffff", text: "#0f172a", line: "#dce5df",
-  sidebar: PRIMARY_COLOR, font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 10, logo: "", dark: false,
+  primary: PRIMARY_COLOR, accent: ACCENT_COLOR, background: "#f2f8f7", surface: "#ffffff", text: "#0f172a", line: "#d6e6e4",
+  sidebar: SIDEBAR_COLOR, font: "Segoe UI", headingFont: "Segoe UI", fontSize: 14, radius: 10, logo: "", dark: false,
 };
 
 export const FONTS = ["Segoe UI", "Be Vietnam Pro", "Inter", "Roboto", "Nunito", "Montserrat", "Lexend", "Quicksand", "Open Sans", "Merriweather", "Playfair Display", "System"];
@@ -25,7 +29,8 @@ export const FONTS = ["Segoe UI", "Be Vietnam Pro", "Inter", "Roboto", "Nunito",
 export const PRESETS: Record<string, Partial<Theme>> = {
   "Tím đậm": { primary: "#6d28d9", background: "#faf7ff", surface: "#ffffff", text: "#172033", line: "#e6dcf7", sidebar: "#3b0764", dark: false },
   "Xanh dương": { primary: "#0b63b8", background: "#f8fafc", surface: "#ffffff", text: "#172033", line: "#e2e8f0", sidebar: "#084a8c", dark: false },
-  "Xanh lá (mặc định)": { primary: PRIMARY_COLOR, background: "#f6faf7", surface: "#ffffff", text: "#172033", line: "#dde7df", sidebar: "#14532d", dark: false },
+  "Xanh teal (mặc định)": { primary: PRIMARY_COLOR, accent: ACCENT_COLOR, background: "#f2f8f7", surface: "#ffffff", text: "#172033", line: "#d6e6e4", sidebar: SIDEBAR_COLOR, dark: false },
+  "Xanh lá": { primary: "#30794B", background: "#f6faf7", surface: "#ffffff", text: "#172033", line: "#dde7df", sidebar: "#14532d", dark: false },
   "Cam": { primary: "#ea580c", background: "#f8fafc", surface: "#ffffff", text: "#0f172a", line: "#e2e8f0", sidebar: "#ea580c", dark: false },
   "Tím": { primary: "#7c3aed", background: "#f7f5ff", surface: "#ffffff", text: "#1f2937", line: "#e4defa", sidebar: "#4c1d95", dark: false },
   "Đỏ đô": { primary: "#be123c", background: "#fdf6f8", surface: "#ffffff", text: "#1f2937", line: "#f0dce2", sidebar: "#881337", dark: false },
@@ -40,7 +45,7 @@ export function sanitizeTheme(t: Partial<Theme>): Theme {
   const font = (v: unknown, f: string) => (typeof v === "string" && FONTS.includes(v) ? v : f);
   const num = (v: unknown, lo: number, hi: number, f: number) => (typeof v === "number" && v >= lo && v <= hi ? v : f);
   return {
-    primary: col(t.primary, d.primary), background: col(t.background, d.background), surface: col(t.surface, d.surface),
+    primary: col(t.primary, d.primary), accent: col(t.accent, d.accent), background: col(t.background, d.background), surface: col(t.surface, d.surface),
     text: col(t.text, d.text), line: col(t.line, d.line), sidebar: col(t.sidebar, d.sidebar),
     font: font(t.font, d.font), headingFont: font(t.headingFont, d.headingFont),
     fontSize: num(t.fontSize, 12, 20, d.fontSize), radius: num(t.radius, 0, 28, d.radius),
@@ -80,15 +85,17 @@ function lum(hex: string) {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 }
 
-const LIGHT_COLORS = { background: "#f3f6f5", surface: "#ffffff", text: "#0f172a", line: "#dce5df", sidebar: PRIMARY_COLOR };
-const DARK_COLORS = { background: "#090d16", surface: "#111827", text: "#f8fafc", line: "#1f2937", sidebar: "#0d1c13" };
+const LIGHT_COLORS = { background: "#f2f8f7", surface: "#ffffff", text: "#0f172a", line: "#d6e6e4", sidebar: SIDEBAR_COLOR };
+const DARK_COLORS = { background: "#090d16", surface: "#111827", text: "#f8fafc", line: "#1f2937", sidebar: "#0b1f1e" };
 
 function block(t: Theme, dark: boolean) {
   // Màu của quản trị dùng cho chế độ trùng với mặc định của họ; chế độ còn lại dùng bộ màu chuẩn.
   const own = t.dark === dark;
   const c = own ? t : dark ? { ...DARK_COLORS, sidebar: mix(t.primary, "#0f172a", 0.65) } : LIGHT_COLORS;
   const pal = palette(t.primary, dark);
-  const vars = Object.entries(pal).map(([k, v]) => `--color-orange-${k}:${v};`).join("");
+  // Lớp Tailwind "orange-*" là màu CHỦ ĐẠO của hệ thống (xanh teal); "coral-*" là màu NHẤN (tên lớp giữ nguyên từ bản đầu; hiện là xanh lam ngọc).
+  const vars = Object.entries(pal).map(([k, v]) => `--color-orange-${k}:${v};`).join("")
+    + Object.entries(palette(t.accent, dark)).map(([k, v]) => `--color-coral-${k}:${v};`).join("") + `--accent:${t.accent};`;
   const surfaces = `--surface-muted:${mix(c.surface, c.text, dark ? 0.06 : 0.035)};--surface-raised:${mix(c.surface, "#ffffff", dark ? 0.045 : 0)};--text-muted:${mix(c.text, c.surface, dark ? 0.3 : 0.32)};--brand-soft:${pal[50]};--brand-text:${pal[700]};--warning-bg:${dark ? "#302719" : "#fff6e5"};--warning-text:${dark ? "#f6cc82" : "#875514"};--danger-bg:${dark ? "#382027" : "#fff0f1"};--danger-text:${dark ? "#f5afb9" : "#a82c40"};--info-bg:${dark ? "#172b3b" : "#edf5fc"};--info-text:${dark ? "#a0cef5" : "#285e87"};`;
   return `${vars}${surfaces}--primary:${t.primary};--bg:${c.background};--surface:${c.surface};--fg:${c.text};--line:${c.line};--sidebar:${c.sidebar};--sb-fg:${lum(c.sidebar) > 0.6 ? "#1f2937" : "#ffffff"};color-scheme:${dark ? "dark" : "light"};`;
 }

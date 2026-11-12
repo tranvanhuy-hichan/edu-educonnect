@@ -4,7 +4,7 @@ import type { CreateClassPeriodLogInput } from "@/modules/attendance/attendance.
 export function findTimetableSlotWithAssignment(timetableSlotId: string) {
   return prisma.timetableSlot.findUnique({
     where: { id: timetableSlotId },
-    include: { assignment: true, version: true },
+    include: { assignment: { include: { subject: true } }, version: true },
   });
 }
 

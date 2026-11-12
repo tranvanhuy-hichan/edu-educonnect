@@ -19,7 +19,7 @@ export function buildOpenApi() {
     info: { title: "EduConnect API", version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev", description: "API nội bộ của EduConnect. Đăng nhập bằng cookie phiên (HttpOnly). Lỗi 5xx luôn kèm requestId." },
     servers: [{ url: process.env.NEXT_PUBLIC_APP_URL || "/" }],
     components: { securitySchemes: { cookieAuth: { type: "apiKey", in: "cookie", name: "educonnect_session" }, cronBearer: { type: "http", scheme: "bearer", description: "CRON_SECRET" } } },
-    tags: [{ name: "Auth" }, { name: "Files" }, { name: "Import" }, { name: "Notifications" }, { name: "Ops" }],
+    tags: [{ name: "Auth" }, { name: "Files" }, { name: "Import" }, { name: "Notifications" }, { name: "Search" }, { name: "Ops" }],
     paths: {
       "/api/auth/login": { post: { tags: ["Auth"], summary: "Đăng nhập (email hoặc mã học sinh)", description: "Giới hạn 10 lần/15 phút theo tài khoản; sai quá mức trả 401 như sai mật khẩu.", requestBody: { required: true, content: json(loginSchema) }, responses: { "200": { description: "Thành công, đặt cookie phiên", content: out(SessionUserBody) }, "400": err("Dữ liệu không hợp lệ"), "401": err("Sai thông tin hoặc bị giới hạn") } } },
       "/api/auth/logout": { post: { tags: ["Auth"], summary: "Đăng xuất", security: cookieAuth, responses: { "200": { description: "Đã xoá cookie" } } } },
@@ -30,6 +30,11 @@ export function buildOpenApi() {
       "/api/notifications": {
         get: { tags: ["Notifications"], summary: "Thông báo của tôi", security: cookieAuth, responses: { "200": { description: "OK", content: out(z.object({ notifications: z.array(z.unknown()), unreadCount: z.number() })) } } },
         post: { tags: ["Notifications"], summary: "Đánh dấu đã đọc", security: cookieAuth, requestBody: { content: json(z.object({ action: z.literal("read_all").optional(), id: z.string().optional() })) }, responses: { "200": { description: "OK" }, "400": err("Hành động không hợp lệ") } },
+      },
+      "/api/search": { get: { tags: ["Search"], summary: "Tìm nhanh học sinh, giáo viên, lớp, tài khoản", description: "?q= tối thiểu 2 ký tự. Kết quả giới hạn theo vai trò: học sinh → Admin/Ban giám hiệu; giáo viên và lớp → thêm giáo viên; tài khoản → chỉ Admin. 90 lần/phút/người.", security: cookieAuth, parameters: [{ name: "q", in: "query", required: true, schema: { type: "string", minLength: 2, maxLength: 60 } }], responses: { "200": { description: "Các nhóm kết quả (mỗi nhóm tối đa 5 dòng, more=true nếu còn)", content: out(z.object({ groups: z.array(z.object({ key: z.string(), label: z.string(), listHref: z.string(), more: z.boolean(), items: z.array(z.object({ id: z.string(), label: z.string(), sub: z.string(), href: z.string() })) })) })) }, "401": err("Chưa đăng nhập"), "429": err("Quá nhiều yêu cầu") } } },
+      "/api/parent/notifications": {
+        get: { tags: ["Notifications"], summary: "Thông báo của phụ huynh (điểm mới, công bố điểm, vắng mặt)", description: "Xác thực bằng cookie Cổng Phụ huynh (educonnect_parent_token), không dùng cookie cán bộ.", responses: { "200": { description: "OK", content: out(z.object({ notifications: z.array(z.unknown()), unreadCount: z.number() })) }, "401": err("Chưa đăng nhập cổng phụ huynh") } },
+        post: { tags: ["Notifications"], summary: "Đánh dấu đã đọc", requestBody: { content: json(z.object({ action: z.literal("read_all").optional(), id: z.string().optional() })) }, responses: { "200": { description: "OK" }, "400": err("Hành động không hợp lệ"), "403": err("Sai nguồn gốc yêu cầu") } },
       },
       "/api/health": { get: { tags: ["Ops"], summary: "Liveness (không đụng DB)", responses: { "200": { description: "OK" } } } },
       "/api/ready": { get: { tags: ["Ops"], summary: "Readiness: DB, migration, kho tệp", responses: { "200": { description: "Sẵn sàng" }, "503": { description: "Có thành phần lỗi" } } } },

@@ -11,7 +11,9 @@ import { Field, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
-import { importAccounts, createAccount, resetAccountPassword, toggleAccount } from "./actions";
+import { BulkResetPasswords } from "@/components/bulk-reset-passwords";
+import { BULK_RESET_BATCH } from "@/modules/admin/admin.service";
+import { importAccounts, createAccount, resetAccountPassword, toggleAccount, previewBulkReset, runBulkReset } from "./actions";
 
 const TABS: [string, string][] = [["all", "Tất cả"], ["ADMIN", "Quản trị"], ["PRINCIPAL", "Hiệu trưởng"], ["VICE_PRINCIPAL", "Hiệu phó"], ["HOMEROOM_TEACHER", "GVCN"], ["SUBJECT_TEACHER", "GVBM"], ["LIBRARIAN", "Thủ thư"], ["STUDENT", "Học sinh"]];
 const CREATE_ROLES: Role[] = ["ADMIN", "PRINCIPAL", "VICE_PRINCIPAL", "HOMEROOM_TEACHER", "SUBJECT_TEACHER", "LIBRARIAN"];
@@ -33,6 +35,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   const tabWhere = tab === "all" ? {} : { roles: { has: tab as Role } };
   const orderBy = sort === "za" ? { email: "desc" as const } : sort === "new" ? { createdAt: "desc" as const } : { email: "asc" as const };
 
+  const year = await db.academicYear.findFirst({ where: { startDate: { lte: new Date() } }, orderBy: { startDate: "desc" } });
+  const classes = year ? await db.schoolClass.findMany({ where: { academicYearId: year.id }, orderBy: [{ gradeLevel: { gradeName: "asc" } }, { className: "asc" }], select: { id: true, className: true } }) : [];
   const [users, ...countList] = await Promise.all([
     db.user.findMany({
       where: { ...base, ...tabWhere }, orderBy, skip: pg.skip, take: pg.take,
@@ -78,7 +82,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     </>
   );
 
-  const accountActions = <><DialogButton label="Nhập hàng loạt" title="Nhập tài khoản hàng loạt"><BulkAccounts action={importAccounts}><div className="grid grid-cols-2 gap-2">{CREATE_ROLES.map((role) => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" name="roles" value={role} />{ROLE_LABEL[role]}</label>)}</div></BulkAccounts></DialogButton><DialogButton label="+ Thêm tài khoản" title="Thêm tài khoản">
+  const resetRoles = (["STUDENT", "HOMEROOM_TEACHER", "SUBJECT_TEACHER", "LIBRARIAN", "VICE_PRINCIPAL", "PRINCIPAL", "ADMIN"] as Role[]).map((r) => ({ value: r, label: ROLE_LABEL[r] }));
+  const accountActions = <><DialogButton label="Cấp lại MK hàng loạt" title="Cấp lại mật khẩu hàng loạt" variant="secondary" width="md"><BulkResetPasswords roles={resetRoles} classes={classes.map((c) => ({ value: c.id, label: c.className }))} batchSize={BULK_RESET_BATCH} preview={previewBulkReset} run={runBulkReset} /></DialogButton><DialogButton label="Nhập hàng loạt" title="Nhập tài khoản hàng loạt"><BulkAccounts action={importAccounts}><div className="grid grid-cols-2 gap-2">{CREATE_ROLES.map((role) => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" name="roles" value={role} />{ROLE_LABEL[role]}</label>)}</div></BulkAccounts></DialogButton><DialogButton label="+ Thêm tài khoản" title="Thêm tài khoản">
         <ActionForm action={createAccount} submit="Tạo tài khoản" className="flex flex-col gap-3 [&>button]:self-start">
           <Field label="Email đăng nhập"><input name="email" type="email" className={inputCls + " w-full"} required /></Field>
           <Field label="Họ tên (bắt buộc với vai trò giáo viên)"><input name="fullName" className={inputCls + " w-full"} /></Field>

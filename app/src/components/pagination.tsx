@@ -28,7 +28,7 @@ export function Pagination({ total, page, size, path, params = {}, pageKey = "pa
         {cur > 1 ? <Link href={href({ [pageKey]: String(cur - 1) })} className={`inline-flex ${btn} bg-white hover:bg-slate-50`} aria-label="Trang trước"><ChevronLeft className="size-4" /></Link> : <span aria-disabled="true" aria-label="Trang trước" className={`inline-flex ${btn} opacity-40`}><ChevronLeft className="size-4" /></span>}
         <span className="min-w-28 text-center text-sm font-medium tabular-nums sm:hidden" aria-live="polite">Trang {cur} / {pages}</span>
         {nums.map((n, i) => n === "…" ? <span key={i} className="hidden px-1 text-slate-400 sm:inline">…</span> : (
-          <Link key={i} aria-current={n === cur ? "page" : undefined} aria-label={`Trang ${n}`} href={href({ [pageKey]: String(n) })} className={`${btn} hidden sm:inline-flex ${n === cur ? "border-orange-600 bg-orange-600 font-semibold text-white" : "bg-white hover:bg-slate-50"}`}>{n}</Link>
+          <Link key={i} aria-current={n === cur ? "page" : undefined} aria-label={`Trang ${n}`} href={href({ [pageKey]: String(n) })} className={`${btn} hidden sm:inline-flex ${n === cur ? "border-orange-600 bg-coral-600 font-semibold text-white" : "bg-white hover:bg-slate-50"}`}>{n}</Link>
         ))}
         {cur < pages ? <Link href={href({ [pageKey]: String(cur + 1) })} className={`inline-flex ${btn} bg-white hover:bg-slate-50`} aria-label="Trang sau"><ChevronRight className="size-4" /></Link> : <span aria-disabled="true" aria-label="Trang sau" className={`inline-flex ${btn} opacity-40`}><ChevronRight className="size-4" /></span>}
       </div>

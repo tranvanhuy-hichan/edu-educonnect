@@ -2,6 +2,12 @@
 
 @custom-variant dark (&:where([data-dark="1"], [data-dark="1"] *));
 
+/* Màu nhấn, tên lớp coral-* giữ nguyên (hiện là xanh lam ngọc). Giá trị thực lấy từ theme lúc chạy (lib/theme.ts); đây là giá trị mặc định để Tailwind sinh lớp coral-*. */
+@theme {
+  --color-coral-50: #ecfafd; --color-coral-100: #d2f1f8; --color-coral-200: #a5e1ee; --color-coral-300: #6fcbe0; --color-coral-400: #36adc8;
+  --color-coral-500: #0e7490; --color-coral-600: #0c657f; --color-coral-700: #0a5367; --color-coral-800: #084457; --color-coral-900: #063644; --color-coral-950: #042530;
+}
+
 @theme inline {
   --radius-md: calc(var(--r) * 0.7);
   --radius-lg: var(--r);

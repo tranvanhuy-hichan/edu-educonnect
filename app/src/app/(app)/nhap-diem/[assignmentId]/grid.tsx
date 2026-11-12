@@ -165,7 +165,7 @@ export function GradeGrid({
             <button
               type="submit"
               disabled={pending || !dirty}
-              className="bg-orange-600 text-white rounded-lg px-5 py-2 text-sm font-medium disabled:opacity-50"
+              className="bg-coral-600 text-white rounded-lg px-5 py-2 text-sm font-medium disabled:opacity-50"
             >
               {pending ? "Đang lưu..." : `Lưu điểm${dirty ? ` (${dirty} học sinh thay đổi)` : ""}`}
             </button>

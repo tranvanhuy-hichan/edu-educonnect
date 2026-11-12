@@ -39,7 +39,7 @@ export function ImportStudents({ classId }: { classId: string }) {
           <input type="file" accept=".csv,.txt,text/csv,text/plain" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (f) setText(await f.text()); e.target.value = ""; }} />
         </label>
         <span className="text-sm text-slate-500">{n} học sinh</span>
-        <button disabled={pending || !n} className="ml-auto h-9 rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700 disabled:opacity-50">{pending ? "Đang tạo..." : `Tạo ${n || ""} tài khoản & xếp lớp`}</button>
+        <button disabled={pending || !n} className="ml-auto h-9 rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700 disabled:opacity-50">{pending ? "Đang tạo..." : `Tạo ${n || ""} tài khoản & xếp lớp`}</button>
       </div>
       {res?.error && <p className="text-sm text-red-600">{res.error}</p>}
       {res?.ok && (

@@ -2,13 +2,13 @@
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
-import { assertRole } from "@/lib/guard";
+import { assertSignedIn } from "@/lib/guard";
 import { wrap, str } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { LIMITS, rateLimit } from "@/lib/rate-limit";
 
 export const changeMyPassword = wrap(async (fd) => {
-  const me = await assertRole(); // mọi người dùng đã đăng nhập
+  const me = await assertSignedIn(); // mọi người dùng đã đăng nhập, kể cả khi đang bị buộc đổi mật khẩu
   const rl = await rateLimit("change-password", me.id, LIMITS.changePassword);
   if (!rl.ok) throw new Error(`Bạn nhập sai quá nhiều lần. Vui lòng thử lại sau ${Math.ceil(rl.retryAfterSec / 60)} phút.`);
   const u = await db.user.findUniqueOrThrow({ where: { id: me.id } });

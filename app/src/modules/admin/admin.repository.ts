@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
 import { genTeacherCode } from "@/lib/password";
@@ -115,4 +116,32 @@ export function recentActivitySummaries(take: number, context?: DatabaseContext)
     orderBy: { createdAt: "desc" },
     take,
   });
+}
+
+/** Năm học hiện hành: năm học đã bắt đầu gần nhất. */
+export function currentAcademicYear() {
+  return prisma.academicYear.findFirst({ where: { startDate: { lte: new Date() } }, orderBy: { startDate: "desc" } });
+}
+
+export function bulkResetTargets(where: Prisma.UserWhereInput, take: number) {
+  return prisma.user.findMany({ where, select: { id: true, roles: true }, take });
+}
+
+export function usersForReset(ids: string[], academicYearId: string | null) {
+  return prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true, email: true, roles: true, isActive: true,
+      teacher: { select: { fullName: true, code: true } },
+      student: { select: { fullName: true, code: true, enrollments: { where: academicYearId ? { academicYearId } : {}, take: 1, select: { schoolClass: { select: { className: true } } } } } },
+    },
+  });
+}
+
+/** Đổi mật khẩu cả lô trong một transaction (hoặc đổi hết, hoặc không đổi ai) và ghi nhật ký từng tài khoản. */
+export function applyBulkPasswordReset(updates: { id: string; passwordHash: string }[], actorEmail: string) {
+  return prisma.$transaction([
+    ...updates.map((u) => prisma.user.update({ where: { id: u.id }, data: { passwordHash: u.passwordHash, mustChangePwd: true }, select: { id: true } })),
+    prisma.activityLog.createMany({ data: updates.map((u) => ({ actorEmail, action: "reset_password", targetType: "User", targetId: u.id })) }),
+  ]);
 }

@@ -1,6 +1,6 @@
 import * as repository from "./notification.repository";
 
-export type NotificationType = "SYSTEM" | "EXAM" | "ASSIGNMENT" | "LIBRARY" | "SCHEDULE" | "GRADE";
+export type NotificationType = "SYSTEM" | "EXAM" | "ASSIGNMENT" | "LIBRARY" | "SCHEDULE" | "GRADE" | "ATTENDANCE";
 
 export async function createNotification(data: {
   userId: string;

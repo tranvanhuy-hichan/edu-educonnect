@@ -46,7 +46,7 @@ export default async function QuestionBank({ searchParams }: { searchParams: Pro
       <ImportDialog subjectId={subject.id} gradeLevelId={grade.id} lessons={importLessons} defaultLessonId={sp.lessonId && sp.lessonId !== "none" ? sp.lessonId : undefined} maxBytes={uploadLimit()} />
       {overview && overview.review > 0 && <Link href="/ngan-hang-cau-hoi/nhap" className={`${pill} h-9 bg-yellow-100 px-3 text-yellow-800`}><Sparkles className="mr-1 size-3.5" />{overview.review} câu AI chờ kiểm tra</Link>}
       <Link href="/ngan-hang-cau-hoi/nhap" className="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium hover:bg-slate-50">Phiên nhập AI</Link>
-      <Link href={`/ngan-hang-cau-hoi/moi?${new URLSearchParams({ subjectId: subject.id, gradeLevelId: grade.id, ...(sp.lessonId && sp.lessonId !== "none" ? { lessonId: sp.lessonId } : {}), back: href({ subjectId, gradeLevelId, lessonId: sp.lessonId }) })}`} className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm câu hỏi</Link>
+      <Link href={`/ngan-hang-cau-hoi/moi?${new URLSearchParams({ subjectId: subject.id, gradeLevelId: grade.id, ...(sp.lessonId && sp.lessonId !== "none" ? { lessonId: sp.lessonId } : {}), back: href({ subjectId, gradeLevelId, lessonId: sp.lessonId }) })}`} className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">+ Thêm câu hỏi</Link>
     </div>
   ) : undefined;
 

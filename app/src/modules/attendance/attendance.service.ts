@@ -1,3 +1,5 @@
+import { newlyAbsent, notifyAbsences } from "@/modules/notification/guardian-events";
+import { absenceStudentIds } from "@/modules/notification/parent-notification.repository";
 import { isVersionEffective } from "@/modules/scheduling/effective";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
@@ -87,5 +89,9 @@ export async function saveClassPeriodLog(user: SessionUser, input: CreateClassPe
       throw new ConflictError(`Đã quá ${TEACHER_EDIT_DAYS} ngày, giáo viên không thể sửa — liên hệ quản lý`);
     }
   }
-  return attendanceRepository.upsertClassPeriodLog(slot.schoolClassId, input);
+  const before = input.absences ? await absenceStudentIds(input.timetableSlotId, input.logDate) : [];
+  const log = await attendanceRepository.upsertClassPeriodLog(slot.schoolClassId, input);
+  // Báo phụ huynh của những em VỪA được ghi vắng (không báo lại khi giáo viên lưu lần nữa). Lỗi thông báo không ảnh hưởng việc ghi sổ.
+  if (input.absences) await notifyAbsences({ absences: newlyAbsent(before, input.absences), subjectName: slot.assignment.subject.subjectName, periodNo: slot.periodNo, logDate: input.logDate });
+  return log;
 }
