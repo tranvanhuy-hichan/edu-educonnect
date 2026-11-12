@@ -9,6 +9,8 @@ import {
   Calendar,
   CheckCheck,
   GraduationCap,
+  Award,
+  UserX,
 } from "lucide-react";
 
 type NotificationItem = {
@@ -21,7 +23,8 @@ type NotificationItem = {
   createdAt: string;
 };
 
-export function NotificationBell() {
+/** endpoint: nguồn thông báo. Mặc định là của tài khoản cán bộ/học sinh; Cổng Phụ huynh dùng /api/parent/notifications. */
+export function NotificationBell({ endpoint = "/api/notifications" }: { endpoint?: string } = {}) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -33,7 +36,7 @@ export function NotificationBell() {
   useEffect(() => {
     const controller = new AbortController();
     const loadData = () => {
-      fetch("/api/notifications", { signal: controller.signal })
+      fetch(endpoint, { signal: controller.signal })
         .then(async (res) => {
           if (!res.ok) return;
           const data = await res.json();
@@ -50,7 +53,7 @@ export function NotificationBell() {
       clearInterval(interval);
       controller.abort();
     };
-  }, []);
+  }, [endpoint]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -65,7 +68,7 @@ export function NotificationBell() {
   async function markAllRead() {
     setLoading(true);
     try {
-      await fetch("/api/notifications", {
+      await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "read_all" }),
@@ -79,7 +82,7 @@ export function NotificationBell() {
 
   async function handleClickItem(item: NotificationItem) {
     if (!item.isRead) {
-      fetch("/api/notifications", {
+      fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: item.id }),
@@ -105,6 +108,10 @@ export function NotificationBell() {
         return <GraduationCap className="size-4 text-indigo-600" />;
       case "SCHEDULE":
         return <Calendar className="size-4 text-blue-600" />;
+      case "GRADE":
+        return <Award className="size-4 text-orange-600" />;
+      case "ATTENDANCE":
+        return <UserX className="size-4 text-red-600" />;
       case "LIBRARY":
         return <BookMarked className="size-4 text-emerald-600" />;
       default:
@@ -196,7 +203,7 @@ export function NotificationBell() {
                     </p>
                   </div>
                   {!item.isRead && (
-                    <span className="mt-2 size-2 shrink-0 rounded-full bg-orange-600" />
+                    <span className="mt-2 size-2 shrink-0 rounded-full bg-coral-500" />
                   )}
                 </div>
               ))

@@ -1,8 +1,11 @@
 import { db } from "@/lib/db";
+import { SystemTabs } from "@/components/system-tabs";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { Card, Table, Title } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { retryJob, resolveError, runQueueNow } from "./actions";
+import { currentProvider } from "@/modules/sms/provider";
+import { recentSmsFailures, smsStatsSince } from "@/modules/sms/sms.repository";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +28,19 @@ async function dbStats() {
     WHERE s.idx_scan = 0 AND NOT i.indisunique AND NOT i.indisprimary ORDER BY pg_relation_size(s.indexrelid) DESC LIMIT 6`;
   return { size: Number(size), ping, lastMigration, tables, unused };
 }
+/** Tình trạng SMS 24 giờ qua. Nằm ngoài component vì dùng đồng hồ hệ thống (không được gọi trong lúc render). */
+async function smsOverview() {
+  const provider = currentProvider();
+  if (!provider) return { provider, stats: [], failures: [] };
+  const [stats, failures] = await Promise.all([smsStatsSince(new Date(Date.now() - 86_400_000)), recentSmsFailures(8)]);
+  return { provider, stats, failures };
+}
 const mb = (n: number | bigint) => `${(Number(n) / 1048576).toFixed(1)} MB`;
 
 export default async function Operations() {
   await requireRole(...ADMIN_ROLES);
+  const { provider: smsProvider, stats: smsStats, failures: smsFailures } = await smsOverview();
+  const smsCount = (purpose: string, status: string) => smsStats.find((r) => r.purpose === purpose && r.status === status)?._count ?? 0;
   const [stats, queue, jobs, errors] = await Promise.all([
     dbStats(),
     db.job.groupBy({ by: ["status"], _count: true }),
@@ -40,6 +52,7 @@ export default async function Operations() {
 
   return (
     <div className="space-y-6">
+      <SystemTabs current="/van-hanh" />
       <Title>Vận hành hệ thống</Title>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -48,6 +61,20 @@ export default async function Operations() {
         <Card><p className="text-xs text-slate-500">Migration gần nhất</p><p className="break-all text-sm">{stats.lastMigration ? `${stats.lastMigration.migration_name}${stats.lastMigration.finished_at ? "" : " (đang dở!)"}` : "Không có lịch sử"}</p></Card>
         <Card><p className="text-xs text-slate-500">Lỗi chưa xử lý</p><p className={`text-lg ${errors.length ? "font-semibold text-red-600" : ""}`}>{errors.length}</p></Card>
       </div>
+
+      <section className="space-y-2">
+        <h2 className="font-semibold">SMS cho phụ huynh</h2>
+        {smsProvider ? (
+          <>
+            <p className="text-sm text-slate-600">Đang <b className="text-green-700">bật</b> · nhà cung cấp <code>{smsProvider.name}</code>{process.env.SMS_SANDBOX === "1" ? " · chế độ thử (Sandbox, không gửi thật)" : ""}. 24 giờ qua: thông báo gửi được <b>{smsCount("NOTICE", "SENT")}</b>, lỗi <b className={smsCount("NOTICE", "FAILED") ? "text-red-600" : ""}>{smsCount("NOTICE", "FAILED")}</b>, bỏ qua {smsCount("NOTICE", "SKIPPED")} · mã xác minh gửi được <b>{smsCount("OTP", "SENT")}</b>, lỗi <b className={smsCount("OTP", "FAILED") ? "text-red-600" : ""}>{smsCount("OTP", "FAILED")}</b>.</p>
+            {smsFailures.length > 0 && (
+              <Table head={["Lúc", "Loại", "Số", "Mã lỗi", "Lý do"]}>
+                {smsFailures.map((f) => <tr key={f.id}><td className="whitespace-nowrap text-xs">{fmt(f.createdAt)}</td><td>{f.purpose === "OTP" ? "Mã xác minh" : "Thông báo"}</td><td className="font-mono text-xs">{f.phoneMasked}</td><td className="font-mono text-xs">{f.providerCode}</td><td className="text-xs">{f.error}</td></tr>)}
+              </Table>
+            )}
+          </>
+        ) : <p className="text-sm text-slate-600">Chưa bật. Đặt <code>ESMS_API_KEY</code> và <code>ESMS_SECRET_KEY</code> để gửi SMS thông báo và bắt phụ huynh xác minh số điện thoại (xem docs/sms.md).</p>}
+      </section>
 
       <section className="space-y-2">
         <h2 className="font-semibold">Lỗi hệ thống ({errors.length})</h2>

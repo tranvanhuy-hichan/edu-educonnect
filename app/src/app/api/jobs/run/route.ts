@@ -18,12 +18,15 @@ function authorized(request: Request): boolean {
 
 /**
  * Worker hàng đợi. Vercel Cron gọi (kèm Authorization: Bearer CRON_SECRET) hoặc bất kỳ bộ lập lịch ngoài nào.
- * ?cleanup=1 thêm việc dọn dẹp định kỳ trước khi chạy. Không có CRON_SECRET → từ chối mọi yêu cầu.
+ * ?cleanup=1 thêm việc dọn dẹp định kỳ; ?reminders=1 thêm tác vụ nhắc việc hằng ngày (mỗi ngày tối đa một lần). Không có CRON_SECRET → từ chối mọi yêu cầu.
  */
 export const GET = observe(async (request: Request) => {
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (new URL(request.url).searchParams.get("cleanup") === "1") {
     await enqueue("maintenance.cleanup", {}, { dedupeKey: `cleanup:${new Date().toISOString().slice(0, 10)}`, maxAttempts: 1 });
+  }
+  if (new URL(request.url).searchParams.get("reminders") === "1") {
+    await enqueue("reminders.daily", {}, { dedupeKey: `reminders:${new Date().toISOString().slice(0, 10)}`, maxAttempts: 2 });
   }
   return NextResponse.json(await runPending());
 });

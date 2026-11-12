@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { getParentSession } from "@/lib/auth/parent-session";
+import { isSmsEnabled } from "@/modules/sms/provider";
 import { ParentLoginForm } from "./login-form";
 
 export const dynamic = "force-dynamic";
@@ -25,5 +26,5 @@ export default async function ParentLoginPage() {
   }
 
   const brand = await getSchoolSetting();
-  return <ParentLoginForm name={brand.schoolName} logo={brand.logoUrl ?? ""} />;
+  return <ParentLoginForm name={brand.schoolName} logo={brand.logoUrl ?? ""} smsEnabled={isSmsEnabled()} />;
 }

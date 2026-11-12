@@ -221,7 +221,7 @@ export async function deleteLessonPost(user: SessionUser, id: string) {
   const post = await contentRepository.findLessonPost(id);
   if (!post) throw new ConflictError("Bài học không tồn tại");
   await assertCanManageAssignment(user, post.assignmentId);
-  await contentRepository.deleteLessonPost(id);
+  await contentRepository.deleteLessonPost(id, user.email);
   return post;
 }
 export async function updateExercise(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string; secureMode?: boolean; maxViolations?: number; shuffleQuestions?: boolean; shuffleOptions?: boolean; maxAttempts?: number; attemptScoring?: string; timeLimitMinutes?: number; allowReview?: boolean }) {

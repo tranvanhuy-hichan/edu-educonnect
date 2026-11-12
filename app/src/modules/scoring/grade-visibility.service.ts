@@ -1,6 +1,7 @@
 import type { SessionUser } from "@/lib/auth/session";
 import { ForbiddenError, ConflictError } from "@/shared/errors";
 import { notifyUsers } from "@/modules/notification/notification.service";
+import { notifyGradesPublishedToGuardians } from "@/modules/notification/guardian-events";
 import * as repository from "./grade-visibility.repository";
 
 /**
@@ -24,6 +25,7 @@ export async function setGradesVisibility(user: SessionUser, input: { termId: st
         type: "GRADE", link: "/diem-cua-toi",
       });
     } catch { /* bỏ qua */ }
+    await notifyGradesPublishedToGuardians({ academicYearId: term.academicYearId, termName: term.termName, yearName: term.academicYear.yearName });
   }
   return term;
 }

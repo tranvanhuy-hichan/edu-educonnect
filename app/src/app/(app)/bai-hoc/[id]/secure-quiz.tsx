@@ -172,7 +172,7 @@ export function ExamRunner({ exerciseId, title, count: questionCount, secure, ma
         {res?.error && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{res.error}</p>}
         <div className="fixed inset-x-0 bottom-0 z-[120] flex items-center justify-between gap-3 border-t bg-white px-4 py-3" style={{ background: "var(--surface)" }}>
           <span className="text-xs text-slate-500">{maxAttempts > 1 ? `Lượt ${attemptNo}/${maxAttempts}.` : "Em chỉ được nộp một lần."}</span>
-          <button type="button" disabled={pending} onClick={() => setConfirming(true)} className="h-10 rounded-md bg-orange-600 px-6 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-50">{pending ? "Đang nộp..." : "Nộp bài"}</button>
+          <button type="button" disabled={pending} onClick={() => setConfirming(true)} className="h-10 rounded-md bg-coral-600 px-6 text-sm font-semibold text-white hover:bg-coral-700 disabled:opacity-50">{pending ? "Đang nộp..." : "Nộp bài"}</button>
         </div>
       </form>
 
@@ -181,7 +181,7 @@ export function ExamRunner({ exerciseId, title, count: questionCount, secure, ma
           <div className="w-full max-w-sm space-y-4 rounded-xl p-5 shadow-2xl" style={{ background: "var(--surface)" }}>
             <h3 className="text-base font-semibold">Nộp bài?</h3>
             <p className="text-sm text-slate-600">{maxAttempts > 1 ? "Nộp xong lượt này không sửa được." : "Em chỉ được làm bài một lần. Nộp xong không sửa được."}</p>
-            <div className="flex gap-2"><button type="button" onClick={() => setConfirming(false)} className="h-10 flex-1 rounded-md border text-sm font-medium">Làm tiếp</button><button type="button" onClick={() => { ended.current = true; setFinished(true); setConfirming(false); formRef.current?.requestSubmit(); }} className="h-10 flex-1 rounded-md bg-orange-600 text-sm font-semibold text-white">Nộp bài</button></div>
+            <div className="flex gap-2"><button type="button" onClick={() => setConfirming(false)} className="h-10 flex-1 rounded-md border text-sm font-medium">Làm tiếp</button><button type="button" onClick={() => { ended.current = true; setFinished(true); setConfirming(false); formRef.current?.requestSubmit(); }} className="h-10 flex-1 rounded-md bg-coral-600 text-sm font-semibold text-white">Nộp bài</button></div>
           </div>
         </div>
       )}

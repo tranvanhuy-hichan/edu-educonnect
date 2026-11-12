@@ -1,7 +1,9 @@
 "use server";
+import { trashClass } from "@/modules/trash/trash.repository";
 import { contextFor } from "@/infrastructure/database/unit-of-work";
 
 import { moveStudent } from "@/modules/academic/transfers";
+import { assertClassRules } from "@/modules/curriculum/class-rules";
 import { createClassWithSubjects, setClassSubjects } from "@/modules/curriculum/service";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -21,27 +23,11 @@ async function readClass(fd: FormData, exceptId?: string) {
   const roomId = str(fd, "roomId");
   const shiftRaw = str(fd, "shift") || "MORNING";
   const shift = shiftRaw === "AFTERNOON" ? ("AFTERNOON" as const) : ("MORNING" as const);
-  if (!roomId || !await db.room.findUnique({ where: { id: roomId } })) throw new Error("Chọn phòng học cố định cho lớp");
+  if (!roomId) throw new Error("Chọn phòng học cố định cho lớp");
   if (!className) throw new Error("Nhập tên lớp");
   if (!gradeLevelId) throw new Error("Chọn khối");
   if (!academicYearId) throw new Error("Chọn năm học");
-  if (await db.schoolClass.findFirst({ where: { className, academicYearId, ...(exceptId ? { id: { not: exceptId } } : {}) } })) throw new Error(`Lớp ${className} đã có trong năm học này`);
-
-  // Kiểm tra xung đột phòng học: Trong cùng một năm học và ca học (sáng hoặc chiều), một phòng chỉ có tối đa 1 lớp học
-  const roomConflict = await db.schoolClass.findFirst({
-    where: {
-      academicYearId,
-      roomId,
-      shift,
-      ...(exceptId ? { id: { not: exceptId } } : {}),
-    },
-    include: { room: true },
-  });
-  if (roomConflict) {
-    const shiftText = shift === "MORNING" ? "buổi sáng (tiết 1–5)" : "buổi chiều (tiết 6–10)";
-    throw new Error(`Phòng ${roomConflict.room?.roomName || ""} đã được xếp cho lớp ${roomConflict.className} học vào ${shiftText} trong năm học này. Trong cùng một buổi, không thể có 2 lớp học chung 1 phòng. Vui lòng chọn phòng khác hoặc đổi ca học.`);
-  }
-
+  await assertClassRules({ className, academicYearId, roomId, shift }, exceptId); // quy tắc dùng chung với API ngoài
   return { className, gradeLevelId, academicYearId, roomId, shift, homeroomTeacherId: opt(fd, "homeroomTeacherId") };
 }
 
@@ -88,10 +74,8 @@ export const deleteClass = wrap(async (fd) => {
   const [a, s, l] = await Promise.all([db.classSubjectAssignment.count({ where: { schoolClassId: id } }), db.timetableSlot.count({ where: { schoolClassId: id } }), db.classPeriodLog.count({ where: { schoolClassId: id } })]);
   if (await db.timetableActivity.count({ where: { schoolClassId: id } })) throw new Error("Lớp đã có hoạt động cố định trong thời khóa biểu, không thể xoá");
   if (a || s || l) throw new Error("Lớp đã có phân công / thời khoá biểu / sổ đầu bài, hãy chuyển học sinh sang lớp khác thay vì xoá");
-  await db.classEmulationScore.deleteMany({ where: { schoolClassId: id } });
-  await db.studentClassEnrollment.deleteMany({ where: { schoolClassId: id } });
   if (await db.classTransfer.count({ where: { OR: [{ fromClassId: id }, { toClassId: id }] } })) throw new Error("Lớp có quyết định chuyển học sinh, không thể xóa lịch sử");
-  await db.schoolClass.delete({ where: { id } });
+  await trashClass(me.email, id); // chụp vào thùng rác rồi xoá (kiểm tra xong mới xoá nên không còn xoá dở)
   await audit(me.email, "delete_class", "SchoolClass", id);
   revalidatePath("/lop-hoc");
   redirect("/lop-hoc");

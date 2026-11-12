@@ -6,7 +6,7 @@ import type { SessionUser } from "@/lib/auth/session";
 import { reportError } from "@/lib/observability/report-error";
 import { getRequestContext, setRequestUser } from "@/lib/observability/request-context";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
-import { AccountDisabledError, InvalidCredentialsError } from "@/modules/auth/auth.service";
+import { AccountDisabledError, AccountLockedError, InvalidCredentialsError } from "@/modules/auth/auth.service";
 
 type AuthedHandler<Ctx> = (
   request: NextRequest,
@@ -22,7 +22,7 @@ export function withAuth<Ctx = { params: Promise<Record<string, never>> }>(
 ) {
   return async (request: NextRequest, ctx: Ctx): Promise<Response> => {
     const tokenUser = getSessionUser(request);
-    const user = tokenUser ? await resolveSessionIdentity(tokenUser.userId, tokenUser.credentialTag) : null;
+    const user = tokenUser ? await resolveSessionIdentity(tokenUser.userId, tokenUser.credentialTag, { sid: tokenUser.sid, iat: tokenUser.iat }) : null;
     if (!user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
@@ -51,6 +51,9 @@ export function mapErrorToResponse(error: unknown): Response {
   }
   if (error instanceof InvalidCredentialsError) {
     return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+  if (error instanceof AccountLockedError) {
+    return NextResponse.json({ error: error.message }, { status: 429 });
   }
   if (error instanceof AccountDisabledError) {
     return NextResponse.json({ error: error.message }, { status: 403 });

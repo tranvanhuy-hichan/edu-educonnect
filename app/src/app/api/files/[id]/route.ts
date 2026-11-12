@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 export const GET = observe(async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
   const user = await getMe();
   if (!user) return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
+  if (user.mustChangePwd) return NextResponse.json({ error: "Vui lòng đổi mật khẩu được cấp trước khi tiếp tục" }, { status: 403 });
   const { id } = await params;
   try {
     const url = await downloadFile(user, id);

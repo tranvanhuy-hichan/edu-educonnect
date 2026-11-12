@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { MANAGER_ROLES, assertRole } from "@/lib/guard";
+import { trashStudent } from "@/modules/trash/trash.repository";
 import { wrap, str, opt } from "@/lib/action";
 import { parseDate } from "@/lib/format";
 import { audit } from "@/lib/audit";
@@ -105,12 +106,7 @@ export const deleteStudent = wrap(async (fd) => {
   const [scores, loans, subs] = await Promise.all([db.scoreEntry.count({ where: { studentId: id } }), db.libraryLoan.count({ where: { studentId: id } }), db.assignmentSubmission.count({ where: { studentId: id } })]);
   if (await db.examSeat.count({ where: { studentId: id } })) throw new Error("Học sinh có tên trong lịch thi, hãy khóa tài khoản thay vì xóa hồ sơ");
   if (scores || loans || subs) throw new Error("Học sinh đã có điểm/mượn sách/bài nộp, hãy dùng 'Khóa tài khoản'");
-  const s = await db.student.findUniqueOrThrow({ where: { id } });
-  await db.$transaction([
-    db.studentClassEnrollment.deleteMany({ where: { studentId: id } }), db.lessonPostView.deleteMany({ where: { studentId: id } }),
-    db.subjectTermAverage.deleteMany({ where: { studentId: id } }), db.yearEndResult.deleteMany({ where: { studentId: id } }),
-    db.student.delete({ where: { id } }), db.user.delete({ where: { id: s.userId } }),
-  ]);
+  await trashStudent(me.email, id); // chụp vào thùng rác rồi xoá: khôi phục được trong 30 ngày tại /thung-rac
   await audit(me.email, "delete_student", "Student", id);
   revalidatePath("/hoc-sinh");
 });

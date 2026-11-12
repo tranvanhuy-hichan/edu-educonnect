@@ -2,6 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
 import { registerJob } from "./queue";
 import { objectDownloadUrl } from "@/lib/storage/adapters";
+import { sendSms } from "@/modules/sms/sms.service";
+import { runDailyReminders } from "@/modules/reminders/reminders.service";
+import { purgeExpiredTrash } from "@/modules/trash/trash.repository";
 import { resolveWorkerIdentity } from "@/modules/auth/auth.service";
 import { runImportJob } from "@/modules/importer/importer.service";
 
@@ -30,12 +33,37 @@ export function ensureHandlers() {
     return { importStatus: after?.status ?? "UNKNOWN" };
   });
 
+  // Gửi SMS thông báo cho phụ huynh theo lô. Từng tin tự ghi nhật ký (SmsLog) và KHÔNG ném lỗi ra ngoài, nên việc thử lại
+  // của hàng đợi không bao giờ gửi trùng những tin đã đi. Gặp nhiều lỗi liên tiếp (hết tiền, sai khoá...) thì dừng lô để khỏi gọi vô ích.
+  registerJob("sms.send", async (job) => {
+    const { items } = job.payload as { items: { phone: string; text: string }[] };
+    let sent = 0, failed = 0, skipped = 0, streak = 0;
+    for (const item of items) {
+      if (streak >= 5) { skipped++; continue; }
+      const r = await sendSms("NOTICE", item.phone, item.text);
+      if (r.status === "SENT") { sent++; streak = 0; } else if (r.status === "FAILED") { failed++; streak++; } else skipped++;
+    }
+    logger.info({ sent, failed, skipped }, "sms_batch_done");
+    return { sent, failed, skipped };
+  });
+
+  // Nhắc việc hằng ngày (sách đến hạn, bài tập hết hạn, lịch thi ngày mai) + nhắc rà soát tài khoản đầu tháng.
+  registerJob("reminders.daily", async () => runDailyReminders());
+
   // Dọn dẹp định kỳ: bảng giới hạn tốc độ, việc/lỗi cũ.
   registerJob("maintenance.cleanup", async () => {
     const throttle = await prisma.$executeRaw`DELETE FROM "LoginThrottle" WHERE "expiresAt" <= NOW()`;
     const jobs = await prisma.$executeRaw`DELETE FROM "Job" WHERE "status" IN ('DONE','FAILED') AND "finishedAt" < NOW() - INTERVAL '30 days'`;
     const errors = await prisma.$executeRaw`DELETE FROM "ErrorLog" WHERE "status" = 'RESOLVED' AND "lastSeenAt" < NOW() - INTERVAL '90 days'`;
-    logger.info({ throttle, jobs, errors }, "maintenance_cleanup");
-    return { throttle, jobs, errors };
+    const otps = await prisma.$executeRaw`DELETE FROM "ParentOtp" WHERE "createdAt" < NOW() - INTERVAL '1 day'`;
+    const smsLogs = await prisma.$executeRaw`DELETE FROM "SmsLog" WHERE "createdAt" < NOW() - INTERVAL '90 days'`;
+    const trash = await purgeExpiredTrash();
+    const apiLogs = await prisma.$executeRaw`DELETE FROM "ApiRequestLog" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    await prisma.$executeRaw`DELETE FROM "ApiIdempotency" WHERE "createdAt" < NOW() - INTERVAL '7 days'`;
+    await prisma.$executeRaw`DELETE FROM "ApiChange" WHERE "createdAt" < NOW() - INTERVAL '365 days'`;
+    const sessions = await prisma.$executeRaw`DELETE FROM "UserSession" WHERE "createdAt" < NOW() - INTERVAL '30 days'`;
+    const reminders = await prisma.$executeRaw`DELETE FROM "ReminderSent" WHERE "createdAt" < NOW() - INTERVAL '60 days'`;
+    logger.info({ throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs }, "maintenance_cleanup");
+    return { throttle, jobs, errors, otps, smsLogs, trash, sessions, reminders, apiLogs };
   });
 }

@@ -13,6 +13,6 @@ export function findUserByEmail(login: string) {
 export function findSessionIdentity(id: string) {
   return prisma.user.findUnique({
     where: { id },
-    select: { passwordHash: true, email: true, roles: true, isActive: true, mustChangePwd: true, teacher: { select: { id: true, fullName: true } }, student: { select: { id: true, fullName: true } } },
+    select: { passwordHash: true, email: true, roles: true, isActive: true, mustChangePwd: true, tokensValidAfter: true, onboardedAt: true, teacher: { select: { id: true, fullName: true } }, student: { select: { id: true, fullName: true } } },
   });
 }

@@ -18,6 +18,7 @@ export const maxDuration = 300;
 export const POST = observe(async (request: Request) => {
   const user = await getMe();
   if (!user) return NextResponse.json({ error: "Vui lòng đăng nhập" }, { status: 401 });
+  if (user.mustChangePwd) return NextResponse.json({ error: "Vui lòng đổi mật khẩu được cấp trước khi tiếp tục" }, { status: 403 });
   if (!user.teacherId) return NextResponse.json({ error: "Chỉ giáo viên được nhập tài liệu" }, { status: 403 });
   const rl = await rateLimit("import-ai", user.userId, LIMITS.importAi);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec, "Bạn vừa gửi nhiều tệp nhập liên tiếp. Vui lòng đợi vài phút rồi thử lại.");

@@ -68,7 +68,7 @@ export default async function Students({ searchParams }: { searchParams: Promise
         </MobileCollapse>
 
       </AutoForm>
-      <div className="ml-auto hidden items-center gap-2 md:flex"><Link href="/hoc-sinh/them" className="inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">+ Thêm học sinh</Link></div>
+      <div className="ml-auto hidden items-center gap-2 md:flex"><Link href="/hoc-sinh/them" className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">+ Thêm học sinh</Link></div>
       </div>
       {view !== "cards" && <div className="space-y-2 md:hidden">{shown.map((s) => <Card key={s.id} s={s} />)}{!shown.length && <p className="py-8 text-center text-sm text-slate-500">Không có học sinh phù hợp.</p>}</div>}
       {view === "table" ? (

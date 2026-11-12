@@ -36,7 +36,7 @@ export default async function OpengraphImage() {
         style={{
           width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center",
           padding: "0 90px", color: "#fff", fontFamily: "Vietnamese",
-          background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #14532d 100%)`,
+          background: `linear-gradient(135deg, ${PRIMARY_COLOR} 0%, #0b3b38 100%)`,
         }}
       >
         <div style={{ display: "flex", alignItems: "center" }}>

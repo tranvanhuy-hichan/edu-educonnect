@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import type { Prisma, Role } from "@prisma/client";
 import { isSystemAdmin, type SessionUser } from "@/lib/auth/session";
 import { genPassword } from "@/lib/password";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
@@ -122,4 +123,54 @@ export function listActivityLog(user: SessionUser) {
 export function listRecentActivitySummaries(user: SessionUser) {
   assertSystemAdmin(user);
   return adminRepository.recentActivitySummaries(6);
+}
+
+export const BULK_RESET_MAX_TARGETS = 3000;
+export const BULK_RESET_BATCH = 40;
+export type BulkResetFilter = { roles: Role[]; classIds: string[]; allClasses: boolean };
+export type BulkResetRow = { fullName: string; username: string; className: string; roles: string; password: string };
+
+/**
+ * Tìm các tài khoản sẽ được cấp lại mật khẩu. Luôn bỏ qua tài khoản đang khoá và chính người thực hiện
+ * (nếu không quản trị sẽ tự bị đăng xuất giữa chừng). Học sinh lọc theo lớp của năm học hiện hành.
+ */
+export async function findBulkResetTargets(user: SessionUser, filter: BulkResetFilter) {
+  assertSystemAdmin(user);
+  const staffRoles = filter.roles.filter((r) => r !== "STUDENT");
+  const or: Prisma.UserWhereInput[] = [];
+  if (staffRoles.length) or.push({ roles: { hasSome: staffRoles } });
+  if (filter.roles.includes("STUDENT")) {
+    const year = await adminRepository.currentAcademicYear();
+    if (!year) throw new ConflictError("Chưa có năm học hiện hành nên không xác định được lớp của học sinh");
+    if (!filter.allClasses && !filter.classIds.length) throw new ConflictError("Chọn ít nhất một lớp hoặc chọn tất cả lớp");
+    or.push({ student: { enrollments: { some: { academicYearId: year.id, ...(filter.allClasses ? {} : { schoolClassId: { in: filter.classIds } }) } } } });
+  }
+  if (!or.length) throw new ConflictError("Chọn ít nhất một nhóm tài khoản");
+  const rows = await adminRepository.bulkResetTargets({ isActive: true, id: { not: user.userId }, OR: or }, BULK_RESET_MAX_TARGETS + 1);
+  if (rows.length > BULK_RESET_MAX_TARGETS) throw new ConflictError(`Quá ${BULK_RESET_MAX_TARGETS} tài khoản trong một lần. Hãy chia nhỏ theo lớp hoặc vai trò.`);
+  const students = rows.filter((r) => r.roles.includes("STUDENT")).length;
+  return { ids: rows.map((r) => r.id), total: rows.length, students, staff: rows.length - students };
+}
+
+/** Cấp lại mật khẩu cho một lô (tối đa BULK_RESET_BATCH). Mỗi người một mật khẩu ngẫu nhiên riêng, bị buộc đổi khi đăng nhập, phiên cũ mất hiệu lực. */
+export async function bulkResetPasswords(user: SessionUser, ids: string[]): Promise<BulkResetRow[]> {
+  assertSystemAdmin(user);
+  const unique = [...new Set(ids)].filter((id) => id !== user.userId);
+  if (!unique.length) return [];
+  if (unique.length > BULK_RESET_BATCH) throw new ConflictError(`Mỗi lượt tối đa ${BULK_RESET_BATCH} tài khoản`);
+  const year = await adminRepository.currentAcademicYear();
+  const found = (await adminRepository.usersForReset(unique, year?.id ?? null)).filter((u) => u.isActive);
+  const prepared = [];
+  for (const u of found) {
+    const password = genPassword();
+    prepared.push({ u, password, passwordHash: await bcrypt.hash(password, 10) });
+  }
+  await adminRepository.applyBulkPasswordReset(prepared.map((p) => ({ id: p.u.id, passwordHash: p.passwordHash })), user.email);
+  return prepared.map(({ u, password }) => ({
+    fullName: u.teacher?.fullName ?? u.student?.fullName ?? u.email,
+    username: u.student?.code ?? u.teacher?.code ?? u.email,
+    className: u.student?.enrollments[0]?.schoolClass.className ?? "",
+    roles: u.roles.join(", "),
+    password,
+  }));
 }

@@ -144,7 +144,7 @@ export function ParentPortalView({ childrenData, initialChildId, allTerms, defau
         <div className="no-print flex flex-wrap items-center gap-2 text-sm">
           <span className="text-slate-500">Chọn con:</span>
           {childrenData.map((c) => (
-            <button key={c.id} type="button" onClick={() => setSelectedChildId(c.id)} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 ${c.id === selectedChildId ? "border-orange-600 bg-orange-600 text-white" : "bg-white hover:bg-slate-50"}`}>
+            <button key={c.id} type="button" onClick={() => setSelectedChildId(c.id)} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 ${c.id === selectedChildId ? "border-orange-600 bg-coral-600 text-white" : "bg-white hover:bg-slate-50"}`}>
               {c.fullName}<span className={c.id === selectedChildId ? "text-orange-100" : "text-slate-500"}>{c.schoolClass?.className ?? "Chưa xếp lớp"}</span>
             </button>
           ))}

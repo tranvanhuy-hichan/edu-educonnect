@@ -56,7 +56,7 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
           </div>
         </div>
         <div className="flex w-full items-center gap-2 md:w-auto md:flex-wrap">
-          <Link href={`/lich-hoc?teacher=${t.id}`} className="inline-flex h-9 flex-[1.4] items-center justify-center whitespace-nowrap rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700 md:flex-none">Xem lịch dạy</Link>
+          <Link href={`/lich-hoc?teacher=${t.id}`} className="inline-flex h-9 flex-[1.4] items-center justify-center whitespace-nowrap rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700 md:flex-none">Xem lịch dạy</Link>
           {isAdmin && (
             <details className="relative min-w-0 flex-1 md:flex-none">
               <summary className="inline-flex h-9 w-full cursor-pointer list-none items-center justify-center gap-1 rounded-md border bg-white px-3 text-sm hover:bg-slate-50 md:w-auto"><MoreHorizontal className="size-4" /> Khác</summary>

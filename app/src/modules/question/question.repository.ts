@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { trashQuestion } from "@/modules/trash/trash.repository";
 import type { QuestionInput } from "./question.schema";
 
 export type QuestionFilter = { teacherId?: string; subjectId?: string; gradeLevelId?: string; lessonId?: string; difficulty?: string; type?: string; q?: string; topic?: string; reviewStatus?: string };
@@ -88,12 +89,7 @@ export const versionQuestion = (oldId: string, teacherId: string, q: QuestionInp
     return created;
   });
 
-export const deleteOrArchive = async (id: string) => {
-  await prisma.libraryExerciseQuestion.deleteMany({ where: { questionId: id } }); // gỡ khỏi các bài tập mẫu
-  const used = await prisma.exerciseQuestion.count({ where: { questionId: id } });
-  if (used) return prisma.question.update({ where: { id }, data: { archivedAt: new Date() } });
-  return prisma.question.delete({ where: { id } });
-};
+export const deleteOrArchive = (id: string, actorEmail: string) => trashQuestion(actorEmail, id); // xoá/lưu trữ và chụp vào thùng rác
 
 /** Số câu hỏi theo (môn, khối) của một giáo viên — cho màn hình chọn môn → khối. */
 export const countByGrade = (teacherId: string) =>

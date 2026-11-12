@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { parentGate } from "@/modules/parent/parent-auth.service";
 
 export const PARENT_COOKIE_NAME = "educonnect_parent_token";
 
@@ -18,6 +19,8 @@ export type ParentMe = {
   phone: string;
   fullName: string | null;
   createdAt: Date;
+  phoneVerifiedAt: Date | null;
+  mustChangePwd: boolean;
 };
 
 function getSecret(): string {
@@ -53,15 +56,25 @@ export async function getParentSession(): Promise<ParentMe | null> {
   try {
     const parent = await prisma.parentAccount.findUnique({ where: { id: payload.parentId } });
     if (!parent || !matchesCredential(payload.credentialTag, parent.passwordHash)) return null;
-    return { id: parent.id, phone: parent.phone, fullName: parent.fullName, createdAt: parent.createdAt };
+    return { id: parent.id, phone: parent.phone, fullName: parent.fullName, createdAt: parent.createdAt, phoneVerifiedAt: parent.phoneVerifiedAt, mustChangePwd: parent.mustChangePwd };
   } catch { return null; }
 }
 
-/** Dùng trong page / server action: yêu cầu phụ huynh đã đăng nhập. */
-export async function requireParentSession(): Promise<ParentMe> {
+/** Chỉ cần đã đăng nhập (kể cả khi còn phải xác minh SMS / đổi mật khẩu). Dành riêng cho chính các trang xác minh và đặt mật khẩu. */
+export async function requireParentIdentity(): Promise<ParentMe> {
   const parent = await getParentSession();
-  if (!parent) {
-    redirect("/phu-huynh/dang-nhap");
-  }
+  if (!parent) redirect("/phu-huynh/dang-nhap");
+  return parent;
+}
+
+/**
+ * Dùng trong page / server action xem dữ liệu: phụ huynh phải đăng nhập, đã xác minh SMS (khi nhà trường bật SMS)
+ * và đã đổi mật khẩu bắt buộc. Chặn ở máy chủ nên không thể lách bằng cách gõ thẳng địa chỉ.
+ */
+export async function requireParentSession(): Promise<ParentMe> {
+  const parent = await requireParentIdentity();
+  const gate = parentGate(parent);
+  if (gate === "verify") redirect("/phu-huynh/xac-minh");
+  if (gate === "password") redirect("/phu-huynh/doi-mat-khau");
   return parent;
 }

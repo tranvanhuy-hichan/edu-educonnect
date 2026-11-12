@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { AlertCircle, Eye, EyeOff, Loader2, Lock, Phone, ArrowLeft } from "lucide-react";
 import { ModeToggle } from "@/components/layout/mode-toggle";
-import { parentLogin } from "../actions";
+import { parentLogin, parentRequestOtp, parentVerifyOtp } from "../actions";
 
-export function ParentLoginForm({ name, logo }: { name: string; logo: string }) {
+export function ParentLoginForm({ name, logo, smsEnabled = false }: { name: string; logo: string; smsEnabled?: boolean }) {
+  const [mode, setMode] = useState<"password" | "otp">("password");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [show, setShow] = useState(false);
@@ -78,6 +79,7 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
           </div>
 
           {/* Card Đăng nhập Phụ huynh */}
+          {mode === "otp" ? <OtpPanel onBack={() => { setMode("password"); setErr(""); }} /> : (
           <form
             onSubmit={handleSubmit}
             className="space-y-5 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 sm:p-8 shadow-xl backdrop-blur-md"
@@ -110,9 +112,9 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
                   type={show ? "text" : "password"}
                   autoComplete="current-password"
                   required
-                  defaultValue="123456"
+                  defaultValue={smsEnabled ? "" : "123456"}
                   className="h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--bg)] pl-10 pr-11 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400"
-                  placeholder="Mặc định: 123456"
+                  placeholder={smsEnabled ? "Mật khẩu của bạn" : "Mặc định: 123456"}
                 />
                 <button
                   type="button"
@@ -137,7 +139,7 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
 
             <button
               disabled={busy}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 active:scale-[0.99] text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition disabled:opacity-60"
+              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-coral-600 hover:bg-coral-700 active:scale-[0.99] text-sm font-semibold text-white shadow-md shadow-orange-600/20 transition disabled:opacity-60"
             >
               {busy ? (
                 <>
@@ -149,10 +151,18 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
               )}
             </button>
 
-            <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
-              Quên mật khẩu? Vui lòng liên hệ Giáo viên chủ nhiệm để được đặt lại về mặc định (123456).
-            </p>
+            {smsEnabled ? (
+              <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                Lần đầu đăng nhập hoặc quên mật khẩu?{" "}
+                <button type="button" onClick={() => { setMode("otp"); setErr(""); }} className="font-semibold text-orange-700 hover:underline dark:text-orange-400">Nhận mã xác minh qua SMS</button>
+              </p>
+            ) : (
+              <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
+                Quên mật khẩu? Vui lòng liên hệ Giáo viên chủ nhiệm để được đặt lại về mặc định (123456).
+              </p>
+            )}
           </form>
+          )}
 
           {/* Link quay lại */}
           <div className="mt-5 text-center">
@@ -170,5 +180,76 @@ export function ParentLoginForm({ name, logo }: { name: string; logo: string }) 
         v1.0.0
       </footer>
     </main>
+  );
+}
+
+const field = "h-11 w-full rounded-xl border border-[var(--line)] bg-[var(--bg)] px-3.5 text-sm text-[var(--fg)] outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-500/15 placeholder:text-slate-400";
+
+/** Lần đầu / quên mật khẩu: nhập số điện thoại → nhận mã SMS → nhập mã. Đúng mã thì vào bước đặt mật khẩu mới. */
+function OtpPanel({ onBack }: { onBack: () => void }) {
+  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [phone, setPhone] = useState("");
+  const [sentTo, setSentTo] = useState<string | undefined>();
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function send(e?: React.FormEvent) {
+    e?.preventDefault();
+    setBusy(true); setErr("");
+    const fd = new FormData(); fd.set("phone", phone);
+    try {
+      const r = await parentRequestOtp(fd);
+      if (r.ok) { setSentTo(r.sentTo); setStep("code"); } else setErr(r.error);
+    } catch { setErr("Có lỗi xảy ra, vui lòng thử lại."); }
+    setBusy(false);
+  }
+
+  async function verify(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    const fd = new FormData(e.currentTarget); fd.set("phone", phone);
+    try {
+      const r = await parentVerifyOtp(fd);
+      if (r.success) { window.location.href = "/phu-huynh"; return; }
+      setErr(r.error ?? "Xác minh không thành công.");
+    } catch { setErr("Có lỗi xảy ra, vui lòng thử lại."); }
+    setBusy(false);
+  }
+
+  return (
+    <form onSubmit={step === "phone" ? send : verify} className="space-y-5 rounded-3xl border border-[var(--line)] bg-[var(--surface)] p-7 shadow-xl backdrop-blur-md sm:p-8">
+      <div className="text-center">
+        <h2 className="text-xl font-bold text-[var(--fg)]">{step === "phone" ? "Nhận mã xác minh qua SMS" : "Nhập mã xác minh"}</h2>
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {step === "phone" ? "Dùng cho lần đầu đăng nhập hoặc khi quên mật khẩu. Mã sẽ gửi tới số điện thoại người giám hộ đã đăng ký với nhà trường." : sentTo ? `Mã gồm 6 số đã gửi tới ${sentTo}. Mã có hiệu lực 5 phút.` : "Nếu số điện thoại đã đăng ký với nhà trường, mã gồm 6 số đã được gửi. Mã có hiệu lực 5 phút."}
+        </p>
+      </div>
+      {step === "phone" ? (
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          Số điện thoại người giám hộ hoặc Mã học sinh
+          <span className="relative mt-1.5 block">
+            <Phone className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" autoFocus required className={field + " pl-10"} placeholder="vd: 0912345678 hoặc HS00000004" />
+          </span>
+        </label>
+      ) : (
+        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+          Mã xác minh (6 số)
+          <input name="code" inputMode="numeric" autoComplete="one-time-code" pattern="\d{6}" maxLength={6} autoFocus required className={field + " mt-1.5 text-center text-lg tracking-[0.5em]"} placeholder="••••••" />
+        </label>
+      )}
+      {err && (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-300 bg-red-50 p-3 text-xs leading-relaxed text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-400">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{err}</span>
+        </div>
+      )}
+      <button disabled={busy} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-coral-600 text-sm font-semibold text-white shadow-md transition hover:bg-coral-700 disabled:opacity-60">
+        {busy ? <><Loader2 className="size-4 animate-spin" />Đang xử lý...</> : step === "phone" ? "Gửi mã xác minh" : "Xác minh"}
+      </button>
+      <div className="flex items-center justify-between text-xs">
+        <button type="button" onClick={onBack} className="font-semibold text-slate-600 hover:underline dark:text-slate-400">← Đăng nhập bằng mật khẩu</button>
+        {step === "code" && <button type="button" disabled={busy} onClick={() => send()} className="font-semibold text-orange-700 hover:underline disabled:opacity-50 dark:text-orange-400">Gửi lại mã</button>}
+      </div>
+    </form>
   );
 }

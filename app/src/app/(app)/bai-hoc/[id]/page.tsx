@@ -294,7 +294,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                                   {!h.overtime && timedOut(h) && <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-700">Hết giờ tự nộp</span>}
                                   {h.autoSubmitted && !h.overtime && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Tự nộp</span>}</li>
                               ))}</ul>
-                              {left > 0 && <Link href={`?tab=bai-tap&ex=${exercise.id}&retry=1`} className="mt-3 inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">Làm lại (còn {left} lượt)</Link>}
+                              {left > 0 && <Link href={`?tab=bai-tap&ex=${exercise.id}&retry=1`} className="mt-3 inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">Làm lại (còn {left} lượt)</Link>}
                             </div>
                           )}
                           {!exercise.allowReview ? (

@@ -126,7 +126,20 @@ Khôi phục bản backup mới nhất vào DB trống, đăng nhập thử, ghi
 - Log tự che `password`, `token`, `cookie`, `authorization`; log truy vấn chậm không kèm tham số; Sentry không gửi PII.
 - `/api/docs`, `/api/openapi.json`, `/van-hanh` chỉ dành cho ADMIN. `/api/jobs/run` chỉ nhận `CRON_SECRET` (so sánh hằng thời gian).
 
-## 8. Chạy cục bộ giống production
+## 8. Công cụ an toàn dữ liệu và tài khoản (quản trị)
+| Công cụ | Ở đâu | Dùng khi |
+| --- | --- | --- |
+| **Thùng rác** | `/thung-rac` | Xoá nhầm học sinh, lớp, bài học của lớp, câu hỏi, bài học trong kho. Giữ 30 ngày, khôi phục nguyên trạng kèm dữ liệu liên quan. Mã/email đã bị dùng lại thì báo và không đổi gì. Thông báo và phiên đăng nhập của học sinh không được lưu. |
+| **Phiên đăng nhập** | `/phien-dang-nhap` (mọi người) và tab Bảo mật của tài khoản (quản trị) | Xem thiết bị đang đăng nhập, đăng xuất từng thiết bị, các thiết bị khác, hoặc mọi nơi. Mất điện thoại/lộ mật khẩu: “Đăng xuất mọi thiết bị” rồi cấp lại mật khẩu. |
+| **Khoá tạm** | Tự động | Sai mật khẩu 5 lần liên tiếp thì khoá 15 phút (kể cả nhập đúng sau đó). Admin “Mở khoá đăng nhập” ở trang chi tiết tài khoản; danh sách tài khoản hiện nhãn “Tạm khoá do nhập sai”. |
+| **Rà soát tài khoản** | `/tai-khoan/ra-soat` | Lâu không đăng nhập (> 90 ngày), chưa từng đăng nhập, giáo viên chưa phân công, học sinh chưa xếp lớp. Không tự khoá ai. Ngày 1 hằng tháng hệ thống nhắc quản trị. Mục “chưa từng đăng nhập” chỉ hiện sau khi đã ghi nhận đủ 30 ngày. |
+| **Nhắc việc tự động** | Cron `/api/jobs/run?reminders=1` (19:00 giờ VN) | Sách đến hạn trả, bài tập hết hạn (chỉ học sinh chưa nộp), lịch thi ngày mai (học sinh, giám thị, phụ huynh). Chạy lại không gửi trùng (bảng `ReminderSent`). Nhắc chỉ trong ứng dụng, không dùng SMS. |
+| **Kết nối API ngoài** | tab “Kết nối API” (Vận hành hệ thống) | Cấp khoá cho hệ thống ngoài (vd Đoàn thanh niên) đọc khối, lớp, học sinh, giáo viên. Mỗi khoá có quyền riêng, IP cho phép, hạn dùng, giới hạn tốc độ; xoay/thu hồi tức thì. Xem `docs/api-ngoai.md`. |
+| **Hướng dẫn trong ứng dụng** | Nút “?” trên thanh trên | Hướng dẫn riêng từng trang và theo vai trò; tự mở một lần ở lần đăng nhập đầu. Nội dung ở `app/src/lib/help-content.ts` (test nhắc nếu thêm trang mà quên viết hướng dẫn). |
+
+Các mục Vận hành, Nhật ký, Thùng rác, Kết nối API nằm chung một mục menu “Vận hành hệ thống” và chuyển bằng tab. Cần migration `20261117000000_admin_ops_features` và `20261118000000_external_api` trước khi deploy (đã có trong `docs/sua-db-thieu-bang.sql`). Nếu thêm cron nhắc việc mà gói Vercel chỉ cho một cron, đặt `?cleanup=1&reminders=1` trong cùng một đường dẫn.
+
+## 9. Chạy cục bộ giống production
 ```sh
 make services            # PostgreSQL 17 + MinIO bằng Docker
 make setup && make dev

@@ -150,7 +150,7 @@ export function ChangePasswordModal({
               <button
                 type="submit"
                 disabled={busy}
-                className="flex h-9 items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 px-4 text-xs font-semibold text-white shadow-sm transition disabled:opacity-60"
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-coral-600 hover:bg-coral-700 px-4 text-xs font-semibold text-white shadow-sm transition disabled:opacity-60"
               >
                 {busy ? (
                   <>

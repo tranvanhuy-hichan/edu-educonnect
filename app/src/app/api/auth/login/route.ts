@@ -11,7 +11,9 @@ export const POST = observe(async (request: NextRequest): Promise<Response> => {
     const body = await request.json();
     const input = loginSchema.parse(body);
     const sessionUser = await authService.login(input);
-    const token = signSessionToken(sessionUser);
+    // Mỗi lần đăng nhập là một phiên có tên thiết bị: người dùng xem và thu hồi được ở /phien-dang-nhap.
+    const sid = await authService.startSession(sessionUser.userId, request.headers.get("user-agent"), request.headers.get("x-real-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null);
+    const token = signSessionToken({ ...sessionUser, sid });
 
     const response = NextResponse.json({ data: sessionUser });
     response.cookies.set({
