@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getMe } from "@/lib/guard";
 import { uploadLimit } from "@/lib/storage/config";
 import { validateUpload } from "@/lib/storage/validation";
-import { requireUploadAccess, FileAccessError } from "@/lib/storage/files";
+import { requireUploadAccess, FileAccessError, PERSONAL_PURPOSES } from "@/lib/storage/files";
 import { uploadFile } from "@/modules/files/files.service";
+import { ApplicationError } from "@/shared/errors";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -31,10 +32,14 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) return NextResponse.json({ error: "Chưa chọn tệp" }, { status: 400 });
   try { validateUpload(file.name, file.size, limit); } catch (error) { return NextResponse.json({ error: (error as Error).message }, { status: 400 }); }
   const assignmentId = String(form.get("assignmentId") || ""), purpose = String(form.get("purpose") || ""), exerciseId = String(form.get("exerciseId") || "") || null;
-  if (!assignmentId || assignmentId.length > 100 || (exerciseId?.length ?? 0) > 100) return NextResponse.json({ error: "Chọn lớp và môn hợp lệ trước khi tải tệp" }, { status: 400 });
+  const questionImage = PERSONAL_PURPOSES.includes(purpose);
+  if ((!questionImage && !assignmentId) || assignmentId.length > 100 || (exerciseId?.length ?? 0) > 100) return NextResponse.json({ error: "Chọn lớp và môn hợp lệ trước khi tải tệp" }, { status: 400 });
   try { await requireUploadAccess(user, assignmentId, purpose, exerciseId); } catch (error) { return NextResponse.json({ error: error instanceof FileAccessError ? error.message : "Không tìm thấy lớp và môn" }, { status: 403 }); }
   try {
-    const saved = await uploadFile(user, { assignmentId, purpose, exerciseId, name: file.name, buffer: Buffer.from(await file.arrayBuffer()) });
+    const saved = await uploadFile(user, { assignmentId: questionImage ? null : assignmentId, purpose, exerciseId, name: file.name, buffer: Buffer.from(await file.arrayBuffer()) });
     return NextResponse.json(saved, { status: 201 });
-  } catch { return NextResponse.json({ error: "Không thể lưu tệp. Vui lòng kiểm tra cấu hình kho lưu trữ hoặc thử lại." }, { status: 503 }); }
+  } catch (error) {
+    if (error instanceof ApplicationError) return NextResponse.json({ error: error.message }, { status: error.status });
+    return NextResponse.json({ error: "Không thể lưu tệp. Vui lòng kiểm tra cấu hình kho lưu trữ hoặc thử lại." }, { status: 503 });
+  }
 }

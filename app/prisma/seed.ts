@@ -341,9 +341,6 @@ async function main() {
     where: { exerciseId_studentId: { exerciseId: pHw.id, studentId: firstTwo[0].studentId } },
     update: {}, create: { exerciseId: pHw.id, studentId: firstTwo[0].studentId, content: "Em đã làm xong bài 1–5 ạ.", grade: 8.5, feedback: "Trình bày tốt." },
   });
-  if (!(await prisma.lessonPlan.findFirst({ where: { assignmentId: assignmentToan.id } }))) {
-    await prisma.lessonPlan.create({ data: { assignmentId: assignmentToan.id, title: "Giáo án Bài 1: Mệnh đề", content: "I. Mục tiêu\nII. Chuẩn bị\nIII. Tiến trình dạy học" } });
-  }
 
   // Sổ đầu bài
   const sToan1a = await prisma.timetableSlot.findFirst({ where: { schoolClassId: schoolClass.id, assignmentId: assignmentToan.id, dayOfWeek: 2, periodNo: 1 } });

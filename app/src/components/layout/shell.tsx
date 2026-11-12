@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, KeyRound, LogOut, Menu, X } from "lucide-react";
 import clsx from "clsx";
 import { buildNav, buildMobileNav, ROLE_LABEL, titleOf, type NavGroup, type NavItem } from "@/lib/nav";
@@ -73,14 +73,36 @@ function Group({ it, path, onNavigate, compact }: { it: NavItem; path: string; o
   );
 }
 
+/** Trạng thái thu gọn của các nhóm menu, lưu trong trình duyệt (máy chủ luôn dựng ở trạng thái mở hết để không lệch giao diện). */
+const COLLAPSE_KEY = "nav-collapsed-groups";
+const collapseListeners = new Set<() => void>();
+const readCollapsed = () => { try { return localStorage.getItem(COLLAPSE_KEY) ?? ""; } catch { return ""; } };
+const subscribeCollapsed = (cb: () => void) => { collapseListeners.add(cb); return () => { collapseListeners.delete(cb); }; };
+function toggleGroup(title: string) {
+  const cur = new Set(readCollapsed().split("|").filter(Boolean));
+  if (cur.has(title)) cur.delete(title); else cur.add(title);
+  try { localStorage.setItem(COLLAPSE_KEY, [...cur].join("|")); } catch { /* bộ nhớ trình duyệt bị chặn: chỉ không nhớ được */ }
+  collapseListeners.forEach((f) => f());
+}
+
 function Links({ groups, path, badges, onNavigate, compact }: { groups: NavGroup[]; path: string; badges: Record<string, number>; onNavigate?: () => void; compact?: boolean }) {
   const tab = useSearchParams().get("tab");
+  const collapsed = new Set(useSyncExternalStore(subscribeCollapsed, readCollapsed, () => "").split("|").filter(Boolean));
   return (
     <>
-      {groups.map((g, i) => (
-        <div key={i} className="mb-2">
-          {g.title && <div className={clsx("px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider sb-muted", compact && "hidden lg:block")}>{g.title}</div>}
-          <div className="space-y-0.5">
+      {groups.map((g, i) => {
+        const hasActive = g.items.some((it) => isActive(path, it.href, tab) || it.children?.some((k) => isActive(path, k.href, tab)));
+        const open = !g.title || !collapsed.has(g.title) || hasActive; // nhóm đang chứa trang hiện tại luôn mở
+        return (
+        <div key={i} className="mb-1">
+          {g.title && (
+            <button type="button" onClick={() => toggleGroup(g.title!)} aria-expanded={open} disabled={hasActive}
+              className={clsx("flex w-full items-center justify-between px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider sb-muted transition-opacity hover:opacity-100", !open && "opacity-80", compact && "hidden lg:flex")}>
+              <span>{g.title}</span>
+              {!hasActive && <ChevronDown className={clsx("size-3.5 transition-transform", !open && "-rotate-90")} />}
+            </button>
+          )}
+          <div className={clsx("space-y-0.5", !open && (compact ? "hidden md:block lg:hidden" : "hidden"))}>
             {g.items.map((it) => it.children ? (
               <Group key={it.href} it={it} path={path} onNavigate={onNavigate} compact={compact} />
             ) : (
@@ -93,7 +115,8 @@ function Links({ groups, path, badges, onNavigate, compact }: { groups: NavGroup
             ))}
           </div>
         </div>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -154,8 +177,10 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
               className="mr-1 grid size-8 shrink-0 place-items-center rounded-md border hover:bg-slate-100" aria-label="Quay lại" title="Quay lại"
             ><ArrowLeft className="size-4" /></button>
           )}
-          <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm text-slate-500" aria-label="Breadcrumb">
+          <nav className="flex min-w-0 flex-1 items-center gap-1 text-sm text-slate-500 [&:has(#page-crumbs>*)_[data-default-crumbs]]:hidden" aria-label="Breadcrumb">
             <Link href="/" className="hidden whitespace-nowrap hover:text-orange-700 sm:inline">Trang chủ</Link>
+            <span id="page-crumbs" className="contents" />
+            <span data-default-crumbs className="contents">
             {crumbs.map((c, i) => (
               // Điện thoại: chỉ hiện tên trang hiện tại (đã có nút quay lại); từ sm trở lên hiện đủ đường dẫn
               <span key={c.href} className={`${i === crumbs.length - 1 ? "flex" : "hidden sm:flex"} items-center gap-1 min-w-0`}>
@@ -163,6 +188,7 @@ export function Shell({ roles, userName, name, logo, mustChange, children }: { r
                 {i === crumbs.length - 1 ? <span className="truncate font-medium" style={{ color: "var(--fg)" }}>{c.label}</span> : <Link href={c.href} className="hover:text-orange-700 truncate">{c.label}</Link>}
               </span>
             ))}
+            </span>
           </nav>
           <NotificationBell />
           <ModeToggle />

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { prisma } from "../src/lib/prisma";
 import type { SessionUser } from "../src/lib/auth/session";
 import { canDownloadFile, requireUploadAccess, validateFileReferences } from "../src/lib/storage/files";
-import { createLessonPost, createExercise, submitAssignment, updateLessonPost, updateExercise, deleteLessonPost, createLessonPlan, updateLessonPlan, deleteLessonPlan } from "../src/modules/content/content.service";
+import { createLessonPost, createExercise, submitAssignment, updateLessonPost, updateExercise, deleteLessonPost } from "../src/modules/content/content.service";
 
 test("database: uploaded documents bind to assignments, staged files stay private, submissions stay personal", { skip: process.env.RUN_DATABASE_TESTS !== "1" }, async () => {
   const tag = `storage-${Date.now()}`;
@@ -51,12 +51,6 @@ test("database: uploaded documents bind to assignments, staged files stay privat
     await updateLessonPost(teacherSession, post.id, { title: "Bài học cập nhật", content: "", attachments: [`/api/files/${file.id}`] });
     assert.equal((await prisma.lessonPost.findUniqueOrThrow({ where: { id: post.id } })).title, "Bài học cập nhật");
     await updateExercise(teacherSession, exercise.id, { title: "Bài tập cập nhật", content: "Nội dung", attachments: [], dueDate: null });
-    const plan = await createLessonPlan(teacherSession, { assignmentId, title: "Giáo án", content: "Nội dung" });
-    try {
-      await assert.rejects(updateLessonPlan(students[0], plan.id, { title: "Sai quyền", content: "x" }), /Không có quyền/);
-      await updateLessonPlan(teacherSession, plan.id, { title: "Giáo án mới", content: "Nội dung mới" });
-      assert.equal((await prisma.lessonPlan.findUniqueOrThrow({ where: { id: plan.id } })).title, "Giáo án mới");
-    } finally { await deleteLessonPlan(teacherSession, plan.id); }
     await deleteLessonPost(teacherSession, post.id);
     postId = "";
     assert.equal(await prisma.assignmentSubmission.count({ where: { id: submission.id } }), 0);

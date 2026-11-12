@@ -163,11 +163,6 @@ async function main() {
       });
     }
   }
-  for (const [a, title] of [[toan1, "Giáo án Chương 1: Hàm số lượng giác"], [ly1, "Giáo án Bài 1: Dao động điều hòa"], [hoa2, "Giáo án Bài 1: Sự điện li"]] as const) {
-    if (!(await prisma.lessonPlan.findFirst({ where: { assignmentId: a.id, title } }))) {
-      await prisma.lessonPlan.create({ data: { assignmentId: a.id, title, content: "I. Mục tiêu bài học\nII. Chuẩn bị của giáo viên và học sinh\nIII. Tiến trình dạy học\n  1. Khởi động\n  2. Hình thành kiến thức\n  3. Luyện tập\n  4. Vận dụng\nIV. Rút kinh nghiệm" } });
-    }
-  }
 
   // ===== Kết quả cuối năm (một nửa 11A1), thi đua, thư viện =====
   for (const [i, s] of inClass(a1.id).slice(0, 9).entries()) {

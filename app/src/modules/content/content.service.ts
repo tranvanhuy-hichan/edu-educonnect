@@ -1,12 +1,11 @@
 import { validateFileReferences } from "@/lib/storage/files";
-import { createLessonPostSchema, createExerciseSchema, createLessonPlanSchema, createSubmissionSchema } from "./content.schema";
+import { createLessonPostSchema, createExerciseSchema, createSubmissionSchema } from "./content.schema";
 import { isAdmin, type SessionUser } from "@/lib/auth/session";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import * as contentRepository from "@/modules/content/content.repository";
 import { notifyUsers } from "@/modules/notification/notification.service";
 import type {
-  CreateLessonPlanInput,
   CreateExerciseInput,
   CreateLessonPostInput,
 } from "@/modules/content/content.schema";
@@ -73,7 +72,7 @@ export async function createExercise(user: SessionUser, input: CreateExerciseInp
   const post = await contentRepository.findLessonPost(input.lessonPostId);
   if (!post) throw new ForbiddenError("Bài học không tồn tại");
   await assertCanManageAssignment(user, post.assignmentId);
-  if (!input.content.trim() && !input.attachments?.length) throw new Error("Nhập đề bài hoặc tải tệp bài tập");
+  if (!input.quizMode && !input.content.trim() && !input.attachments?.length) throw new Error("Nhập đề bài hoặc tải tệp bài tập");
   await validateFileReferences(user, input.attachments ?? [], post.assignmentId, "EXERCISE");
   const ex = await contentRepository.createExercise(input);
 
@@ -137,29 +136,6 @@ export async function listLessonPostViews(
   return contentRepository.listViewsByLessonPost(lessonPostId);
 }
 
-export async function createLessonPlan(
-  user: SessionUser,
-  input: CreateLessonPlanInput,
-) {
-  input = createLessonPlanSchema.parse(input);
-  await assertCanManageAssignment(user, input.assignmentId);
-  if (!input.content.trim() && !input.attachment) throw new Error("Nhập nội dung hoặc tải tệp giáo án");
-  await validateFileReferences(user, input.attachment ? [input.attachment] : [], input.assignmentId, "LESSON_PLAN");
-  return contentRepository.createLessonPlan(input);
-}
-
-export async function listLessonPlans(
-  user: SessionUser,
-  assignmentId: string,
-) {
-  if (user.studentId) {
-    await assertCanAccessAsStudent(user, assignmentId);
-  } else {
-    await assertCanManageAssignment(user, assignmentId);
-  }
-  return contentRepository.listLessonPlansByAssignment(assignmentId);
-}
-
 /** Học sinh nộp bài tự luận (quizMode=false): cho phép nộp lại nếu giáo viên chưa chấm điểm; kiểm tra hạn nộp để ghi nhận nộp muộn. */
 export async function submitAssignment(
   user: SessionUser,
@@ -176,6 +152,7 @@ export async function submitAssignment(
     throw new ForbiddenError("Bài tập không tồn tại");
   }
   await assertCanAccessAsStudent(user, exercise.lessonPost.assignmentId);
+  if (exercise.quizMode) throw new ConflictError("Đây là bài trắc nghiệm, hãy làm bài trong trang bài tập");
 
   ({ content, attachments } = createSubmissionSchema.parse({ content, attachments }));
   await validateFileReferences(user, attachments, exercise.lessonPost.assignmentId, "SUBMISSION", exerciseId);
@@ -226,23 +203,11 @@ export async function gradeSubmission(
     user,
     submission.exercise.lessonPost.assignmentId,
   );
+  if (submission.autoGraded) throw new ConflictError("Bài trắc nghiệm được chấm tự động");
 
   return contentRepository.gradeSubmission(submissionId, grade, feedback);
 }
 
-export async function updateLessonPlan(user: SessionUser, id: string, data: { title: string; content: string; attachment?: string }) {
-  const plan = await contentRepository.findLessonPlan(id);
-  await assertCanManageAssignment(user, plan.assignmentId);
-  const parsed = createLessonPlanSchema.parse({ ...data, assignmentId: plan.assignmentId });
-  if (!parsed.content.trim() && !parsed.attachment) throw new ConflictError("Nhập nội dung hoặc tải tệp giáo án");
-  await validateFileReferences(user, parsed.attachment ? [parsed.attachment] : [], plan.assignmentId, "LESSON_PLAN");
-  return contentRepository.updateLessonPlan(id, { title: parsed.title, content: parsed.content, attachment: parsed.attachment ?? null });
-}
-export async function deleteLessonPlan(user: SessionUser, id: string) {
-  const plan = await contentRepository.findLessonPlan(id);
-  await assertCanManageAssignment(user, plan.assignmentId);
-  return contentRepository.deleteLessonPlan(id);
-}
 export async function updateLessonPost(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[] }) {
   const post = await contentRepository.findLessonPost(id);
   if (!post) throw new ConflictError("Bài học không tồn tại");
@@ -259,14 +224,14 @@ export async function deleteLessonPost(user: SessionUser, id: string) {
   await contentRepository.deleteLessonPost(id);
   return post;
 }
-export async function updateExercise(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null }) {
+export async function updateExercise(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string }) {
   const exercise = await contentRepository.findExercise(id);
   if (!exercise) throw new ConflictError("Bài tập không tồn tại");
   await assertCanManageAssignment(user, exercise.lessonPost.assignmentId);
-  const parsed = createExerciseSchema.parse({ ...data, dueDate: data.dueDate ?? undefined, lessonPostId: exercise.lessonPostId, quizMode: false });
-  if (!parsed.content.trim() && !parsed.attachments?.length) throw new ConflictError("Nhập đề bài hoặc tải tệp bài tập");
+  const parsed = createExerciseSchema.parse({ ...data, dueDate: data.dueDate ?? undefined, lessonPostId: exercise.lessonPostId, quizMode: exercise.quizMode });
+  if (!exercise.quizMode && !parsed.content.trim() && !parsed.attachments?.length) throw new ConflictError("Nhập đề bài hoặc tải tệp bài tập");
   await validateFileReferences(user, parsed.attachments ?? [], exercise.lessonPost.assignmentId, "EXERCISE");
-  return contentRepository.updateExercise(id, { title: parsed.title, content: parsed.content, attachments: parsed.attachments ?? [], dueDate: parsed.dueDate ?? null });
+  return contentRepository.updateExercise(id, { title: parsed.title, content: parsed.content, attachments: parsed.attachments ?? [], dueDate: parsed.dueDate ?? null, showAnswers: parsed.showAnswers });
 }
 export async function deleteExercise(user: SessionUser, id: string) {
   const exercise = await contentRepository.findExercise(id);
