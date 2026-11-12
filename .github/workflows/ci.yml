@@ -42,7 +42,7 @@ jobs:
           git diff --exit-code docs/openapi.json || { echo "::error::docs/openapi.json cũ. Chạy 'npm run openapi' và commit."; exit 1; }
       - run: npm run build
       - name: Cache Next.js
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: app/.next/cache
           key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('app/src/**') }}
