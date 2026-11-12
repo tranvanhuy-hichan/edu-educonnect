@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",
-    "@prisma/client": "^6",
+    "@prisma/client": "^7",
     "@sentry/nextjs": "^11.12.0",
     "bcryptjs": "^3",
     "cloudinary": "^2.11.0",
