@@ -13,7 +13,10 @@ import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { fmtDate, todayUTC } from "@/lib/format";
 import { viewLessonPost } from "@/modules/content/content.service";
 import { assignmentWhere, isManager, isStudentOnly } from "@/server/learning-scope";
-import { createExercise, deleteExercise, deletePost, gradeWork, resetQuiz, submitQuizWork, submitWork, updateExercise, updatePost } from "../actions";
+import { createExercise, deleteExercise, deletePost, gradeWork, reportViolation, resetQuiz, submitQuizWork, submitWork, updateExercise, updatePost } from "../actions";
+import { SecureQuiz } from "./secure-quiz";
+import { SecureModeFields } from "@/components/secure-mode-fields";
+import { VIOLATION_LABEL } from "@/modules/question/quiz.service";
 import { canRevealKey } from "@/modules/question/quiz.service";
 import { QuizManage, QuizReview, QuizTake, fmtPts, type QuizItem } from "./quiz-parts";
 import { libraryExercisesForPost } from "@/modules/bank/bank.service";
@@ -64,6 +67,9 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const quiz = tab === "bai-tap" && exercise?.quizMode ? exercise : undefined;
   const quizItems: QuizItem[] = quiz ? await db.exerciseQuestion.findMany({ where: { exerciseId: quiz.id }, orderBy: { order: "asc" }, include: { question: { include: { options: { orderBy: { order: "asc" } } } } } }) : [];
   const quizAnswers = quiz ? await db.studentAnswer.findMany({ where: { submission: { exerciseId: quiz.id, ...(student ? { studentId: me.studentId ?? "-" } : {}) } } }) : [];
+  const violationRows = quiz?.secureMode ? await db.examViolation.findMany({ where: { exerciseId: quiz.id, ...(student ? { studentId: me.studentId ?? "-" } : {}) }, orderBy: { createdAt: "asc" } }) : [];
+  const violationsOf = new Map<string, typeof violationRows>();
+  for (const v of violationRows) (violationsOf.get(v.studentId) ?? violationsOf.set(v.studentId, []).get(v.studentId)!).push(v);
   const quizStats = new Map<string, { right: number; total: number }>();
   if (!student) for (const x of quizAnswers) { const c = quizStats.get(x.questionId) ?? { right: 0, total: 0 }; c.total++; if (x.isCorrect) c.right++; quizStats.set(x.questionId, c); }
   const quizCandidates = quiz && manage
@@ -93,12 +99,13 @@ export default async function LessonPostDetail({ params, searchParams }: { param
           </select>
         </Field>
       </div>
+      {e ? (e.quizMode ? <SecureModeFields defaultSecure={e.secureMode} defaultMax={e.maxViolations} /> : null) : <div className="hidden group-has-[input[name=quizMode][value='1']:checked]/q:block"><SecureModeFields /></div>}
       <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="EXERCISE" assignmentId={post.assignmentId} initialUrls={e ? linksOf(e.attachments) : []} /></div>
     </div>
   );
 
   const exerciseHeaderActions = exercise ? (
-<div className="flex flex-wrap gap-2">
+<div className="btn-row flex flex-wrap gap-2">
                   <DialogButton label="Sửa bài tập" title="Sửa bài tập" variant="secondary" size="sm">
                     <ActionForm action={updateExercise} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
                       <input type="hidden" name="id" value={exercise.id} />
@@ -125,7 +132,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
             <span className="flex items-center gap-1"><Eye className="size-4 text-slate-400" />{views.length} lượt học sinh xem</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="btn-row flex flex-wrap gap-2">
           {manage && (
             <DialogButton label="Sửa bài học" title="Sửa bài học" variant="secondary">
               <ActionForm action={updatePost} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
@@ -142,12 +149,12 @@ export default async function LessonPostDetail({ params, searchParams }: { param
 
       <Tabs
         right={manage && tab === "bai-tap" && exercise ? exerciseHeaderActions : manage && tab === "bai-tap" ? (
-          <div className="flex flex-wrap gap-2">
+          <div className="btn-row flex flex-wrap gap-2">
           <DialogButton label="Lấy từ kho bài tập" title="Lấy bài tập từ Ngân hàng bài học" variant="secondary" wide>
             {libExercises.length ? (
               <ActionForm action={publishExerciseToPostAction} submit="Thêm vào bài học" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
                 <input type="hidden" name="lessonPostId" value={post.id} />
-                <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {libExercises.map((e) => (
                     <label key={e.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
                       <input type="radio" name="libraryExerciseId" value={e.id} required className="mt-1" />
@@ -234,17 +241,28 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                             <span className="rounded-full bg-green-100 px-3 py-0.5 text-sm font-bold text-green-800">{fmtPts(mine.grade ?? 0)}/10</span>
                             <span className="text-xs text-slate-500">Nộp lúc {fmtTime(mine.submittedAt)}</span>
                             {mine.isLate && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp muộn</span>}
+                            {mine.autoSubmitted && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp tự động do vi phạm</span>}
+                            {violationRows.length > 0 && <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">{violationRows.length} vi phạm</span>}
                           </div>
                           {!reveal && <p className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">{exercise.showAnswers === "NEVER" ? "Giáo viên không công khai đáp án đúng của bài này." : exercise.dueDate ? `Đáp án đúng sẽ hiện sau hạn nộp (${fmtDate(exercise.dueDate)}).` : "Đáp án đúng chưa được công khai."}</p>}
                           <QuizReview items={quizItems} answers={quizAnswers} reveal={reveal} />
                         </div>
                       ) : quizItems.length ? (
+                        exercise.secureMode ? (
+                          <>
+                            {late && <p className="mb-3 text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
+                            <SecureQuiz exerciseId={exercise.id} title={exercise.title} count={quizItems.length} maxViolations={exercise.maxViolations} priorViolations={violationRows.length} report={reportViolation} action={submitQuizWork}>
+                              <QuizTake items={quizItems} />
+                            </SecureQuiz>
+                          </>
+                        ) : (
                         <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText="Nộp bài? Em chỉ được làm bài một lần." reset={false} className="flex flex-col gap-4 [&>button]:self-start">
                           <input type="hidden" name="exerciseId" value={exercise.id} />
                           <h2 className="font-semibold">Làm bài ({quizItems.length} câu)</h2>
                           <QuizTake items={quizItems} />
                           {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
                         </ActionForm>
+                        )
                       ) : <p className="py-6 text-center text-sm text-slate-500">Giáo viên chưa thêm câu hỏi vào bài tập này.</p>}
                     </Card>
                   )}
@@ -254,7 +272,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                         <span><b>{subs.length}</b>/{roster.length} học sinh đã nộp</span>
                         {subs.length > 0 && <span>Điểm trung bình: <b>{fmtPts(subs.reduce((t, x) => t + (x.grade ?? 0), 0) / subs.length)}</b></span>}
                       </Card>
-                      <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ""]}>
+                      <Table head={exercise.secureMode ? ["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", "Vi phạm", ""] : ["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ""]}>
                         {roster.map((s) => {
                           const sub = subOf.get(s.id);
                           return (
@@ -263,9 +281,16 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                               <td>{sub ? <div className="flex flex-col gap-0.5"><span className="inline-flex w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span>{sub.isLate && <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nộp muộn</span>}</div> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
                               <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
                               <td>{sub?.grade != null ? <b>{fmtPts(sub.grade)}</b> : <span className="text-slate-400">-</span>}</td>
+                              {exercise.secureMode && <td>{(violationsOf.get(s.id)?.length ?? 0) > 0 ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{violationsOf.get(s.id)!.length}{sub?.autoSubmitted ? " · tự nộp" : ""}</span> : <span className="text-slate-400">0</span>}</td>}
                               <td>{sub && manage && (
                                 <div className="flex flex-wrap items-center justify-end gap-2">
                                   <DialogButton label="Xem bài làm" title={`Bài làm · ${s.fullName} · ${fmtPts(sub.grade ?? 0)}/10`} size="sm" variant="secondary" wide>
+                                    {(violationsOf.get(s.id)?.length ?? 0) > 0 && (
+                                      <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+                                        <b className="text-red-700">{violationsOf.get(s.id)!.length} vi phạm{sub.autoSubmitted ? " · bài bị nộp tự động" : ""}</b>
+                                        <ul className="mt-1 space-y-0.5 text-xs text-red-800">{violationsOf.get(s.id)!.map((v) => <li key={v.id}>{fmtTime(v.createdAt)} · {VIOLATION_LABEL[v.type] ?? v.type}</li>)}</ul>
+                                      </div>
+                                    )}
                                     <QuizReview items={quizItems} answers={quizAnswers.filter((x) => x.submissionId === sub.id)} reveal />
                                   </DialogButton>
                                   <ActionForm action={resetQuiz} submit="Cho làm lại" compact danger confirmText={`Xóa bài làm của ${s.fullName} để em làm lại từ đầu?`} className="inline-flex"><input type="hidden" name="submissionId" value={sub.id} /></ActionForm>

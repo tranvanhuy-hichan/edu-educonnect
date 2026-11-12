@@ -47,7 +47,7 @@ export default async function TeachingClass({ params }: { params: Promise<{ subj
     <div className="space-y-4">
       <PageCrumbs items={[{ label: "Giảng dạy", href: "/giang-day" }, { label: subject.subjectName, href: `/giang-day?mon=${subjectId}` }, { label: grade.gradeName, href: base }, { label: cls.className }]} />
       <Title right={
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="btn-row flex flex-wrap items-center gap-2">
           {me.teacherId && <PublishFromLibrary className={cls.className} subjectName={subject.subjectName} gradeName={grade.gradeName} assignments={manageable.map((a) => ({ id: a.id, label: termLabel(a) }))} library={library} publishedLessonIds={published.map((p) => p.sourceLessonId!).filter(Boolean)} />}
           <DialogButton label="+ Đăng bài học mới" title={`Đăng bài học · ${cls.className}`} wide>
             <ActionForm action={createPost} submit="Đăng bài học" className="flex flex-col gap-3 [&>button]:self-start">

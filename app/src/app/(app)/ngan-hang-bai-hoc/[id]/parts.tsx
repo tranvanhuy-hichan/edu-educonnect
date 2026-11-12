@@ -4,6 +4,7 @@ import { AttachmentUpload } from "@/components/attachment-upload";
 import { DialogButton } from "@/components/dialog";
 import { MathText } from "@/components/math-text";
 import { Field, inputCls } from "@/components/ui";
+import { SecureModeFields } from "@/components/secure-mode-fields";
 import { DIFFICULTY_LABEL, TYPE_LABEL } from "@/modules/question/question.grading";
 import { addExerciseQuestions, autoPickAction, moveExerciseQuestion, removeExerciseQuestion, setExercisePoints } from "../actions";
 
@@ -12,7 +13,7 @@ const badge = "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] fon
 const radioCard = "flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50";
 
 type LessonRef = { id: string; title: string; orderNo: number };
-export type ExerciseFormData = { id: string; title: string; instructions: string; showAnswers: string; kind: string; quizMode: boolean; attachments: unknown; sourceIds: string[] };
+export type ExerciseFormData = { id: string; title: string; instructions: string; showAnswers: string; kind: string; quizMode: boolean; secureMode: boolean; maxViolations: number; attachments: unknown; sourceIds: string[] };
 
 /** Trường nhập chung cho bài tập mẫu (tạo mới hoặc sửa). */
 export function ExerciseFields({ ex, others, lessonId }: { ex?: ExerciseFormData; others: LessonRef[]; lessonId: string }) {
@@ -49,6 +50,7 @@ export function ExerciseFields({ ex, others, lessonId }: { ex?: ExerciseFormData
           <option value="AFTER_DUE">Sau hạn nộp (không có hạn thì ngay sau khi nộp)</option><option value="AFTER_SUBMIT">Ngay sau khi học sinh nộp bài</option><option value="NEVER">Không công khai đáp án</option>
         </select>
       </Field>
+      {ex ? (ex.quizMode ? <SecureModeFields defaultSecure={ex.secureMode} defaultMax={ex.maxViolations} /> : null) : <div className="hidden group-has-[input[name=quizMode][value='1']:checked]/q:block"><SecureModeFields /></div>}
       {ex ? (ex.kind === "REVIEW" ? sourceBox : null) : <div className="hidden group-has-[input[name=kind][value='REVIEW']:checked]/q:block">{sourceBox}</div>}
       <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="LIBRARY" initialUrls={Array.isArray(ex?.attachments) ? (ex!.attachments as string[]) : []} /></div>
     </div>
@@ -95,7 +97,7 @@ export function AddQuestionsDialog({ exerciseId, pool, flagged }: { exerciseId: 
       {pool.length ? (
         <ActionForm action={addExerciseQuestions} submit="Thêm vào bài tập" className="flex flex-col gap-3 [&>button]:self-start">
           <input type="hidden" name="exerciseId" value={exerciseId} />
-          <div className="max-h-[48vh] space-y-4 overflow-y-auto pr-1">
+          <div className="space-y-4">
             {[...groups.values()].map((g) => (
               <div key={g.title} className="space-y-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{g.title} ({g.items.length})</div>

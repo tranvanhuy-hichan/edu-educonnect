@@ -209,6 +209,7 @@ model TeacherSubject {
 }
 
 model Student {
+  examViolations ExamViolation[]
   examSeats ExamSeat[]
   assessments StudentAssessment[]
   transfers ClassTransfer[]
@@ -339,6 +340,9 @@ model Exercise {
   dueDate      DateTime?
   quizMode     Boolean                @default(false)
   showAnswers  String                 @default("AFTER_DUE") // AFTER_SUBMIT | AFTER_DUE | NEVER: khi nào học sinh thấy đáp án đúng
+  secureMode   Boolean                @default(false) // chế độ thi nghiêm túc: toàn màn hình, giám sát chuyển tab/ứng dụng
+  maxViolations Int                   @default(3) // số vi phạm tối đa trước khi tự động nộp bài (0 = chỉ ghi nhận, không tự nộp)
+  violations   ExamViolation[]
   questions    ExerciseQuestion[]
   submissions  AssignmentSubmission[]
   sourceExerciseId String? // bài tập mẫu trong kho mà bản này được đăng từ đó
@@ -444,6 +448,8 @@ model LibraryExercise {
   instructions String                    @default("")
   attachments  Json?
   showAnswers  String                    @default("AFTER_DUE")
+  secureMode   Boolean                   @default(false)
+  maxViolations Int                      @default(3)
   orderNo      Int                       @default(0)
   archivedAt   DateTime?
   questions    LibraryExerciseQuestion[]
@@ -500,6 +506,20 @@ model ImportJob {
   @@index([teacherId, createdAt])
 }
 
+/// Vi phạm ghi nhận khi học sinh làm bài ở chế độ thi nghiêm túc. type: EXIT_FULLSCREEN | TAB_SWITCH | WINDOW_BLUR | MOUSE_LEAVE | RELOAD
+model ExamViolation {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([exerciseId, studentId])
+}
+
 model LessonPostView {
   id           String     @id @default(cuid())
   lessonPostId String
@@ -525,6 +545,7 @@ model AssignmentSubmission {
   grade            Float? // tự luận: GV chấm tay; trắc nghiệm: hệ thống tự tính
   feedback         String?
   autoGraded       Boolean         @default(false)
+  autoSubmitted    Boolean         @default(false) // bị nộp tự động do vượt số vi phạm cho phép
   answers          StudentAnswer[]
 
   @@unique([exerciseId, studentId])

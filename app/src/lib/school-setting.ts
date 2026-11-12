@@ -1,12 +1,23 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 
-/** Cấu hình trường (tên, logo) — 1 dòng duy nhất, luôn tồn tại (tạo sẵn ở migration). Cache theo request. */
+const DEFAULT = { id: "school", schoolName: "EduConnect", logoUrl: null, logoPublicId: null };
+
+/**
+ * Cấu hình trường (tên, logo, quy chế) — 1 dòng duy nhất, đọc ở MỌI trang nên lưu đệm dùng chung giữa các yêu cầu (tối đa 5 phút).
+ * Các thao tác lưu cấu hình gọi `updateTag("school-setting")` để áp dụng ngay.
+ */
+const readSetting = unstable_cache(
+  async () => db.schoolSetting.findUnique({ where: { id: "school" } }),
+  ["school-setting"],
+  { tags: ["school-setting"], revalidate: 300 },
+);
+
 export const getSchoolSetting = cache(async () => {
   try {
-    const s = await db.schoolSetting.findUnique({ where: { id: "school" } });
-    return s ?? { id: "school", schoolName: "EduConnect", logoUrl: null, logoPublicId: null };
+    return (await readSetting()) ?? DEFAULT;
   } catch {
-    return { id: "school", schoolName: "EduConnect", logoUrl: null, logoPublicId: null };
+    return DEFAULT;
   }
 });

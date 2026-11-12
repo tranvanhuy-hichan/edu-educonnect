@@ -30,15 +30,17 @@ export default async function LessonBankDetail({ params, searchParams }: { param
   if (!lesson) notFound();
   const back = `/ngan-hang-bai-hoc/${id}?tab=cau-hoi`;
 
+  const tab = (["content", "cau-hoi", "bai-tap"] as const).find((k) => k === sp.tab) ?? "content";
+  // Mỗi tab chỉ tải dữ liệu của chính nó; nhãn tab dùng số lượng có sẵn trong `lesson._count`.
+  const when = <T,>(on: boolean, q: () => Promise<T>, empty: T) => (on ? q() : Promise.resolve(empty));
   const [siblings, questions, exercises] = await Promise.all([
-    db.libraryLesson.findMany({ where: { teacherId: lesson.teacherId, subjectId: lesson.subjectId, gradeLevelId: lesson.gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true } }),
-    db.question.findMany({ where: { libraryLessonId: id, archivedAt: null, parentId: null }, orderBy: { createdAt: "desc" } }),
-    bankRepo.listExercises(id),
+    when(tab !== "content", () => db.libraryLesson.findMany({ where: { teacherId: lesson.teacherId, subjectId: lesson.subjectId, gradeLevelId: lesson.gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true } }), []),
+    when(tab === "cau-hoi", () => db.question.findMany({ where: { libraryLessonId: id, archivedAt: null, parentId: null }, orderBy: { createdAt: "desc" } }), []),
+    when(tab === "bai-tap", () => bankRepo.listExercises(id), []),
   ]);
   const flaggedHere = questions.filter((q) => q.reviewStatus === "NEEDS_REVIEW").length;
 
-  const TABS: [string, string][] = [["content", "Nội dung"], ["cau-hoi", `Câu hỏi (${questions.length}${flaggedHere ? ` · ${flaggedHere} chờ kiểm tra` : ""})`], ["bai-tap", `Bài tập (${exercises.length})`]];
-  const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "content";
+  const TABS: [string, string][] = [["content", "Nội dung"], ["cau-hoi", `Câu hỏi (${lesson._count.questions}${flaggedHere ? ` · ${flaggedHere} chờ kiểm tra` : ""})`], ["bai-tap", `Bài tập (${lesson._count.exercises})`]];
   const tabHref = (k: string) => `?tab=${k}`;
   const ctx = new URLSearchParams({ subjectId: lesson.subjectId, gradeLevelId: lesson.gradeLevelId, lessonId: id, back });
 
@@ -61,15 +63,15 @@ export default async function LessonBankDetail({ params, searchParams }: { param
     for (const r of ready) if (r.libraryLessonId) available[r.libraryLessonId] = r._count._all;
   }
   const unassigned = tab === "cau-hoi" && !readOnly ? await db.question.findMany({ where: { teacherId: lesson.teacherId, subjectId: lesson.subjectId, gradeLevelId: lesson.gradeLevelId, libraryLessonId: null, archivedAt: null, parentId: null }, orderBy: { createdAt: "desc" }, take: 200 }) : [];
-  const exForm = (e: NonNullable<typeof exercise>): ExerciseFormData => ({ id: e.id, title: e.title, instructions: e.instructions, showAnswers: e.showAnswers, kind: e.kind, quizMode: e.quizMode, attachments: e.attachments, sourceIds: e.sources.map((s) => s.lessonId) });
+  const exForm = (e: NonNullable<typeof exercise>): ExerciseFormData => ({ id: e.id, title: e.title, instructions: e.instructions, showAnswers: e.showAnswers, kind: e.kind, quizMode: e.quizMode, secureMode: e.secureMode, maxViolations: e.maxViolations, attachments: e.attachments, sourceIds: e.sources.map((s) => s.lessonId) });
 
   const questionActions = (
-    <div className="flex flex-wrap gap-2">
+    <div className="btn-row flex flex-wrap gap-2">
               {unassigned.length > 0 && (
                 <DialogButton label="Thêm từ câu chưa phân bài" title="Thêm câu hỏi chưa phân bài vào bài học này" size="sm" variant="secondary" wide>
                   <ActionForm action={assignQuestionsAction} submit="Thêm vào bài học" className="flex flex-col gap-3 [&>button]:self-start">
                     <input type="hidden" name="lessonId" value={id} />
-                    <div className="max-h-[50vh] space-y-2 overflow-y-auto pr-1">
+                    <div className="space-y-2">
                       {unassigned.map((q) => <label key={q.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50"><input type="checkbox" name="questionIds" value={q.id} className="mt-1" /><span className="line-clamp-2"><MathText text={q.content || "(Câu hỏi chỉ có ảnh)"} /></span></label>)}
                     </div>
                   </ActionForm>
@@ -101,7 +103,7 @@ export default async function LessonBankDetail({ params, searchParams }: { param
           <h1 className="text-xl font-semibold">Bài {lesson.orderNo}. {lesson.title}</h1>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600"><span>{lesson.subject.subjectName} · {lesson.gradeLevel.gradeName}</span>{readOnly && <span>GV: {lesson.teacher.fullName}</span>}<span>{questions.length} câu hỏi</span><span>{exercises.length} bài tập</span></div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="btn-row flex flex-wrap gap-2">
           {!readOnly && <ActionForm action={archiveLessonAction} submit="Xóa bài học" compact danger confirmText="Xóa bài học này khỏi kho? Câu hỏi của bài chuyển về 'Chưa phân bài', bài tập mẫu bị lưu trữ. Các bài đã đăng cho lớp vẫn giữ nguyên." className="inline-flex"><input type="hidden" name="id" value={id} /></ActionForm>}
         </div>
       </Card>
@@ -173,7 +175,7 @@ export default async function LessonBankDetail({ params, searchParams }: { param
             <div className="space-y-3 rounded-lg border bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-semibold">Câu hỏi <span className="font-normal text-slate-500">({exercise.questions.length} câu · tổng {fmtPts(exercise.questions.reduce((s, q) => s + q.points, 0))} điểm, quy về thang 10)</span></h3>
-                {!readOnly && <div className="flex flex-wrap gap-2">
+                {!readOnly && <div className="btn-row flex flex-wrap gap-2">
                   <AutoPickDialog exerciseId={exercise.id} sources={exercise.kind === "REVIEW" && sourceLessons.length ? sourceLessons.map((l) => ({ id: l.id, title: l.title, orderNo: l.orderNo })) : [{ id: lesson.id, title: lesson.title, orderNo: lesson.orderNo }]} available={available} />
                   <AddQuestionsDialog exerciseId={exercise.id} pool={pool} flagged={flaggedPool} />
                 </div>}

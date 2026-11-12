@@ -18,7 +18,7 @@ export function PublishFromLibrary({ className, subjectName, gradeName, assignme
           {assignments.length > 1
             ? <Field label="Học kỳ"><select name="assignmentId" className={inputCls + " w-full"} required>{assignments.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select></Field>
             : <input type="hidden" name="assignmentId" value={assignments[0].id} />}
-          <div className="max-h-[48vh] space-y-3 overflow-y-auto pr-1">
+          <div className="space-y-3">
             {library.map((l) => (
               <div key={l.id} className="space-y-2 rounded-md border p-3 has-[input[name=lessonId]:checked]:border-orange-500 has-[input[name=lessonId]:checked]:bg-orange-50/50">
                 <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold"><input type="radio" name="lessonId" value={l.id} required />Bài {l.orderNo}. {l.title}{publishedLessonIds.includes(l.id) && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800">Đã đăng</span>}</label>

@@ -135,7 +135,7 @@ export function findSubmissionById(submissionId: string) {
 export const notificationRecipients = (assignmentId: string) => prisma.classSubjectAssignment.findUnique({ where: { id: assignmentId }, include: { subject: true, schoolClass: { include: { enrollments: { include: { student: { select: { userId: true } } } } } } } });
 
 export const updateLessonPost = (id: string, data: { title: string; content: string; attachments: string[] }) => prisma.lessonPost.update({ where: { id }, data });
-export const updateExercise = (id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string }) => prisma.exercise.update({ where: { id }, data });
+export const updateExercise = (id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string; secureMode?: boolean; maxViolations?: number }) => prisma.exercise.update({ where: { id }, data });
 
 function exerciseDeletion(where: { lessonPostId?: string; id?: string }) {
   return [

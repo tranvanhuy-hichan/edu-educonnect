@@ -468,3 +468,15 @@ input.combo-input, input.combo-input:focus, input.combo-input:focus-visible {
   .parent-portal .text-2xl { font-size: 2rem; line-height: 2.25rem; }
   .parent-portal table { font-size: 1.0625rem; }
 }
+
+/* Nhóm nút trên điện thoại: các nút cùng một hàng thì rộng hết hàng và chia đều; không đủ chỗ thì xuống hàng, mỗi hàng vẫn chia đều. */
+@media (width < 40rem) {
+  .btn-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.5rem; width: 100%; }
+  .btn-row > div:only-child { display: contents; } /* nhóm bọc ngoài được "mở phẳng" để các nút cùng chia hàng */
+  .btn-row > *, .btn-row > div:only-child > * { flex: 1 1 0; min-width: max-content; justify-content: center; text-align: center; }
+  .btn-row > form, .btn-row > div:only-child > form { display: flex; }
+  .btn-row > form > button, .btn-row > div:only-child > form > button { width: 100%; }
+  .btn-row > dialog, .btn-row > div:only-child > dialog { flex: 0 0 auto; min-width: 0; }
+}
+
+@keyframes tab-load { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }

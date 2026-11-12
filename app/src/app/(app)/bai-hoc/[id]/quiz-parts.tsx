@@ -166,7 +166,7 @@ export function QuizManage({ items, exerciseId, locked, stats, candidates }: {
             {candidates.length ? (
               <ActionForm action={addQuizQuestions} submit="Thêm vào bài tập" className="flex flex-col gap-3 [&>button]:self-start">
                 <input type="hidden" name="exerciseId" value={exerciseId} />
-                <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
+                <div className="space-y-2">
                   {candidates.map((q) => (
                     <label key={q.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm hover:bg-slate-50 has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
                       <input type="checkbox" name="questionIds" value={q.id} className="mt-1" />

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 /**
  * `right`: các nút thao tác (thêm mới, điều hướng ngày, lọc...) đặt CÙNG HÀNG với tab, sát bên phải; điện thoại thì xuống dòng riêng bên dưới.
@@ -11,6 +12,11 @@ export function Tabs({ items, current, right }: { items: [string, string][]; cur
   const box = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState({ left: false, right: false });
   const few = items.length <= 5;
+  // Chuyển tab = tải lại trang từ máy chủ: đổi dấu tab ngay khi bấm và hiện thanh tiến trình, để không có cảm giác bị đơ.
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [target, setTarget] = useState<string | null>(null);
+  const shown = pending && target ? target : current;
 
   useEffect(() => {
     const el = box.current;
@@ -28,19 +34,26 @@ export function Tabs({ items, current, right }: { items: [string, string][]; cur
       <div className={`relative min-w-0 ${right ? "sm:flex-1" : ""}`}>
         <div ref={box} className="flex gap-0.5 overflow-x-auto border-b sm:gap-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
           {items.map(([href, label]) => {
-            const on = current === href;
+            const on = shown === href;
             return (
               <Link key={href} href={href} scroll={false} {...(on ? { "data-on": "" } : {})}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0 || href === current) return; // giữ hành vi mở tab mới / bấm lại tab hiện tại
+                  e.preventDefault();
+                  setTarget(href);
+                  start(() => router.push(href, { scroll: false }));
+                }}
                 className={`-mb-px min-w-max shrink-0 whitespace-nowrap border-b-2 py-2.5 text-[13px] sm:px-3 sm:text-sm ${few ? "flex-1 px-3 text-center sm:flex-none" : "px-3"} ${on ? "border-orange-600 font-semibold text-orange-700" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
                 {label}
               </Link>
             );
           })}
         </div>
+        {pending && <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 overflow-hidden"><div className="h-full w-1/3 bg-orange-500" style={{ animation: "tab-load 0.9s ease-in-out infinite" }} /></div>}
         {edge.left && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--bg)] to-transparent sm:hidden" />}
         {edge.right && <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[var(--bg)] to-transparent sm:hidden" />}
       </div>
-      {right && <div className="flex flex-wrap items-center gap-2 pt-2 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:border-b sm:pl-3 sm:pt-0 max-sm:[&>*]:grow">{right}</div>}
+      {right && <div className="flex flex-wrap items-center gap-2 pt-2 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:border-b sm:pl-3 sm:pt-0 btn-row">{right}</div>}
     </div>
   );
 }

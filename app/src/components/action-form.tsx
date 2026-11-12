@@ -54,6 +54,17 @@ export function ActionForm({
       className={className}
     >
       {children}
+      {closeDialog ? (
+        // Trong hộp thoại: nút lưu + thông báo nằm trên thanh cố định ở đáy, luôn thấy được dù form dài
+        <div className="sticky bottom-0 z-10 col-span-full -mx-5 -mb-4 mt-2 flex flex-wrap items-center gap-3 border-t px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6" style={{ background: "var(--surface)" }}>
+          <div className="min-w-0 flex-1 text-sm empty:hidden">
+            {res?.error && <span className="block text-red-600">{res.error}</span>}
+            {res?.ok && <span className="block whitespace-pre-line text-green-700">{res.ok}</span>}
+            {res?.data?.credentials && <button type="button" onClick={() => downloadCredentials(JSON.parse(res.data!.credentials))} className="block text-orange-700 underline">Tải lại CSV tài khoản và mật khẩu ban đầu</button>}
+          </div>
+          <button disabled={pending} className={`h-10 whitespace-nowrap rounded-md px-5 text-sm font-medium transition-colors disabled:opacity-50 max-sm:w-full ${danger ? "bg-red-700 text-white hover:bg-red-800" : ghost ? "text-orange-700 hover:bg-orange-50" : "bg-orange-600 text-white hover:bg-orange-700"}`}>{pending ? "..." : submit}</button>
+        </div>
+      ) : (<>
       <button
         disabled={pending}
         className={block
@@ -69,6 +80,7 @@ export function ActionForm({
       {res?.error && <span className="col-span-full w-full text-sm text-red-600">{res.error}</span>}
       {res?.data?.credentials && <button type="button" onClick={() => downloadCredentials(JSON.parse(res.data!.credentials))} className="col-span-full text-sm text-orange-700 underline">Tải lại CSV tài khoản và mật khẩu ban đầu</button>}
       {res?.ok && <span className="col-span-full w-full whitespace-pre-line text-sm text-green-700">{res.ok}</span>}
+      </>)}
     </form>
   );
 }

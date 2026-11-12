@@ -22,35 +22,35 @@ const DAY = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ
 export default async function MyClass({ params, searchParams }: { params: Promise<{ assignmentId: string }>; searchParams: Promise<{ tab?: string }> }) {
   const me = await requireRole(...TEACHING_ROLES, ...MANAGER_ROLES);
   const { assignmentId } = await params;
-  const ratings = (await getPolicy()).diaryRatings;
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "posts"; // Bài học là tab mặc định
-  if (!(await canManageClassSubjectAssignment(me, assignmentId))) notFound();
-  const a = await db.classSubjectAssignment.findUnique({
-    where: { id: assignmentId },
-    include: { subject: true, teacher: true, academicTerm: { include: { academicYear: true } }, schoolClass: { include: { gradeLevel: true, enrollments: { include: { student: true } } } } },
-  });
-  if (!a) notFound();
+  const ratings = tab === "diary" ? (await getPolicy()).diaryRatings : [];
+  const when = <T,>(on: boolean, q: () => Promise<T>, empty: T) => (on ? q() : Promise.resolve(empty));
+  const [allowed, a, posts, postCount, exerciseCount, entries, averages, views, submissions, logs] = await Promise.all([
+    canManageClassSubjectAssignment(me, assignmentId),
+    db.classSubjectAssignment.findUnique({ where: { id: assignmentId }, include: { subject: true, teacher: true, academicTerm: { include: { academicYear: true } }, schoolClass: { include: { gradeLevel: true, enrollments: { include: { student: true } } } } }, }),
+    when(tab === "posts", () => db.lessonPost.findMany({ where: { assignmentId }, orderBy: { createdAt: "desc" }, include: { _count: { select: { views: true, exercises: true } }, exercises: { select: { _count: { select: { submissions: true } } } } } }), []),
+    when(tab !== "posts", () => db.lessonPost.count({ where: { assignmentId } }), 0),
+    when(tab === "students", () => db.exercise.count({ where: { lessonPost: { assignmentId } } }), 0),
+    when(tab === "scores", () => db.scoreEntry.findMany({ where: { assignmentId }, orderBy: { createdAt: "asc" } }), []),
+    when(tab === "students" || tab === "scores", () => db.subjectTermAverage.findMany({ where: { assignmentId } }), []),
+    when(tab === "students", () => db.lessonPostView.groupBy({ by: ["studentId"], where: { lessonPost: { assignmentId } }, _count: { _all: true } }), []),
+    when(tab === "students", () => db.assignmentSubmission.groupBy({ by: ["studentId"], where: { exercise: { lessonPost: { assignmentId } } }, _count: { _all: true } }), []),
+    when(tab === "diary", () => db.classPeriodLog.findMany({ where: { timetableSlot: { assignmentId } }, orderBy: { logDate: "desc" }, take: 30, include: { timetableSlot: true } }), []),
+  ]);
+  if (!allowed || !a) notFound();
 
   const seen = new Set<string>();
   const roster = a.schoolClass.enrollments.filter((e) => !seen.has(e.studentId) && seen.add(e.studentId)).map((e) => e.student).sort((x, y) => x.fullName.localeCompare(y.fullName, "vi"));
   const library = tab === "posts" && me.teacherId ? await db.libraryLesson.findMany({ where: { teacherId: me.teacherId, subjectId: a.subjectId, gradeLevelId: a.schoolClass.gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], include: { exercises: { where: { archivedAt: null }, orderBy: { orderNo: "asc" }, include: { _count: { select: { questions: true } } } } } }) : [];
-  const [posts, entries, averages, views, submissions, logs] = await Promise.all([
-    db.lessonPost.findMany({ where: { assignmentId }, orderBy: { createdAt: "desc" }, include: { _count: { select: { views: true, exercises: true } }, exercises: { select: { _count: { select: { submissions: true } } } } } }),
-    db.scoreEntry.findMany({ where: { assignmentId }, orderBy: { createdAt: "asc" } }),
-    db.subjectTermAverage.findMany({ where: { assignmentId } }),
-    db.lessonPostView.groupBy({ by: ["studentId"], where: { lessonPost: { assignmentId } }, _count: { _all: true } }),
-    db.assignmentSubmission.groupBy({ by: ["studentId"], where: { exercise: { lessonPost: { assignmentId } } }, _count: { _all: true } }),
-    db.classPeriodLog.findMany({ where: { timetableSlot: { assignmentId } }, orderBy: { logDate: "desc" }, take: 30, include: { timetableSlot: true } }),
-  ]);
   const avgOf = new Map(averages.map((x) => [x.studentId, x.averageValue]));
   const viewed = new Map(views.map((v) => [v.studentId, v._count._all]));
   const submitted = new Map(submissions.map((v) => [v.studentId, v._count._all]));
-  const nAssign = posts.reduce((n, p) => n + p._count.exercises, 0);
+  const nAssign = tab === "posts" ? posts.reduce((n, p) => n + p._count.exercises, 0) : exerciseCount;
   const entryOf = (sid: string) => entries.filter((e) => e.studentId === sid);
 
   const postActions = (
-    <div className="flex flex-wrap gap-2">
+    <div className="btn-row flex flex-wrap gap-2">
             {me.teacherId && <PublishFromLibrary className={a.schoolClass.className} subjectName={a.subject.subjectName} gradeName={a.schoolClass.gradeLevel.gradeName} assignments={[{ id: a.id, label: `${a.academicTerm.termName} · ${a.academicTerm.academicYear.yearName}` }]} library={library} publishedLessonIds={posts.map((p) => p.sourceLessonId).filter((x): x is string => !!x)} />}
             <DialogButton label="+ Đăng bài học mới" title={`Đăng bài học · ${a.schoolClass.className} · ${a.subject.subjectName}`}>
               <ActionForm action={createPost} submit="Đăng bài" className="flex flex-col gap-3 [&>button]:self-start">
@@ -77,12 +77,12 @@ export default async function MyClass({ params, searchParams }: { params: Promis
             <span>{roster.length} học sinh</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="btn-row flex flex-wrap gap-2">
           <Link href={`/nhap-diem/${a.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700"><PenLine className="size-4" />Nhập điểm</Link>
           <Link href={`/so-dau-bai?classId=${a.schoolClassId}`} className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm hover:bg-slate-50"><ScrollText className="size-4" />Sổ đầu bài</Link>
         </div>
       </Card>
-      <Tabs right={tabsRight} current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "students" ? `${l} (${roster.length})` : k === "posts" ? `${l} (${posts.length})` : l] as [string, string])} />
+      <Tabs right={tabsRight} current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "students" ? `${l} (${roster.length})` : k === "posts" ? `${l} (${tab === "posts" ? posts.length : postCount})` : l] as [string, string])} />
 
       {tab === "students" && (
         <Table head={["Học sinh", "Phụ huynh", "Đã xem bài", "Bài tập đã nộp", "Điểm TB môn"]}>

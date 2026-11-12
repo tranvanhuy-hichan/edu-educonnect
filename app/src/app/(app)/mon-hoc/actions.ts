@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ADMIN_ROLES, MANAGER_ROLES, assertRole } from "@/lib/guard";
@@ -23,6 +23,7 @@ export const createSubject = wrap(async (fd) => {
   const d = read(fd);
   if (await db.subject.findUnique({ where: { subjectName: d.subjectName } })) throw new Error("Tên môn học đã tồn tại");
   const s = await db.subject.create({ data: d });
+  updateTag("catalog");
   await audit(me.email, "create_subject", "Subject", s.id);
   revalidatePath("/mon-hoc");
   redirect(`/mon-hoc/${s.id}`);
@@ -36,6 +37,7 @@ export const updateSubject = wrap(async (fd) => {
   const previous = await db.subject.findUniqueOrThrow({ where: { id } });
   if ((previous.assessmentType !== d.assessmentType || previous.annualPeriods !== d.annualPeriods) && (await db.scoreEntry.count({ where: { assignment: { subjectId: id } } }) || await db.studentAssessment.count({ where: { assignment: { subjectId: id } } }))) throw new Error("Môn đã có đánh giá. Không đổi hình thức/số tiết cả năm để tránh thay đổi quy tắc lịch sử");
   await db.subject.update({ where: { id }, data: d });
+  updateTag("catalog");
   await audit(me.email, "update_subject", "Subject", id);
   revalidatePath("/mon-hoc"); revalidatePath(`/mon-hoc/${id}`);
 });
@@ -47,6 +49,7 @@ export const deleteSubject = wrap(async (fd) => {
   if (await db.classSubjectAssignment.count({ where: { subjectId: id } })) throw new Error("Môn học đã được phân công cho lớp, hãy xoá các phân công trước");
   if (await db.examPaper.count({ where: { subjectId: id } })) throw new Error("Môn đã có lịch thi, không thể xóa");
   await db.subject.delete({ where: { id } });
+  updateTag("catalog");
   await audit(me.email, "delete_subject", "Subject", id);
   revalidatePath("/mon-hoc");
   redirect("/mon-hoc");

@@ -21,11 +21,17 @@ export const findExerciseForGrading = (id: string) =>
     include: { lessonPost: { include: { assignment: true } }, questions: { orderBy: { order: "asc" }, include: { question: { include: { options: true } } } } },
   });
 
+export const findStudentSubmission = (exerciseId: string, studentId: string) => prisma.assignmentSubmission.findUnique({ where: { exerciseId_studentId: { exerciseId, studentId } }, select: { id: true } });
+export const countViolations = (exerciseId: string, studentId: string) => prisma.examViolation.count({ where: { exerciseId, studentId } });
+export const lastViolation = (exerciseId: string, studentId: string, type: string) => prisma.examViolation.findFirst({ where: { exerciseId, studentId, type }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+export const createViolation = (data: { exerciseId: string; studentId: string; type: string; detail: string | null }) => prisma.examViolation.create({ data });
+export const listViolations = (exerciseId: string) => prisma.examViolation.findMany({ where: { exerciseId }, orderBy: { createdAt: "asc" } });
+
 export type GradedAnswer = { questionId: string; answer: unknown; score: number; maxScore: number; isCorrect: boolean };
-export const createGradedSubmission = (data: { exerciseId: string; studentId: string; submittedAt: Date; isLate: boolean; grade: number; answers: GradedAnswer[] }) =>
+export const createGradedSubmission = (data: { exerciseId: string; studentId: string; submittedAt: Date; isLate: boolean; grade: number; autoSubmitted?: boolean; answers: GradedAnswer[] }) =>
   prisma.assignmentSubmission.create({
     data: {
-      exerciseId: data.exerciseId, studentId: data.studentId, submittedAt: data.submittedAt, isLate: data.isLate, grade: data.grade, autoGraded: true,
+      exerciseId: data.exerciseId, studentId: data.studentId, submittedAt: data.submittedAt, isLate: data.isLate, grade: data.grade, autoGraded: true, autoSubmitted: data.autoSubmitted ?? false,
       answers: { create: data.answers.map((a) => ({ ...a, answer: (a.answer ?? Prisma.DbNull) as Prisma.InputJsonValue })) },
     },
   });

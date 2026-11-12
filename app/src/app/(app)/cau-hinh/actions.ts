@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { assertRole, ADMIN_ROLES } from "@/lib/guard";
 import { wrap, str, int } from "@/lib/action";
@@ -139,6 +139,7 @@ export const addGradeLevel = wrap(async (fd) => {
   if (!gradeName) throw new Error("Nhập tên khối (vd Khối 11)");
   if (await db.gradeLevel.findUnique({ where: { gradeName } })) throw new Error("Khối này đã tồn tại");
   const g = await db.gradeLevel.create({ data: { gradeName, sortOrder: int(fd, "sortOrder", 0) } });
+  updateTag("catalog");
   await audit(me.email, "create", "GradeLevel", g.id);
   done();
   return "Đã thêm khối";
@@ -150,6 +151,7 @@ export const updateGradeLevel = wrap(async (fd) => {
   if (!gradeName) throw new Error("Nhập tên khối");
   if (await db.gradeLevel.findFirst({ where: { gradeName, id: { not: id } } })) throw new Error("Đã có khối cùng tên");
   await db.gradeLevel.update({ where: { id }, data: { gradeName, sortOrder: int(fd, "sortOrder", 0) } });
+  updateTag("catalog");
   await audit(me.email, "update", "GradeLevel", id);
   done();
 });
@@ -160,6 +162,7 @@ export const deleteGradeLevel = wrap(async (fd) => {
   if (await db.schoolClass.count({ where: { gradeLevelId: id } })) throw new Error("Khối đang có lớp, không thể xoá");
   if (await db.examEvent.count({ where: { gradeLevelId: id } })) throw new Error("Khối đã có lịch thi, không thể xóa");
   await db.gradeLevel.delete({ where: { id } });
+  updateTag("catalog");
   await audit(me.email, "delete", "GradeLevel", id);
   done();
 });
@@ -202,6 +205,7 @@ export const updateSchoolBrand = wrap(async (fd) => {
 
   await db.schoolSetting.upsert({ where: { id: "school" }, update: data, create: { id: "school", ...data } });
   await audit(me.email, "settings", "SchoolSetting", "school");
+  updateTag("school-setting");
   revalidatePath("/", "layout");
   return "Đã lưu giao diện";
 });
@@ -212,6 +216,7 @@ export const removeSchoolLogo = wrap(async (fd) => {
   if (old?.logoPublicId) await deleteImage(old.logoPublicId);
   await db.schoolSetting.update({ where: { id: "school" }, data: { logoUrl: null, logoPublicId: null } });
   await audit(me.email, "settings", "SchoolSetting", "school");
+  updateTag("school-setting");
   revalidatePath("/", "layout");
   void fd;
   return "Đã xoá logo";

@@ -18,6 +18,8 @@ export const createExerciseSchema = z.object({
   dueDate: z.coerce.date().optional(),
   quizMode: z.boolean().default(false),
   showAnswers: z.enum(["AFTER_SUBMIT", "AFTER_DUE", "NEVER"]).optional(),
+  secureMode: z.boolean().optional(),
+  maxViolations: z.number().int().min(0).max(20).optional(),
 });
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
 
