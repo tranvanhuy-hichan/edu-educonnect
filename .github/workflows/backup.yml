@@ -28,7 +28,7 @@ jobs:
       PGURL: ${{ secrets.PROD_DIRECT_URL }}
       BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Kiểm tra secrets
         run: |
           [ -n "$PGURL" ] || { echo "::error::Thiếu secret PROD_DIRECT_URL"; exit 1; }
