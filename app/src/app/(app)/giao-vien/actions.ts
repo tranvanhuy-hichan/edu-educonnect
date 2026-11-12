@@ -1,4 +1,5 @@
 "use server";
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -46,7 +47,11 @@ export const createTeacher = wrap(async (fd) => {
   let code = genTeacherCode();
   while (await db.teacher.findUnique({ where: { code } })) code = genTeacherCode();
   const roles = rolesOf(fd), profile = readProfile(fd), subjectIds = await readSubjects(fd, roles);
-  const user = await db.user.create({ data: { email, passwordHash: await bcrypt.hash(password, 10), roles, mustChangePwd: true, teacher: { create: { fullName, code, ...profile, subjects: { create: subjectIds.map((subjectId) => ({ subjectId })) } } } }, include: { teacher: true } });
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await db.$transaction(async (tx) => {
+    const account = await createSharedAccount(tx, { username: code, passwordHash, fullName });
+    return tx.user.create({ data: { accountId: account.id, email, roles, teacher: { create: { fullName, code, ...profile, subjects: { create: subjectIds.map((subjectId) => ({ subjectId })) } } } }, include: { teacher: true } });
+  });
   await audit(me.email, "create_teacher", "Teacher", user.teacher!.id);
   revalidatePath("/giao-vien");
   return { ok: "Đã tạo giáo viên. File mật khẩu ban đầu đang tự tải về.", data: { credentials: JSON.stringify([{ fullName, username: email, password }]) } };
@@ -118,7 +123,11 @@ export const importTeachers = wrap(async (fd) => {
         const code = genTeacherCode();
         const email = `${code.toLowerCase()}@sonha.edu.vn`;
         try {
-          await db.user.create({ data: { email, passwordHash: await bcrypt.hash(password, 10), roles: rolesOf(fd), mustChangePwd: true, teacher: { create: { fullName, code } } } });
+          const passwordHash = await bcrypt.hash(password, 10);
+          await db.$transaction(async (tx) => {
+            const account = await createSharedAccount(tx, { username: code, passwordHash, fullName });
+            await tx.user.create({ data: { accountId: account.id, email, roles: rolesOf(fd), teacher: { create: { fullName, code } } } });
+          });
           rows.push({ fullName, username: email, password, status: "Đã tạo" });
           created = true;
           break;

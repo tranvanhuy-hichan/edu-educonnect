@@ -86,10 +86,10 @@ export function gradingRepository(context?: DatabaseContext) {
   return {
     assignment: (id: string) => db.classSubjectAssignment.findUniqueOrThrow({ where: { id }, include: { academicTerm: true, subject: true, schoolClass: true } }),
     term: (id: string) => db.academicTerm.findUniqueOrThrow({ where: { id } }),
-    lockTermRow: (id: string) => db.$queryRaw`SELECT "id" FROM "AcademicTerm" WHERE "id" = ${id} FOR UPDATE`,
+    lockTermRow: (id: string) => db.$queryRaw`SELECT "id" FROM "edu"."AcademicTerm" WHERE "id" = ${id} FOR UPDATE`,
     activeUnlock: (requestedBy: string, assignmentId: string, now: Date) => db.scoreUnlockRequest.findFirst({ where: { requestedBy, assignmentId, status: "APPROVED", expiresAt: { gt: now } }, orderBy: { expiresAt: "desc" } }),
     pendingUnlock: (requestedBy: string, assignmentId: string) => db.scoreUnlockRequest.findFirst({ where: { requestedBy, assignmentId, status: "SUBMITTED" } }),
-    lockUnlockRequest: (id: string) => db.$queryRaw`SELECT "id" FROM "ScoreUnlockRequest" WHERE "id" = ${id} FOR UPDATE`,
+    lockUnlockRequest: (id: string) => db.$queryRaw`SELECT "id" FROM "edu"."ScoreUnlockRequest" WHERE "id" = ${id} FOR UPDATE`,
     unlockRequest: (id: string) => db.scoreUnlockRequest.findUniqueOrThrow({ where: { id } }),
     createUnlock: (data: Prisma.ScoreUnlockRequestUncheckedCreateInput) => db.scoreUnlockRequest.create({ data }),
     reviewUnlock: (id: string, data: Prisma.ScoreUnlockRequestUncheckedUpdateInput) => db.scoreUnlockRequest.update({ where: { id }, data }),

@@ -1,3 +1,4 @@
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import { createClassWithSubjects } from "@/modules/curriculum/service";
 import { prisma } from "@/lib/prisma";
 import type {
@@ -125,8 +126,9 @@ export function createTeacherWithUser(
   passwordHash: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    const account = await createSharedAccount(tx, { username: input.email, passwordHash, fullName: input.fullName });
     const user = await tx.user.create({
-      data: { email: input.email, passwordHash, roles: input.roles },
+      data: { accountId: account.id, email: input.email, roles: input.roles },
     });
     return tx.teacher.create({
       data: { userId: user.id, fullName: input.fullName, phone: input.phone },

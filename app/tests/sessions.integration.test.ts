@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import bcrypt from "bcryptjs";
@@ -11,7 +12,7 @@ after(async () => { await prisma.$disconnect(); });
 test("database: five wrong passwords lock the account for 15 minutes; a correct password during the lock is also refused; admin can unlock", { skip: !enabled }, async () => {
   process.env.JWT_SECRET ||= "test-secret-only";
   const email = `lock${Date.now().toString(36)}@test.invalid`;
-  const user = await prisma.user.create({ data: { email, passwordHash: bcrypt.hashSync("Dung-mat-khau-1", 4), roles: ["LIBRARIAN"] } });
+  const user = await prisma.user.create({ data: { email, accountId: await testAccount(bcrypt.hashSync("Dung-mat-khau-1", 4)), roles: ["LIBRARIAN"] } });
   try {
     for (let i = 0; i < 4; i++) await assert.rejects(login({ email, password: "sai" }), InvalidCredentialsError);
     assert.equal((await prisma.user.findUniqueOrThrow({ where: { id: user.id } })).failedLogins, 4);
@@ -21,7 +22,7 @@ test("database: five wrong passwords lock the account for 15 minutes; a correct 
     assert.equal(locked.failedLogins, 0);
     await assert.rejects(login({ email, password: "Dung-mat-khau-1" }), AccountLockedError, "đang khoá thì mật khẩu đúng cũng không vào được");
     assert.ok(await prisma.activityLog.findFirst({ where: { action: "login_locked", targetId: user.id } }));
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
     await sessions.clearLock(user.id);
     const ok = await login({ email, password: "Dung-mat-khau-1" });
     assert.equal(ok.userId, user.id);
@@ -35,12 +36,12 @@ test("database: five wrong passwords lock the account for 15 minutes; a correct 
   } finally {
     await prisma.activityLog.deleteMany({ where: { targetId: user.id } });
     await prisma.user.delete({ where: { id: user.id } });
-    await prisma.$executeRaw`DELETE FROM "LoginThrottle"`;
+    await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle"`;
   }
 });
 
 test("database: devices can be listed and revoked one by one, others at once, or everywhere (including old tokens without a session id)", { skip: !enabled }, async () => {
-  const user = await prisma.user.create({ data: { email: `sess${Date.now().toString(36)}@test.invalid`, passwordHash: "hash-x", roles: ["LIBRARIAN"] } });
+  const user = await prisma.user.create({ data: { email: `sess${Date.now().toString(36)}@test.invalid`, accountId: await testAccount("hash-x"), roles: ["LIBRARIAN"] } });
   const tag = credentialTag("hash-x");
   const nowSec = () => Math.floor(Date.now() / 1000);
   try {

@@ -214,4 +214,4 @@ export function restoreTrash(id: string) {
   }, { timeout: 30_000 });
 }
 export const purgeTrash = (id: string) => prisma.trashItem.deleteMany({ where: { id, restoredAt: null } });
-export const purgeExpiredTrash = () => prisma.$executeRaw`DELETE FROM "TrashItem" WHERE "expiresAt" <= NOW() OR ("restoredAt" IS NOT NULL AND "restoredAt" < NOW() - INTERVAL '30 days')`;
+export const purgeExpiredTrash = () => prisma.$executeRaw`DELETE FROM "edu"."TrashItem" WHERE "expiresAt" <= NOW() OR ("restoredAt" IS NOT NULL AND "restoredAt" < NOW() - INTERVAL '30 days')`;

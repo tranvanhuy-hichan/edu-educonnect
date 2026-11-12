@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 /** Đánh dấu đã gửi; trả về các khoá MỚI (chưa từng gửi). Chạy lại tác vụ không bao giờ gửi trùng. */
 export async function claimKeys(keys: string[]): Promise<Set<string>> {
   if (!keys.length) return new Set();
-  const rows = await prisma.$queryRaw<{ key: string }[]>`INSERT INTO "ReminderSent" ("key") SELECT unnest(${keys}::text[]) ON CONFLICT DO NOTHING RETURNING "key"`;
+  const rows = await prisma.$queryRaw<{ key: string }[]>`INSERT INTO "edu"."ReminderSent" ("key") SELECT unnest(${keys}::text[]) ON CONFLICT DO NOTHING RETURNING "key"`;
   return new Set(rows.map((r) => r.key));
 }
 export const releaseKeys = (keys: string[]) => prisma.reminderSent.deleteMany({ where: { key: { in: keys } } });

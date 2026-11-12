@@ -34,16 +34,17 @@ trap 'rm -f "$BASE.dump"' EXIT   # không bao giờ để bản chưa mã hoá l
 umask 077
 
 echo "→ pg_dump ($(pg_dump --version))"
-# --schema=public: toàn bộ dữ liệu EduConnect nằm ở đây. Bỏ qua schema hệ thống của Supabase (auth, storage, vault, extensions...)
+# --schema=public --schema=edu: DB dùng chung với Cổng thông tin Đoàn — "public" là dữ liệu khkt (tài khoản, đoàn viên...), "edu" là dữ liệu EduConnect.
+# Phải sao lưu CẢ HAI cùng lúc vì khoá ngoại edu → public. Bỏ qua schema hệ thống của Supabase (auth, storage, vault, extensions...)
 # vì chúng chứa extension riêng của Supabase, không khôi phục được vào PostgreSQL thường và nhà cung cấp tự quản lý chúng.
 # --no-owner/--no-privileges: khôi phục được sang máy chủ/tài khoản khác. Không đưa PGURL vào log.
-pg_dump "$PGURL" --format=custom --compress=6 --schema=public --no-owner --no-privileges --file "$BASE.dump"
+pg_dump "$PGURL" --format=custom --compress=6 --schema=public --schema=edu --no-owner --no-privileges --file "$BASE.dump"
 [ -s "$BASE.dump" ] || { echo "Dump rỗng" >&2; exit 1; }
 pg_restore --list "$BASE.dump" >/dev/null   # cấu trúc file phải đọc được
 
 if [ -n "$VERIFY" ]; then
   echo "→ Khôi phục thử vào DB tạm"
-  # --clean --if-exists: dump chỉ có schema public nên có lệnh CREATE SCHEMA public, mà DB trống đã có sẵn schema này.
+  # --clean --if-exists: dump có lệnh CREATE SCHEMA public/edu, mà DB trống đã có sẵn schema public.
   pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error --dbname "$VERIFY" "$BASE.dump"
   users="$(psql "$VERIFY" -Atc 'SELECT COUNT(*) FROM "User"')"
   migrations="$(psql "$VERIFY" -Atc "SELECT COALESCE((SELECT COUNT(*) FROM \"_prisma_migrations\"),0)" 2>/dev/null || echo 0)"

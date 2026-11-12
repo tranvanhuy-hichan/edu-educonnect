@@ -28,15 +28,15 @@ export async function enqueue(type: string, payload: Prisma.InputJsonValue, opts
 
 /** Việc đang chạy mà worker đã chết/timeout quá hạn lease: hết lượt thử thì đánh FAILED, còn lượt thì claim() sẽ giao lại. */
 async function failExhaustedStale(): Promise<number> {
-  return prisma.$executeRaw`UPDATE "Job" SET "status" = 'FAILED', "finishedAt" = NOW(), "lastError" = 'Worker dừng giữa chừng và đã hết số lần thử'
+  return prisma.$executeRaw`UPDATE "edu"."Job" SET "status" = 'FAILED', "finishedAt" = NOW(), "lastError" = 'Worker dừng giữa chừng và đã hết số lần thử'
     WHERE "status" = 'RUNNING' AND "lockedAt" < NOW() - ${LEASE_SECONDS}::double precision * INTERVAL '1 second' AND "attempts" >= "maxAttempts"`;
 }
 
 async function claim(workerId: string): Promise<JobRow | null> {
   const rows = await prisma.$queryRaw<JobRow[]>`
-    UPDATE "Job" SET "status" = 'RUNNING', "lockedAt" = NOW(), "lockedBy" = ${workerId}, "attempts" = "attempts" + 1
+    UPDATE "edu"."Job" SET "status" = 'RUNNING', "lockedAt" = NOW(), "lockedBy" = ${workerId}, "attempts" = "attempts" + 1
     WHERE "id" = (
-      SELECT "id" FROM "Job"
+      SELECT "id" FROM "edu"."Job"
       WHERE ("status" = 'PENDING' AND "runAt" <= NOW())
          OR ("status" = 'RUNNING' AND "lockedAt" < NOW() - ${LEASE_SECONDS}::double precision * INTERVAL '1 second' AND "attempts" < "maxAttempts")
       ORDER BY "runAt" ASC LIMIT 1 FOR UPDATE SKIP LOCKED)

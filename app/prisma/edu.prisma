@@ -1,0 +1,1405 @@
+enum Role {
+  ADMIN
+  PRINCIPAL
+  VICE_PRINCIPAL
+  HOMEROOM_TEACHER
+  SUBJECT_TEACHER
+  LIBRARIAN
+  STUDENT
+  @@schema("edu")
+}
+
+enum ScoreType {
+  THUONG_XUYEN
+  GIUA_KY
+  CUOI_KY
+  @@schema("edu")
+}
+
+enum AssessmentType {
+  SCORE
+  COMMENT
+  @@schema("edu")
+}
+
+enum AssessmentOutcome {
+  DAT
+  CHUA_DAT
+  @@schema("edu")
+}
+
+enum ReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  @@schema("edu")
+}
+
+enum PromotionResult {
+  CHUA_DU_DIEU_KIEN
+  LEN_LOP
+  O_LAI
+  THI_LAI
+  @@schema("edu")
+}
+
+enum LoanStatus {
+  BORROWED
+  RETURNED
+  PARTIALLY_RETURNED
+  OVERDUE
+  LOST
+  @@schema("edu")
+}
+
+enum BookCopyStatus {
+  AVAILABLE
+  BORROWED
+  LOST
+  @@schema("edu")
+}
+
+enum PromotionJobStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+  @@schema("edu")
+}
+
+enum StudyShift {
+  MORNING
+  AFTERNOON
+  @@schema("edu")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  /// Tài khoản đăng nhập DÙNG CHUNG với Cổng thông tin Đoàn (bảng public."User"): tên đăng nhập, mật khẩu,
+  /// trạng thái khoá và cờ "phải đổi mật khẩu" chỉ lưu ở đó. Bảng này chỉ giữ phần riêng của EduConnect.
+  accountId    String   @unique
+  account      DoanUser @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  /// Email liên hệ/đăng nhập phụ (vd quản trị viên cũ). Không phải khoá đăng nhập chính.
+  email        String   @unique
+  roles        Role[]
+  isActive     Boolean  @default(true)
+  tokenVersion Int      @default(1)
+  /// Lần đăng nhập thành công gần nhất (phục vụ rà soát tài khoản lâu không dùng).
+  lastLoginAt      DateTime?
+  /// Mọi phiên đăng nhập cấp TRƯỚC thời điểm này đều vô hiệu ("đăng xuất mọi nơi", kể cả phiên cũ chưa có bản ghi).
+  tokensValidAfter DateTime?
+  /// Đăng nhập sai liên tiếp; quá ngưỡng thì khoá tạm đến lockedUntil.
+  failedLogins     Int       @default(0)
+  lockedUntil      DateTime?
+  /// Đã xem hướng dẫn lần đầu theo vai trò.
+  onboardedAt      DateTime?
+  teacher      Teacher?
+  student      Student?
+  notifications Notification[]
+  sessions     UserSession[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  @@schema("edu")
+}
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  actorEmail String
+  action     String
+  targetType String
+  beforeData Json?
+  afterData  Json?
+  reason     String?
+  targetId   String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorEmail])
+  @@index([targetType, createdAt])
+  @@schema("edu")
+}
+
+model AcademicYear {
+  id             String                    @id @default(cuid())
+  yearName       String                    @unique // vd "2026-2027"
+  startDate      DateTime
+  endDate        DateTime
+  terms          AcademicTerm[]
+  classes        SchoolClass[]
+  enrollments    StudentClassEnrollment[]
+  yearEndResults YearEndResult[]
+  @@schema("edu")
+}
+
+model AcademicTerm {
+  examEvents ExamEvent[]
+  id                 String                   @id @default(cuid())
+  academicYearId     String
+  academicYear       AcademicYear             @relation(fields: [academicYearId], references: [id])
+  termName           String // "HK1" | "HK2"
+  startDate          DateTime
+  endDate            DateTime
+  isLocked           Boolean                  @default(false)
+  lockedAt           DateTime?
+  lockedBy           String?
+  // Khóa xem điểm: học sinh và phụ huynh không xem được điểm học kỳ này (giáo viên vẫn nhập, quản lý vẫn xem)
+  gradesHidden       Boolean                  @default(false)
+  gradesHiddenAt     DateTime?
+  gradesHiddenBy     String?
+  gradesHiddenNote   String?
+  assignments        ClassSubjectAssignment[]
+  scoreEntries       ScoreEntry[]
+  subjectAverages    SubjectTermAverage[]
+  timetableSlots     TimetableSlot[]
+  timetableVersions  TimetableVersion[]
+  scoreWeightConfig  ScoreWeightConfig?
+  emulationScores    ClassEmulationScore[]
+
+  @@unique([academicYearId, termName])
+  @@schema("edu")
+}
+
+model GradeLevel {
+  examEvents ExamEvent[]
+  id        String        @id @default(cuid())
+  gradeName String        @unique // "Khối 10" | "Khối 11" | "Khối 12"
+  sortOrder Int
+  classes   SchoolClass[]
+  questions Question[]
+  libraryLessons LibraryLesson[]
+  importJobs ImportJob[]
+  @@schema("edu")
+}
+
+model Room {
+  examRooms ExamRoom[]
+  id             String          @id @default(cuid())
+  roomName       String          @unique
+  roomType       String // THUONG | THI_NGHIEM | MAY_TINH ...
+  capacity       Int
+  classes        SchoolClass[]
+  timetableSlots TimetableSlot[]
+  @@schema("edu")
+}
+
+model Subject {
+  assessmentType AssessmentType @default(SCORE)
+  annualPeriods Int @default(70)
+  classes ClassSubject[]
+  examPapers ExamPaper[]
+  id                    String                    @id @default(cuid())
+  subjectName           String                    @unique
+  defaultPeriodsPerWeek Int
+  assignments           ClassSubjectAssignment[]
+  teachers              TeacherSubject[]
+  questions             Question[]
+  libraryLessons        LibraryLesson[]
+  importJobs            ImportJob[]
+  @@schema("edu")
+}
+
+model Teacher {
+  invigilations ExamInvigilation[]
+  questions Question[]
+  libraryLessons LibraryLesson[]
+  importJobs ImportJob[]
+  id              String                    @id @default(cuid())
+  code            String?                   @unique
+  userId          String                    @unique
+  user            User                      @relation(fields: [userId], references: [id])
+  fullName        String
+  phone           String?
+  gender          String? // MALE | FEMALE | OTHER
+  dob             DateTime?
+  contactEmail    String? // email liên hệ (khác email đăng nhập)
+  address         String?
+  idNumber        String? // CCCD/CMND
+  degree          String? // trình độ / bằng cấp
+  startDate       DateTime? // ngày bắt đầu công tác
+  note            String?
+  subjects        TeacherSubject[] // các môn giáo viên được phụ trách (chỉ được phân công dạy các môn này)
+  homeroomClasses SchoolClass[]
+  assignments     ClassSubjectAssignment[]
+  @@schema("edu")
+}
+
+model TeacherSubject {
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([teacherId, subjectId])
+
+  @@index([subjectId])
+  @@schema("edu")
+}
+
+model Student {
+  youth StudentYouth?
+  examViolations ExamViolation[]
+  quizAttempts QuizAttempt[]
+  examSeats ExamSeat[]
+  assessments StudentAssessment[]
+  transfers ClassTransfer[]
+  periodAbsences ClassPeriodAbsence[]
+  id              String                   @id @default(cuid())
+  code            String?                  @unique
+  userId          String                   @unique
+  user            User                     @relation(fields: [userId], references: [id])
+  /// Hồ sơ đoàn viên tương ứng ở Cổng thông tin Đoàn (null: học sinh chưa có hồ sơ bên đó).
+  memberId        String?                  @unique
+  member          DoanMember?              @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  fullName        String
+  dob             DateTime?
+  guardianName    String?
+  guardianPhone   String?
+  gender          String? // MALE | FEMALE | OTHER
+  birthPlace      String?
+  ethnicity       String?
+  idNumber        String? // CCCD/CMND
+  phone           String?
+  contactEmail    String?
+  address         String?
+  guardianRelation String?
+  guardianEmail   String?
+  guardianJob     String?
+  note            String?
+  enrollments     StudentClassEnrollment[]
+  monitorOf       SchoolClass[]            @relation("ClassMonitor")
+  lessonPostViews LessonPostView[]
+  submissions     AssignmentSubmission[]
+  scoreEntries    ScoreEntry[]
+  subjectAverages SubjectTermAverage[]
+  loans           LibraryLoan[]
+  yearEndResults  YearEndResult[]
+  @@schema("edu")
+}
+
+model SchoolClass {
+  subjects ClassSubject[]
+  roomId            String?
+  room              Room? @relation(fields: [roomId], references: [id])
+  id                String                   @id @default(cuid())
+  className         String // "10A1"
+  gradeLevelId      String
+  gradeLevel        GradeLevel               @relation(fields: [gradeLevelId], references: [id])
+  academicYearId    String
+  academicYear      AcademicYear             @relation(fields: [academicYearId], references: [id])
+  homeroomTeacherId String?
+  homeroomTeacher   Teacher?                 @relation(fields: [homeroomTeacherId], references: [id])
+  monitorStudentId  String? // lớp trưởng: chọn sau khi lớp đã có học sinh
+  monitorStudent    Student?                 @relation("ClassMonitor", fields: [monitorStudentId], references: [id], onDelete: SetNull)
+  shift             StudyShift               @default(MORNING)
+  enrollments       StudentClassEnrollment[]
+  assignments       ClassSubjectAssignment[]
+  timetableSlots    TimetableSlot[]
+  periodLogs        ClassPeriodLog[]
+  timetableActivities TimetableActivity[]
+  emulationScores   ClassEmulationScore[]
+
+  @@unique([className, academicYearId])
+  @@unique([academicYearId, roomId, shift])
+
+  @@index([gradeLevelId])
+  @@index([homeroomTeacherId])
+  @@schema("edu")
+}
+
+model StudentClassEnrollment {
+  currentClassSince DateTime? @default(now())
+  id             String       @id @default(cuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id])
+  schoolClassId  String
+  schoolClass    SchoolClass  @relation(fields: [schoolClassId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([studentId, academicYearId])
+
+  @@index([schoolClassId, academicYearId])
+  @@schema("edu")
+}
+
+model ClassSubject {
+  schoolClassId String
+  schoolClass SchoolClass @relation(fields: [schoolClassId], references: [id], onDelete: Cascade)
+  subjectId String
+  subject Subject @relation(fields: [subjectId], references: [id])
+  assignments ClassSubjectAssignment[]
+
+  @@id([schoolClassId, subjectId])
+  @@schema("edu")
+}
+
+model ClassSubjectAssignment {
+  assessments StudentAssessment[]
+  curriculum ClassSubject @relation(fields: [schoolClassId, subjectId], references: [schoolClassId, subjectId])
+  id              String       @id @default(cuid())
+  schoolClassId   String
+  schoolClass     SchoolClass  @relation(fields: [schoolClassId], references: [id])
+  subjectId       String
+  subject         Subject      @relation(fields: [subjectId], references: [id])
+  teacherId       String
+  teacher         Teacher      @relation(fields: [teacherId], references: [id])
+  academicTermId  String
+  academicTerm    AcademicTerm @relation(fields: [academicTermId], references: [id])
+  lessonPosts     LessonPost[]
+  lessonPlans     LessonPlan[]
+  scoreEntries    ScoreEntry[]
+  subjectAverages SubjectTermAverage[]
+  timetableSlots  TimetableSlot[]
+
+  @@unique([schoolClassId, subjectId, academicTermId]) // 1 môn/lớp/kỳ chỉ 1 GV
+
+  @@index([teacherId, academicTermId])
+  @@index([subjectId])
+  @@schema("edu")
+}
+
+/// Bài học. Bài tập (Exercise) là phần đính kèm của một bài học, không đứng riêng.
+model LessonPost {
+  id           String                  @id @default(cuid())
+  assignmentId String
+  assignment   ClassSubjectAssignment  @relation(fields: [assignmentId], references: [id])
+  title        String
+  content      String
+  attachments  Json? // mảng url đính kèm
+  views        LessonPostView[]
+  exercises    Exercise[]
+  sourceLessonId String? // bài học trong kho mà bản này được đăng từ đó
+  createdAt    DateTime                @default(now())
+
+  @@index([sourceLessonId])
+
+  @@index([assignmentId])
+  @@schema("edu")
+}
+
+/// Bài tập thuộc một bài học (tab "Bài tập" trong bài học). quizMode=true: bài trắc nghiệm gồm các câu hỏi lấy từ ngân hàng câu hỏi, hệ thống tự chấm.
+model Exercise {
+  id           String                 @id @default(cuid())
+  lessonPostId String
+  lessonPost   LessonPost             @relation(fields: [lessonPostId], references: [id])
+  title        String
+  content      String
+  attachments  Json?
+  dueDate      DateTime?
+  quizMode     Boolean                @default(false)
+  showAnswers  String                 @default("AFTER_DUE") // AFTER_SUBMIT | AFTER_DUE | NEVER: khi nào học sinh thấy đáp án đúng
+  maxAttempts  Int                    @default(1) // số lần làm tối đa
+  attemptScoring String               @default("BEST") // BEST = lấy điểm cao nhất | LAST = lấy lần làm cuối
+  timeLimitMinutes Int                @default(0) // phút; 0 = không giới hạn, hết giờ tự nộp
+  allowReview  Boolean                @default(true) // cho học sinh xem lại bài sau khi hoàn thành
+  attempts     QuizAttempt[]
+  shuffleQuestions Boolean            @default(false) // mỗi học sinh một thứ tự câu hỏi khác nhau (cố định theo học sinh)
+  shuffleOptions   Boolean            @default(false) // mỗi học sinh một thứ tự đáp án khác nhau
+  secureMode   Boolean                @default(false) // chế độ thi nghiêm túc: toàn màn hình, giám sát chuyển tab/ứng dụng
+  maxViolations Int                   @default(3) // số vi phạm tối đa trước khi tự động nộp bài (0 = chỉ ghi nhận, không tự nộp)
+  violations   ExamViolation[]
+  questions    ExerciseQuestion[]
+  submissions  AssignmentSubmission[]
+  sourceExerciseId String? // bài tập mẫu trong kho mà bản này được đăng từ đó
+  createdAt    DateTime               @default(now())
+
+  @@index([lessonPostId])
+  @@schema("edu")
+}
+
+/// Ngân hàng câu hỏi: mỗi câu thuộc riêng một giáo viên (không chia sẻ), gắn với môn + khối.
+/// type: SINGLE_CHOICE (chọn 1 đáp án) | TRUE_FALSE_GROUP (cụm Đúng/Sai: các ý a, b, c, d) | SHORT_ANSWER (điền đáp án) | PASSAGE (đoạn văn + câu hỏi con, parentId)
+/// content/ảnh: Markdown + LaTeX ($...$). answerKey (SHORT_ANSWER): { mode: "NUMBER" | "TEXT", answers: string[], tolerance: number }
+model Question {
+  id           String             @id @default(cuid())
+  teacherId    String
+  teacher      Teacher            @relation(fields: [teacherId], references: [id])
+  subjectId    String
+  subject      Subject            @relation(fields: [subjectId], references: [id])
+  gradeLevelId String?
+  gradeLevel   GradeLevel?        @relation(fields: [gradeLevelId], references: [id])
+  type         String
+  content      String
+  images       Json? // mảng url ảnh đính kèm câu hỏi
+  topic        String? // chương / bài
+  difficulty   String             @default("MEDIUM") // EASY | MEDIUM | HARD
+  explanation  String? // lời giải / giải thích, hiện cùng đáp án đúng
+  answerKey    Json?
+  parentId     String?
+  parent       Question?          @relation("PassageChildren", fields: [parentId], references: [id])
+  children     Question[]         @relation("PassageChildren")
+  order        Int                @default(0)
+  archivedAt   DateTime? // "xóa" = lưu trữ, bài tập cũ vẫn tham chiếu được
+  libraryLessonId String? // thuộc bài học nào trong kho (null = chưa phân bài)
+  libraryLesson   LibraryLesson? @relation(fields: [libraryLessonId], references: [id])
+  reviewStatus    String   @default("READY") // READY | NEEDS_REVIEW (câu AI trích xuất chưa được giáo viên duyệt: chưa dùng được trong bài tập)
+  reviewNote      String?
+  importJobId     String?
+  options      QuestionOption[]
+  exercises    ExerciseQuestion[]
+  libraryExercises LibraryExerciseQuestion[]
+  answers      StudentAnswer[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([teacherId, subjectId, archivedAt])
+  @@index([libraryLessonId])
+  @@index([importJobId])
+
+  @@index([subjectId, gradeLevelId])
+  @@schema("edu")
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String // A-D hoặc a-d
+  content    String
+  images     Json?
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+
+  @@index([questionId])
+  @@schema("edu")
+}
+
+/// Câu hỏi được chọn vào một bài tập: thứ tự + số điểm riêng của câu trong bài đó.
+model ExerciseQuestion {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  order      Int
+  points     Float    @default(1)
+
+  @@unique([exerciseId, questionId])
+  @@schema("edu")
+}
+
+/// Ngân hàng bài học: bài học mẫu riêng của từng giáo viên, theo môn + khối. Đăng cho lớp = sao chép thành LessonPost.
+model LibraryLesson {
+  id           String                  @id @default(cuid())
+  teacherId    String
+  teacher      Teacher                 @relation(fields: [teacherId], references: [id])
+  subjectId    String
+  subject      Subject                 @relation(fields: [subjectId], references: [id])
+  gradeLevelId String
+  gradeLevel   GradeLevel              @relation(fields: [gradeLevelId], references: [id])
+  title        String
+  content      String                  @default("")
+  attachments  Json?
+  orderNo      Int                     @default(0) // thứ tự trong môn + khối: "các bài học trước" là các bài có orderNo nhỏ hơn
+  archivedAt   DateTime?
+  questions    Question[]
+  exercises    LibraryExercise[]
+  sourceOf     LibraryExerciseSource[]
+  importJobs   ImportJob[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([teacherId, subjectId, gradeLevelId, archivedAt])
+  @@schema("edu")
+}
+
+/// Bài tập mẫu của một bài học trong kho. kind: NORMAL (câu hỏi của chính bài học) | REVIEW (bài ôn tập, lấy câu hỏi từ các bài học đã liên kết).
+model LibraryExercise {
+  id           String                    @id @default(cuid())
+  lessonId     String
+  lesson       LibraryLesson             @relation(fields: [lessonId], references: [id])
+  title        String
+  kind         String                    @default("NORMAL")
+  quizMode     Boolean                   @default(true)
+  instructions String                    @default("")
+  attachments  Json?
+  showAnswers  String                    @default("AFTER_DUE")
+  maxAttempts  Int                       @default(1)
+  attemptScoring String                  @default("BEST")
+  timeLimitMinutes Int                   @default(0)
+  allowReview  Boolean                   @default(true)
+  shuffleQuestions Boolean               @default(false)
+  shuffleOptions   Boolean               @default(false)
+  secureMode   Boolean                   @default(false)
+  maxViolations Int                      @default(3)
+  orderNo      Int                       @default(0)
+  archivedAt   DateTime?
+  questions    LibraryExerciseQuestion[]
+  sources      LibraryExerciseSource[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  @@schema("edu")
+}
+
+model LibraryExerciseQuestion {
+  id         String          @id @default(cuid())
+  exerciseId String
+  exercise   LibraryExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question        @relation(fields: [questionId], references: [id])
+  order      Int
+  points     Float           @default(1)
+
+  @@unique([exerciseId, questionId])
+  @@schema("edu")
+}
+
+/// Bài ôn tập liên kết với các bài học trước.
+model LibraryExerciseSource {
+  exerciseId String
+  exercise   LibraryExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     LibraryLesson   @relation(fields: [lessonId], references: [id])
+
+  @@id([exerciseId, lessonId])
+  @@schema("edu")
+}
+
+/// Phiên nhập câu hỏi/đề kiểm tra từ tệp bằng AI. kind: QUESTIONS | TEST. status: PENDING | RUNNING | DONE | FAILED.
+model ImportJob {
+  id                String         @id @default(cuid())
+  teacherId         String
+  teacher           Teacher        @relation(fields: [teacherId], references: [id])
+  kind              String
+  status            String         @default("PENDING")
+  fileName          String
+  fileId            String
+  subjectId         String
+  subject           Subject        @relation(fields: [subjectId], references: [id])
+  gradeLevelId      String
+  gradeLevel        GradeLevel     @relation(fields: [gradeLevelId], references: [id])
+  libraryLessonId   String?
+  libraryLesson     LibraryLesson? @relation(fields: [libraryLessonId], references: [id])
+  libraryExerciseId String? // TEST: bài tập mẫu được tạo từ đề
+  questionCount     Int            @default(0)
+  flaggedCount      Int            @default(0)
+  warnings          Json?
+  error             String?
+  createdAt         DateTime       @default(now())
+  finishedAt        DateTime?
+
+  @@index([teacherId, createdAt])
+  @@schema("edu")
+}
+
+/// Một lượt làm bài trắc nghiệm của học sinh (bắt đầu lúc startedAt, nộp lúc submittedAt). Dùng để đếm số lần làm, tính giờ phía máy chủ và lưu lịch sử điểm.
+model QuizAttempt {
+  id            String    @id @default(cuid())
+  exerciseId    String
+  exercise      Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  attemptNo     Int
+  startedAt     DateTime  @default(now())
+  submittedAt   DateTime?
+  grade         Float?
+  isLate        Boolean   @default(false)
+  autoSubmitted Boolean   @default(false)
+  snapshot      Json? // đề, đáp án và kết quả từng lượt; chỉ đọc phía quản lý
+  overtime      Boolean   @default(false) // nộp sau khi hết giờ làm bài
+
+  @@unique([exerciseId, studentId, attemptNo])
+
+  @@index([studentId])
+  @@schema("edu")
+}
+
+/// Vi phạm ghi nhận khi học sinh làm bài ở chế độ thi nghiêm túc. type: EXIT_FULLSCREEN | TAB_SWITCH | WINDOW_BLUR | MOUSE_LEAVE | RELOAD
+model ExamViolation {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type       String
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([exerciseId, studentId])
+  @@schema("edu")
+}
+
+model LessonPostView {
+  id           String     @id @default(cuid())
+  lessonPostId String
+  lessonPost   LessonPost @relation(fields: [lessonPostId], references: [id])
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id])
+  viewedAt     DateTime   @default(now())
+
+  @@unique([lessonPostId, studentId])
+
+  @@index([studentId])
+  @@schema("edu")
+}
+
+model AssignmentSubmission {
+  id               String          @id @default(cuid())
+  exerciseId       String
+  exercise         Exercise        @relation(fields: [exerciseId], references: [id])
+  studentId        String
+  student          Student         @relation(fields: [studentId], references: [id])
+  attachments      Json?
+  content          String? // tự luận: text/file url
+  submittedAt      DateTime        @default(now())
+  isLate           Boolean         @default(false)
+  resubmittedCount Int             @default(0)
+  grade            Float? // tự luận: GV chấm tay; trắc nghiệm: hệ thống tự tính
+  feedback         String?
+  autoGraded       Boolean         @default(false)
+  autoSubmitted    Boolean         @default(false) // bị nộp tự động do vượt số vi phạm cho phép
+  attemptNo        Int             @default(1) // lần làm đang được tính điểm / hiển thị (khi làm nhiều lần)
+  extraAttempts    Int @default(0)
+  answers          StudentAnswer[]
+
+  @@unique([exerciseId, studentId])
+
+  @@index([studentId])
+  @@schema("edu")
+}
+
+/// Bài làm của học sinh cho một câu hỏi. answer: SINGLE_CHOICE -> { optionId }, TRUE_FALSE_GROUP -> { [optionId]: boolean }, SHORT_ANSWER -> { text }
+model StudentAnswer {
+  id           String               @id @default(cuid())
+  submissionId String
+  submission   AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question             @relation(fields: [questionId], references: [id])
+  answer       Json?
+  score        Float // điểm đạt được, chốt tại thời điểm nộp
+  maxScore     Float // điểm tối đa của câu trong bài tập, chốt tại thời điểm nộp
+  isCorrect    Boolean // đúng hoàn toàn (để thống kê)
+
+  @@unique([submissionId, questionId])
+
+  @@index([questionId])
+  @@schema("edu")
+}
+
+model LessonPlan {
+  id           String                 @id @default(cuid())
+  assignmentId String
+  assignment   ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  title        String
+  content      String
+  attachment   String?
+  publishedAt  DateTime               @default(now())
+  @@schema("edu")
+}
+
+model ScoreWeightConfig {
+  id             String       @id @default(cuid())
+  academicTermId String       @unique
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+  txWeight       Float        @default(1)
+  gkWeight       Float        @default(2)
+  ckWeight       Float        @default(3)
+  @@schema("edu")
+}
+
+model ScoreEntry {
+  id             String       @id @default(cuid())
+  studentId      String
+  student        Student      @relation(fields: [studentId], references: [id])
+  assignmentId   String
+  assignment     ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  academicTermId String
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+  scoreType      ScoreType
+  value          Float
+  createdAt      DateTime     @default(now())
+
+  @@index([studentId, academicTermId])
+  @@index([assignmentId])
+  @@schema("edu")
+}
+
+model SubjectTermAverage {
+  id             String                 @id @default(cuid())
+  studentId      String
+  student        Student                @relation(fields: [studentId], references: [id])
+  assignmentId   String
+  assignment     ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  academicTermId String
+  academicTerm   AcademicTerm           @relation(fields: [academicTermId], references: [id])
+  averageValue   Float // computed, cập nhật lại mỗi khi ScoreEntry liên quan thay đổi
+
+  @@unique([studentId, assignmentId, academicTermId])
+
+  @@index([assignmentId])
+  @@schema("edu")
+}
+
+model TimetableVersion {
+  id             String @id @default(cuid())
+  academicTermId String
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+  startsOn       DateTime
+  // Exclusive boundary, maintained automatically when another version starts.
+  endsOn         DateTime?
+  createdAt      DateTime @default(now())
+  slots          TimetableSlot[]
+  settings       Json?
+  activities     TimetableActivity[]
+
+  @@unique([academicTermId, startsOn])
+  @@schema("edu")
+}
+
+model TimetableActivity {
+  id            String @id @default(cuid())
+  versionId     String
+  version       TimetableVersion @relation(fields: [versionId], references: [id])
+  schoolClassId String
+  schoolClass   SchoolClass @relation(fields: [schoolClassId], references: [id])
+  name          String
+  dayOfWeek     Int
+  periodNo      Int
+
+  @@unique([versionId, schoolClassId, dayOfWeek, periodNo])
+  @@schema("edu")
+}
+
+model TimetableSlot {
+  versionId      String
+  version        TimetableVersion @relation(fields: [versionId], references: [id])
+  id             String                 @id @default(cuid())
+  schoolClassId  String
+  schoolClass    SchoolClass            @relation(fields: [schoolClassId], references: [id])
+  assignmentId   String
+  assignment     ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  roomId         String
+  room           Room                   @relation(fields: [roomId], references: [id])
+  academicTermId String
+  academicTerm   AcademicTerm           @relation(fields: [academicTermId], references: [id])
+  dayOfWeek      Int // 2..7 (Thứ 2 .. Thứ 7)
+  periodNo       Int // tiết 1..10
+  periodLogs     ClassPeriodLog[]
+
+  @@unique([roomId, versionId, dayOfWeek, periodNo]) // phòng không trùng giờ
+  @@unique([assignmentId, versionId, dayOfWeek, periodNo])
+  // Ràng buộc "giáo viên không trùng giờ dạy 2 lớp" KHÔNG thể biểu diễn bằng @@unique
+  // vì phải join assignmentId -> teacherId. Kiểm tra bắt buộc ở tầng service (scheduling.service.ts)
+  // trước khi insert/update TimetableSlot.
+
+  @@index([schoolClassId, versionId])
+  @@index([versionId])
+  @@schema("edu")
+}
+
+model ClassPeriodLog {
+  id                    String        @id @default(cuid())
+  timetableSlotId       String
+  timetableSlot         TimetableSlot @relation(fields: [timetableSlotId], references: [id])
+  schoolClassId         String
+  schoolClass           SchoolClass   @relation(fields: [schoolClassId], references: [id])
+  logDate               DateTime
+  attendanceAbsentCount Int           @default(0)
+  conductRating         String? // mã xếp loại tiết (cấu hình ở Cấu hình → Quy chế; mặc định TOT/KHA/TB/YEU)
+  note                  String?
+  lessonTitle           String? // tên bài / nội dung bài dạy trong tiết
+  absences              ClassPeriodAbsence[]
+
+  @@unique([timetableSlotId, logDate])
+
+  @@index([schoolClassId])
+  @@schema("edu")
+}
+
+/// Học sinh vắng trong một tiết (có phép / không phép). attendanceAbsentCount của sổ = số dòng này khi có danh sách.
+model ClassPeriodAbsence {
+  id        String         @id @default(cuid())
+  logId     String
+  log       ClassPeriodLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student        @relation(fields: [studentId], references: [id])
+  excused   Boolean        @default(false)
+
+  @@unique([logId, studentId])
+
+  @@index([studentId])
+  @@schema("edu")
+}
+
+model EmulationCriteria {
+  id           String @id @default(cuid())
+  criteriaName String
+  weight       Float
+  @@schema("edu")
+}
+
+model ClassEmulationScore {
+  id             String       @id @default(cuid())
+  schoolClassId  String
+  schoolClass    SchoolClass  @relation(fields: [schoolClassId], references: [id])
+  academicTermId String
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+  periodLabel    String // "Tuần 1", "Tháng 10"...
+  totalScore     Float
+  rank           Int?
+
+  @@unique([schoolClassId, academicTermId, periodLabel])
+  @@schema("edu")
+}
+
+model LibraryBookTitle {
+  id            String            @id @default(cuid())
+  code          String?           @unique
+  title         String
+  author        String?
+  publisher     String?
+  publishYear   Int?
+  category      String?
+  shelfLocation String?
+  description   String?
+  isbn          String?           @unique
+  totalCopies   Int               @default(0)
+  copies        LibraryBookCopy[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
+  @@schema("edu")
+}
+
+model LibraryBookCopy {
+  id          String            @id @default(cuid())
+  bookTitleId String
+  bookTitle   LibraryBookTitle  @relation(fields: [bookTitleId], references: [id], onDelete: Cascade)
+  copyCode    String            @unique
+  status      BookCopyStatus    @default(AVAILABLE)
+  condition   String?
+  loans       LibraryLoan[]
+  loanItems   LibraryLoanItem[]
+  createdAt   DateTime          @default(now())
+
+  @@index([bookTitleId])
+  @@schema("edu")
+}
+
+model LibraryLoan {
+  id           String            @id @default(cuid())
+  loanCode     String?           @unique
+  bookCopyId   String?
+  bookCopy     LibraryBookCopy?  @relation(fields: [bookCopyId], references: [id])
+  studentId    String
+  student      Student           @relation(fields: [studentId], references: [id])
+  borrowedDate DateTime          @default(now())
+  dueDate      DateTime
+  returnedDate DateTime?
+  status       LoanStatus        @default(BORROWED)
+  note         String?
+  items        LibraryLoanItem[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @default(now()) @updatedAt
+
+  @@index([studentId])
+  @@schema("edu")
+}
+
+model LibraryLoanItem {
+  id           String          @id @default(cuid())
+  loanId       String
+  loan         LibraryLoan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  bookCopyId   String
+  bookCopy     LibraryBookCopy @relation(fields: [bookCopyId], references: [id])
+  status       LoanStatus      @default(BORROWED)
+  returnedDate DateTime?
+  note         String?
+  createdAt    DateTime        @default(now())
+
+  @@index([loanId])
+  @@index([bookCopyId])
+  @@schema("edu")
+}
+
+model YearEndResult {
+  id             String          @id @default(cuid())
+  studentId      String
+  student        Student         @relation(fields: [studentId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear    @relation(fields: [academicYearId], references: [id])
+  overallAverage Float?
+  reviewStatus ReviewStatus @default(DRAFT)
+  submittedBy String?
+  approvedBy String?
+  approvedAt DateTime?
+  absenceDays Int?
+  evaluation Json?
+  conductRank    String?
+  result         PromotionResult
+
+  @@unique([studentId, academicYearId])
+
+  @@index([academicYearId])
+  @@schema("edu")
+}
+
+model ClassPromotionJob {
+  id                 String              @id @default(cuid())
+  academicYearFromId String
+  academicYearToId   String
+  status             PromotionJobStatus  @default(PENDING)
+  log                String?
+  createdAt          DateTime            @default(now())
+  @@schema("edu")
+}
+
+/// Cấu hình chung của trường (tên, logo) — luôn chỉ có đúng 1 dòng, id cố định "school".
+model SchoolSetting {
+  id            String   @id @default("school")
+  schoolName    String   @default("EduConnect")
+  logoUrl       String?
+  logoPublicId  String?
+  policy        Json? // quy chế học tập & danh mục do admin cấu hình (xem src/lib/policy-schema.ts); null = dùng mặc định
+  updatedAt     DateTime @updatedAt
+  @@schema("edu")
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  @@schema("edu")
+}
+
+enum ExamGrouping {
+  CLASS
+  ALPHABET
+  @@schema("edu")
+}
+
+model ExamEvent {
+  id             String @id @default(cuid())
+  title          String
+  category       String
+  academicTermId String
+  academicTerm   AcademicTerm @relation(fields: [academicTermId], references: [id])
+  gradeLevelId   String
+  gradeLevel     GradeLevel @relation(fields: [gradeLevelId], references: [id])
+  status         ExamStatus @default(DRAFT)
+  publishedAt    DateTime?
+  revision       Int @default(0)
+  notes          String?
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  papers         ExamPaper[]
+
+  @@index([academicTermId, gradeLevelId, status])
+  @@schema("edu")
+}
+
+model ExamPaper {
+  id            String @id @default(cuid())
+  eventId       String
+  event         ExamEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  subjectId     String
+  subject       Subject @relation(fields: [subjectId], references: [id])
+  grouping      ExamGrouping
+  roomCount     Int?
+  maxPerRoom    Int?
+  startsAt      DateTime
+  endsAt        DateTime
+  excludedStudentIds String[] @default([])
+  reportMinutes Int @default(15)
+  rooms         ExamRoom[]
+  seats         ExamSeat[]
+
+  @@unique([eventId, subjectId])
+  @@index([startsAt, endsAt])
+  @@schema("edu")
+}
+
+model ExamRoom {
+  id            String @id @default(cuid())
+  paperId       String
+  paper         ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  groupKey      String
+  label         String
+  roomId        String?
+  room          Room? @relation(fields: [roomId], references: [id])
+  seats         ExamSeat[]
+  invigilators  ExamInvigilation[]
+
+  @@unique([paperId, groupKey])
+  @@index([roomId])
+  @@schema("edu")
+}
+
+model ExamSeat {
+  id             String @id @default(cuid())
+  paperId        String
+  paper          ExamPaper @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  examRoomId     String
+  examRoom       ExamRoom @relation(fields: [examRoomId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        Student @relation(fields: [studentId], references: [id])
+  registrationNo String
+  seatNo         Int
+  fullName       String
+  studentCode    String
+  className      String
+
+  @@unique([paperId, studentId])
+  @@unique([paperId, registrationNo])
+  @@unique([examRoomId, seatNo])
+  @@index([studentId])
+  @@schema("edu")
+}
+
+model ExamInvigilation {
+  examRoomId String
+  examRoom   ExamRoom @relation(fields: [examRoomId], references: [id], onDelete: Cascade)
+  teacherId  String
+  teacher    Teacher @relation(fields: [teacherId], references: [id])
+  position   Int
+
+  @@id([examRoomId, teacherId])
+
+  @@index([teacherId])
+  @@schema("edu")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  type      String   @default("SYSTEM") // SYSTEM | EXAM | ASSIGNMENT | LIBRARY | SCHEDULE | GRADE
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@schema("edu")
+}
+
+/// Tài khoản Cổng Phụ huynh (Sổ liên lạc điện tử) — tách riêng với tài khoản cán bộ/học sinh.
+/// Đăng nhập bằng số điện thoại người giám hộ; mật khẩu mặc định khởi tạo là 123456.
+model ParentAccount {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  fullName     String?
+  passwordHash String
+  /// Đã xác minh quyền sử dụng số điện thoại bằng mã SMS. Khi bật SMS, chưa xác minh thì chưa được xem thông tin.
+  phoneVerifiedAt DateTime?
+  /// Bắt buộc đặt mật khẩu mới trước khi xem thông tin (lần đầu qua SMS, hoặc đang dùng mật khẩu mặc định).
+  mustChangePwd   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([phone])
+  @@schema("edu")
+}
+
+// Kết quả nhận xét và các quyết định miễn/điều chỉnh theo môn, học kỳ.
+model StudentAssessment {
+  id String @id @default(cuid())
+  studentId String
+  student Student @relation(fields: [studentId], references: [id])
+  assignmentId String
+  assignment ClassSubjectAssignment @relation(fields: [assignmentId], references: [id])
+  outcome AssessmentOutcome?
+  isExempt Boolean @default(false)
+  comment String?
+  adjustmentReason String?
+  decisionReference String?
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  @@unique([studentId, assignmentId])
+
+  @@index([assignmentId])
+  @@schema("edu")
+}
+
+// Lưu vết chuyển lớp; enrollment hiện tại vẫn là con trỏ lớp đang theo học.
+model ClassTransfer {
+  id String @id @default(cuid())
+  studentId String
+  student Student @relation(fields: [studentId], references: [id])
+  academicYearId String
+  fromClassId String
+  toClassId String
+  fromDate DateTime?
+  effectiveAt DateTime
+  reason String
+  decisionReference String
+  actorEmail String
+  createdAt DateTime @default(now())
+  @@index([studentId, academicYearId, effectiveAt])
+  @@schema("edu")
+}
+
+// Mở quyền sửa có thời hạn cho đúng người yêu cầu và đúng lớp-môn.
+model ScoreUnlockRequest {
+  id String @id @default(cuid())
+  assignmentId String
+  academicTermId String
+  requestedBy String
+  requesterEmail String
+  reason String
+  durationHours Int
+  status ReviewStatus @default(SUBMITTED)
+  reviewedBy String?
+  reviewReason String?
+  approvedAt DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([assignmentId, requestedBy, status, expiresAt])
+  @@schema("edu")
+}
+
+// Đường dẫn nội bộ ổn định; backend lưu trữ được ghi theo từng tệp.
+model StoredFile {
+  id String @id @default(cuid())
+  provider String
+  storageKey String @unique
+  bucket String?
+  fileName String
+  mimeType String
+  size Int
+  uploadedBy String
+  assignmentId String? // null với ảnh câu hỏi (purpose QUESTION)
+  purpose String
+  exerciseId String?
+  createdAt DateTime @default(now())
+  @@index([assignmentId, purpose])
+  @@index([uploadedBy, createdAt])
+  @@schema("edu")
+}
+
+model LoginThrottle {
+  key String @id
+  count Int
+  expiresAt DateTime
+  @@index([expiresAt])
+  @@schema("edu")
+}
+
+/// Hàng đợi tác vụ nền (nhập AI, dọn dẹp...). Worker nhận việc bằng FOR UPDATE SKIP LOCKED nên nhiều instance chạy song song không trùng việc.
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      String    @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  dedupeKey   String?   @unique
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  progress    Int       @default(0)
+  result      Json?
+  lastError   String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([status, runAt])
+  @@index([type, createdAt])
+  @@schema("edu")
+}
+
+/// Lỗi hệ thống được gom theo "dấu vân tay" (cùng lỗi, cùng route chỉ một dòng, tăng count). Quản trị xem tại /van-hanh.
+model ErrorLog {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  source      String // render | route | action | job | client
+  message     String
+  stack       String?
+  route       String?
+  method      String?
+  digest      String?
+  requestId   String?
+  count       Int      @default(1)
+  status      String   @default("OPEN") // OPEN | RESOLVED
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([status, lastSeenAt])
+  @@schema("edu")
+}
+
+/// Thông báo cho phụ huynh. Khoá theo SĐT người giám hộ (9 số cuối) vì tài khoản Cổng Phụ huynh chỉ được tạo khi đăng nhập lần đầu,
+/// còn thông báo có thể phát sinh trước đó. Cùng cách ghép phụ huynh với học sinh như trang /phu-huynh.
+model ParentNotification {
+  id        String   @id @default(cuid())
+  phoneKey  String
+  studentId String?
+  title     String
+  content   String
+  type      String   @default("SYSTEM") // GRADE | ATTENDANCE | SYSTEM
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phoneKey, isRead])
+  @@index([phoneKey, createdAt])
+  @@schema("edu")
+}
+
+/// Mã OTP xác minh số điện thoại phụ huynh (chỉ lưu băm HMAC, hết hạn nhanh, giới hạn số lần thử).
+model ParentOtp {
+  id         String    @id @default(cuid())
+  phoneKey   String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phoneKey, createdAt])
+  @@schema("edu")
+}
+
+/// Nhật ký gửi SMS: không lưu số điện thoại rõ (chỉ băm để đếm hạn mức và dạng che 090****123 để tra cứu) và không lưu nội dung.
+model SmsLog {
+  id           String   @id @default(cuid())
+  purpose      String // OTP | NOTICE
+  phoneHash    String
+  phoneMasked  String
+  status       String // SENT | FAILED | SKIPPED
+  provider     String
+  providerCode String?
+  providerRef  String?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([phoneHash, createdAt])
+  @@index([status, createdAt])
+  @@schema("edu")
+}
+
+/// Một phiên đăng nhập (một thiết bị/trình duyệt). Mã phiên nằm trong cookie; thu hồi ở đây là vô hiệu ngay.
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device     String // "Chrome trên Windows"
+  ipMasked   String // 113.161.*.*
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId, revokedAt])
+  @@schema("edu")
+}
+
+/// Thùng rác của quản trị: bản chụp dữ liệu đã xoá (kèm các bản ghi phụ thuộc) để khôi phục trong thời hạn lưu.
+model TrashItem {
+  id          String    @id @default(cuid())
+  kind        String // STUDENT | CLASS | LESSON_POST | QUESTION | LIBRARY_LESSON
+  label       String
+  detail      String?
+  payload     Json
+  deletedBy   String
+  deletedAt   DateTime  @default(now())
+  expiresAt   DateTime
+  restoredAt  DateTime?
+
+  @@index([kind, deletedAt])
+  @@index([expiresAt])
+  @@schema("edu")
+}
+
+/// Đã gửi nhắc việc nào (khoá duy nhất) để chạy lại tác vụ nhắc không gửi trùng.
+model ReminderSent {
+  key       String   @id
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@schema("edu")
+}
+
+/// Khoá API cấp cho hệ thống bên ngoài (vd hệ thống Đoàn). Chỉ lưu băm SHA-256 của khoá; khoá gốc hiện đúng một lần khi tạo.
+model ApiKey {
+  id              String          @id @default(cuid())
+  name            String
+  keyPrefix       String // 8 ký tự đầu để nhận ra khoá trong danh sách
+  keyHash         String          @unique
+  scopes          String[]
+  ipAllowlist     String[]        @default([])
+  rateLimitPerMin Int             @default(120)
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  lastUsedAt      DateTime?
+  lastUsedIp      String?
+  note            String?
+  createdBy       String
+  createdAt       DateTime        @default(now())
+  logs            ApiRequestLog[]
+  changes         ApiChange[]
+  idempotency     ApiIdempotency[]
+  @@schema("edu")
+}
+
+/// Nhật ký gọi API theo khoá (không lưu địa chỉ IP đầy đủ, không lưu nội dung phản hồi). Giữ 30 ngày.
+model ApiRequestLog {
+  id        String   @id @default(cuid())
+  keyId     String
+  key       ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  method    String
+  path      String
+  status    Int
+  ms        Int
+  ipMasked  String
+  createdAt DateTime @default(now())
+
+  @@index([keyId, createdAt])
+  @@index([createdAt])
+  @@schema("edu")
+}
+
+/// Thông tin Đoàn của học sinh (do hệ thống Đoàn cập nhật qua API ngoài; tách khỏi hồ sơ học tập).
+model StudentYouth {
+  studentId String   @id
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  isMember  Boolean  @default(false)
+  joinedAt  DateTime?
+  branch    String? // chi đoàn
+  position  String? // chức vụ trong Đoàn
+  note      String?
+  updatedBy String
+  updatedAt DateTime @updatedAt
+  @@schema("edu")
+}
+
+/// Mỗi lần hệ thống ngoài GHI dữ liệu: lưu trước/sau để quản trị xem và hoàn tác.
+model ApiChange {
+  id         String    @id @default(cuid())
+  keyId      String
+  key        ApiKey    @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  kind       String // STUDENT_CREATE | STUDENT_UPDATE | STUDENT_CLASS | YOUTH_UPDATE | TEACHER_CREATE | TEACHER_UPDATE | CLASS_CREATE | CLASS_UPDATE
+  entityType String
+  entityId   String
+  label      String
+  before     Json?
+  after      Json?
+  meta       Json?
+  createdAt  DateTime  @default(now())
+  revertedAt DateTime?
+  revertedBy String?
+
+  @@index([createdAt])
+  @@index([keyId, createdAt])
+  @@index([entityType, entityId])
+  @@schema("edu")
+}
+
+/// Chống gửi trùng: cùng Idempotency-Key + cùng nội dung thì trả lại đúng kết quả lần đầu, không tạo bản ghi thứ hai.
+model ApiIdempotency {
+  id          String   @id @default(cuid())
+  keyId       String
+  key         ApiKey   @relation(fields: [keyId], references: [id], onDelete: Cascade)
+  idemKey     String
+  requestHash String
+  status      Int      @default(0)
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([keyId, idemKey])
+  @@index([createdAt])
+  @@schema("edu")
+}

@@ -24,7 +24,7 @@ const call = async (h: Handler, path: string, key: string | null, opts: { ip?: s
   const res = await h(new Request(`http://localhost${path}`, { headers }), opts.params ? { params: Promise.resolve(opts.params) } : undefined);
   return { status: res.status, headers: res.headers, body: (await res.json()) as any }; // eslint-disable-line @typescript-eslint/no-explicit-any
 };
-const clean = async (ids: string[]) => { await prisma.apiKey.deleteMany({ where: { id: { in: ids } } }); await prisma.$executeRaw`DELETE FROM "LoginThrottle" WHERE "key" IS NOT NULL`; };
+const clean = async (ids: string[]) => { await prisma.apiKey.deleteMany({ where: { id: { in: ids } } }); await prisma.$executeRaw`DELETE FROM "edu"."LoginThrottle" WHERE "key" IS NOT NULL`; };
 
 test("database: authentication rejects missing, malformed, unknown, revoked and expired keys with stable error codes", { skip: !enabled }, async () => {
   const { row, secret } = await createApiKey(admin, { name: "T auth", scopes: ALL });

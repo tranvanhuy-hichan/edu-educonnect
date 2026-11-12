@@ -1,3 +1,4 @@
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
@@ -60,10 +61,15 @@ async function freeTeacherCode() {
 
 /** Tạo tài khoản (bắt đổi mật khẩu lần đầu); nếu kèm họ tên giáo viên thì tạo luôn hồ sơ giáo viên. */
 export async function createUser(input: CreateUserInput, passwordHash: string, teacherName?: string) {
-  const teacher = teacherName ? { create: { fullName: teacherName, code: await freeTeacherCode() } } : undefined;
-  return prisma.user.create({
-    data: { email: input.email, passwordHash, roles: input.roles, mustChangePwd: true, teacher },
-    select: { id: true, email: true, roles: true, isActive: true, createdAt: true },
+  const code = teacherName ? await freeTeacherCode() : null;
+  const teacher = teacherName ? { create: { fullName: teacherName, code } } : undefined;
+  return prisma.$transaction(async (tx) => {
+    // Tên đăng nhập dùng chung: mã giáo viên nếu có, ngược lại chính email.
+    const account = await createSharedAccount(tx, { username: code ?? input.email, passwordHash, fullName: teacherName ?? input.email });
+    return tx.user.create({
+      data: { accountId: account.id, email: input.email, roles: input.roles, teacher },
+      select: { id: true, email: true, roles: true, isActive: true, createdAt: true },
+    });
   });
 }
 
@@ -87,8 +93,10 @@ export function setUserActive(id: string, isActive: boolean) {
   });
 }
 
-export function updateUserPassword(id: string, passwordHash: string) {
-  return prisma.user.update({ where: { id }, data: { passwordHash, mustChangePwd: true } });
+export async function updateUserPassword(id: string, passwordHash: string) {
+  const { accountId } = await prisma.user.findUniqueOrThrow({ where: { id }, select: { accountId: true } });
+  await setSharedPassword(prisma, accountId, passwordHash, true);
+  return prisma.user.findUniqueOrThrow({ where: { id } });
 }
 
 export function createActivityLog(
@@ -139,9 +147,11 @@ export function usersForReset(ids: string[], academicYearId: string | null) {
 }
 
 /** Đổi mật khẩu cả lô trong một transaction (hoặc đổi hết, hoặc không đổi ai) và ghi nhật ký từng tài khoản. */
-export function applyBulkPasswordReset(updates: { id: string; passwordHash: string }[], actorEmail: string) {
+export async function applyBulkPasswordReset(updates: { id: string; passwordHash: string }[], actorEmail: string) {
+  const accounts = await prisma.user.findMany({ where: { id: { in: updates.map((u) => u.id) } }, select: { id: true, accountId: true } });
+  const accountOf = new Map(accounts.map((a) => [a.id, a.accountId]));
   return prisma.$transaction([
-    ...updates.map((u) => prisma.user.update({ where: { id: u.id }, data: { passwordHash: u.passwordHash, mustChangePwd: true }, select: { id: true } })),
+    ...updates.map((u) => prisma.doanUser.update({ where: { id: accountOf.get(u.id)! }, data: { passwordHash: u.passwordHash, mustChangePassword: true }, select: { id: true } })),
     prisma.activityLog.createMany({ data: updates.map((u) => ({ actorEmail, action: "reset_password", targetType: "User", targetId: u.id })) }),
   ]);
 }

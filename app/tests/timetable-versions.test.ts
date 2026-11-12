@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import { contextFor } from "@/infrastructure/database/unit-of-work";
 import { loadScheduleSlots } from "../src/modules/scheduling/schedule-slots";
 import assert from "node:assert/strict";
@@ -30,7 +31,7 @@ test("database: version insertion, history, exact boundary and diary preservatio
     const term = await tx.academicTerm.create({ data: { academicYearId: year.id, termName: "TEST", startDate: start, endDate: addDays(start, 90) } });
     const grade = await tx.gradeLevel.create({ data: { gradeName: `test-${tag}`, sortOrder: 99 } });
     const cls = await tx.schoolClass.create({ data: { className: "TEST", academicYearId: year.id, gradeLevelId: grade.id } });
-    const user = await tx.user.create({ data: { email: `${tag}@test.invalid`, roles: ["SUBJECT_TEACHER"], passwordHash: "test-only", teacher: { create: { fullName: "Test teacher" } } }, include: { teacher: true } });
+    const user = await tx.user.create({ data: { email: `${tag}@test.invalid`, roles: ["SUBJECT_TEACHER"], accountId: await testAccount("test-only"), teacher: { create: { fullName: "Test teacher" } } }, include: { teacher: true } });
     const subject = await tx.subject.create({ data: { subjectName: `test-${tag}`, defaultPeriodsPerWeek: 1 } });
     await tx.classSubject.create({ data: { schoolClassId: cls.id, subjectId: subject.id } });
     const assignment = await tx.classSubjectAssignment.create({ data: { schoolClassId: cls.id, subjectId: subject.id, teacherId: user.teacher!.id, academicTermId: term.id } });

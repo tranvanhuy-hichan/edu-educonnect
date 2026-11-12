@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import { contextFor } from "@/infrastructure/database/unit-of-work";
 import type { Prisma } from "@prisma/client";
 import assert from "node:assert/strict";
@@ -20,7 +21,7 @@ test("exam lifecycle, eligibility, collisions, roster snapshots and student priv
     const elective = await tx.subject.create({ data: { subjectName: `elective-${tag}`, defaultPeriodsPerWeek: 2 } });
     const rooms = await Promise.all([1, 2].map((i) => tx.room.create({ data: { roomName: `${tag}-${i}`, roomType: "THUONG", capacity: 2 } })));
     const teachers: Prisma.UserGetPayload<{ include: { teacher: true } }>[] = [];
-    for (let i = 0; i < 2; i++) teachers.push(await tx.user.create({ data: { email: `${tag}-t${i}@test.invalid`, passwordHash: "test-only", roles: ["SUBJECT_TEACHER"], teacher: { create: { fullName: `Giám thị ${i}` } } }, include: { teacher: true } }));
+    for (let i = 0; i < 2; i++) teachers.push(await tx.user.create({ data: { email: `${tag}-t${i}@test.invalid`, accountId: await testAccount("test-only"), roles: ["SUBJECT_TEACHER"], teacher: { create: { fullName: `Giám thị ${i}` } } }, include: { teacher: true } }));
     const students = [];
     for (let i = 0; i < 2; i++) {
       const cls = await tx.schoolClass.create({ data: { className: `11A${i}`, gradeLevelId: grade.id, academicYearId: year.id, roomId: rooms[i].id } });
@@ -28,7 +29,7 @@ test("exam lifecycle, eligibility, collisions, roster snapshots and student priv
       await tx.classSubjectAssignment.create({ data: { schoolClassId: cls.id, subjectId: subject.id, teacherId: teachers[i].teacher!.id, academicTermId: term.id } });
       if (i === 0) await tx.classSubjectAssignment.create({ data: { schoolClassId: cls.id, subjectId: elective.id, teacherId: teachers[i].teacher!.id, academicTermId: term.id } });
       for (let j = 0; j < 2; j++) {
-        const user = await tx.user.create({ data: { email: `${tag}-s${i}${j}@test.invalid`, passwordHash: "test-only", roles: ["STUDENT"], student: { create: { fullName: `Nguyễn Văn ${i}${j}`, code: `${tag}-${i}${j}` } } }, include: { student: true } });
+        const user = await tx.user.create({ data: { email: `${tag}-s${i}${j}@test.invalid`, accountId: await testAccount("test-only"), roles: ["STUDENT"], student: { create: { fullName: `Nguyễn Văn ${i}${j}`, code: `${tag}-${i}${j}` } } }, include: { student: true } });
         await tx.studentClassEnrollment.create({ data: { studentId: user.student!.id, schoolClassId: cls.id, academicYearId: year.id } });
         students.push(user);
       }

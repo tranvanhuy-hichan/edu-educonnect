@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -13,9 +14,9 @@ test("database: annual evaluation, approval, locked writes, scoped re-exams and 
   const userIds: string[] = [], subjectIds: string[] = [], classIds: string[] = [];
   let studentId = "", yearId = "", teacherId = "";
   try {
-    const teacherUser = await prisma.user.create({ data: { email: `${key}-teacher@example.test`, passwordHash: "not-used", roles: ["HOMEROOM_TEACHER", "SUBJECT_TEACHER"] } }); userIds.push(teacherUser.id);
+    const teacherUser = await prisma.user.create({ data: { email: `${key}-teacher@example.test`, accountId: await testAccount("not-used"), roles: ["HOMEROOM_TEACHER", "SUBJECT_TEACHER"] } }); userIds.push(teacherUser.id);
     const teacher = await prisma.teacher.create({ data: { userId: teacherUser.id, fullName: key } }); teacherId = teacher.id;
-    const studentUser = await prisma.user.create({ data: { email: `${key}-student@example.test`, passwordHash: "not-used", roles: ["STUDENT"] } }); userIds.push(studentUser.id);
+    const studentUser = await prisma.user.create({ data: { email: `${key}-student@example.test`, accountId: await testAccount("not-used"), roles: ["STUDENT"] } }); userIds.push(studentUser.id);
     const student = await prisma.student.create({ data: { userId: studentUser.id, fullName: key } }); studentId = student.id;
     const year = await prisma.academicYear.create({ data: { yearName: key, startDate: new Date("2026-01-01"), endDate: new Date("2026-12-31") } }); yearId = year.id;
     const first = await prisma.academicTerm.create({ data: { academicYearId: yearId, termName: "HK1", startDate: new Date("2026-01-01"), endDate: new Date("2026-06-30"), isLocked: true } });

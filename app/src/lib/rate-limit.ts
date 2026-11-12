@@ -31,7 +31,7 @@ export async function rateLimit(scope: string, identifier: string, rule: RateLim
   const key = createHash("sha256").update(`rl:${scope}:${identifier.trim().toLowerCase()}`).digest("hex");
   try {
     const rows = await prisma.$queryRaw<{ count: number; ttl: number }[]>`
-      INSERT INTO "LoginThrottle" ("key", "count", "expiresAt") VALUES (${key}, 1, NOW() + ${rule.windowSec}::double precision * INTERVAL '1 second')
+      INSERT INTO "edu"."LoginThrottle" ("key", "count", "expiresAt") VALUES (${key}, 1, NOW() + ${rule.windowSec}::double precision * INTERVAL '1 second')
       ON CONFLICT ("key") DO UPDATE SET
         "count" = CASE WHEN "LoginThrottle"."expiresAt" <= NOW() THEN 1 ELSE "LoginThrottle"."count" + 1 END,
         "expiresAt" = CASE WHEN "LoginThrottle"."expiresAt" <= NOW() THEN NOW() + ${rule.windowSec}::double precision * INTERVAL '1 second' ELSE "LoginThrottle"."expiresAt" END
@@ -56,7 +56,7 @@ export const tooManyRequests = (retryAfterSec: number, message = "Bạn thao tá
 export async function rateLimitPeek(scope: string, identifier: string, rule: RateLimitRule): Promise<boolean> {
   const key = createHash("sha256").update(`rl:${scope}:${identifier.trim().toLowerCase()}`).digest("hex");
   try {
-    const rows = await prisma.$queryRaw<{ count: number }[]>`SELECT "count" FROM "LoginThrottle" WHERE "key" = ${key} AND "expiresAt" > NOW()`;
+    const rows = await prisma.$queryRaw<{ count: number }[]>`SELECT "count" FROM "edu"."LoginThrottle" WHERE "key" = ${key} AND "expiresAt" > NOW()`;
     return (rows[0]?.count ?? 0) >= rule.limit;
   } catch { return false; }
 }

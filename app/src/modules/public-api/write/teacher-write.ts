@@ -1,3 +1,4 @@
+import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { genPassword, genTeacherCode } from "@/lib/password";
@@ -41,9 +42,13 @@ export async function createTeacher(key: Key, scopes: ReadonlySet<Scope>, input:
   while (await prisma.teacher.findUnique({ where: { code } })) code = genTeacherCode();
   // Tài khoản được tạo với mật khẩu ngẫu nhiên và BẮT ĐỔI khi đăng nhập; mật khẩu không trả về cho hệ thống ngoài (quản trị cấp lại ở mục Tài khoản).
   const cols = toDb(colsOf(input));
-  const user = await prisma.user.create({
-    data: { email: input.loginEmail, passwordHash: await bcrypt.hash(genPassword(), 10), roles: ["SUBJECT_TEACHER"], mustChangePwd: true, teacher: { create: { code, ...(cols as { fullName: string }), subjects: { create: subjectIds.map((subjectId) => ({ subjectId })) } } } },
-    include: { teacher: true },
+  const passwordHash = await bcrypt.hash(genPassword(), 10);
+  const user = await prisma.$transaction(async (tx) => {
+    const account = await createSharedAccount(tx, { username: code, passwordHash, fullName: (cols as { fullName: string }).fullName });
+    return tx.user.create({
+      data: { accountId: account.id, email: input.loginEmail, roles: ["SUBJECT_TEACHER"], teacher: { create: { code, ...(cols as { fullName: string }), subjects: { create: subjectIds.map((subjectId) => ({ subjectId })) } } } },
+      include: { teacher: true },
+    });
   });
   const teacher = user.teacher!;
   await recordChange({ keyId: key.id, kind: "TEACHER_CREATE", entityType: "Teacher", entityId: teacher.id, label: input.fullName, after: { code, loginEmail: input.loginEmail, subjectIds }, meta: { userId: user.id } });

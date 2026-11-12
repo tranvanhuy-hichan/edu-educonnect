@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -10,9 +11,9 @@ test("database: global search returns real records scoped to the caller's role",
   const grade = await prisma.gradeLevel.create({ data: { gradeName: `G-${tag}`, sortOrder: 98 } });
   const year = await prisma.academicYear.create({ data: { yearName: `Y-${tag}`, startDate: new Date(Date.now() - 1000), endDate: new Date(Date.now() + 86400_000 * 300) } });
   const klass = await prisma.schoolClass.create({ data: { className: `L${tag}`, gradeLevelId: grade.id, academicYearId: year.id } });
-  const su = await prisma.user.create({ data: { email: `${tag}-hs@test.invalid`, passwordHash: "x", roles: ["STUDENT"], student: { create: { fullName: `Nguyễn ${tag} Học`, code: `HS${tag}` } } }, include: { student: true } });
+  const su = await prisma.user.create({ data: { email: `${tag}-hs@test.invalid`, accountId: await testAccount("x"), roles: ["STUDENT"], student: { create: { fullName: `Nguyễn ${tag} Học`, code: `HS${tag}` } } }, include: { student: true } });
   await prisma.studentClassEnrollment.create({ data: { studentId: su.student!.id, schoolClassId: klass.id, academicYearId: year.id } });
-  const tu = await prisma.user.create({ data: { email: `${tag}-gv@test.invalid`, passwordHash: "x", roles: ["SUBJECT_TEACHER"], teacher: { create: { fullName: `Trần ${tag} Giáo`, code: `GV${tag}` } } }, include: { teacher: true } });
+  const tu = await prisma.user.create({ data: { email: `${tag}-gv@test.invalid`, accountId: await testAccount("x"), roles: ["SUBJECT_TEACHER"], teacher: { create: { fullName: `Trần ${tag} Giáo`, code: `GV${tag}` } } }, include: { teacher: true } });
   const as = (roles: ("ADMIN" | "PRINCIPAL" | "SUBJECT_TEACHER" | "STUDENT" | "LIBRARIAN")[]) => ({ userId: "u", email: "u@test.invalid", roles, teacherId: null, studentId: null });
   const keys = (gs: Awaited<ReturnType<typeof searchEverything>>) => gs.map((g) => g.key).sort();
   try {

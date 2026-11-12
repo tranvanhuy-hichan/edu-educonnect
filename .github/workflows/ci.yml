@@ -31,6 +31,8 @@ jobs:
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
       - run: npm ci
       - run: npm run prisma:generate
+      - name: schema.prisma khớp prisma/edu.prisma + bản sao khkt; migration chỉ chạm schema edu
+        run: npm run db:schema:check --workspace=app
       - name: Prisma schema hợp lệ
         run: npx prisma validate --schema app/prisma/schema.prisma
       - run: npm run lint
@@ -69,18 +71,16 @@ jobs:
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
       - run: npm ci
       - run: npm run prisma:generate
-      # Dựng schema từ schema.prisma (chuỗi migration lịch sử chưa dựng được DB trống, xem job migration-chain bên dưới).
-      - run: npx prisma db push --skip-generate --schema app/prisma/schema.prisma
+      # DB dùng chung: dựng bảng khkt (public) từ bản sao schema khkt, rồi áp migration của EduConnect (chỉ schema edu).
+      - run: npx prisma db push --skip-generate --schema app/prisma/vendor/khkt.schema.prisma
+      - run: npm run prisma:deploy
       - run: npm run seed
       - run: npm run test:db --workspace=app
 
   migration-chain:
-    name: Migration chain (cảnh báo, chưa chặn)
+    name: Migration chain (chặn PR làm lệch migration và schema; không được chạm public của khkt)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Chuỗi migration hiện không dựng được DB trống (thiếu migration cho một số cột). Job này hiện cảnh báo để theo dõi;
-    # sau khi baseline xong hãy bỏ continue-on-error để chặn mọi PR làm lệch migration và schema.
-    continue-on-error: true
     services:
       postgres:
         image: postgres:16
@@ -96,9 +96,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: "${{ env.NODE_VERSION }}", cache: npm }
       - run: npm ci
+      - run: npx prisma db push --skip-generate --schema app/prisma/vendor/khkt.schema.prisma
       - run: npm run prisma:deploy
-      - name: Schema sau migration phải khớp schema.prisma
+      - name: Schema sau migration phải khớp schema.prisma (cả public lẫn edu)
         run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel app/prisma/schema.prisma --exit-code
+      - name: Chạy lại deploy phải không làm gì (idempotent)
+        run: npm run prisma:deploy | grep -q "0 migration mới"
 
   audit:
     name: Dependency audit

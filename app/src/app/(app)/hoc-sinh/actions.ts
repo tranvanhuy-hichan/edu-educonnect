@@ -124,14 +124,14 @@ export const resetParentPassword = wrap(async (fd) => {
       create: { phone, passwordHash: defaultHash, fullName: opt(fd, "fullName") ?? "Phụ huynh" },
     });
   } else {
-    const existing = await db.$queryRaw<Array<{ id: string }>>`SELECT id FROM "ParentAccount" WHERE phone = ${phone} LIMIT 1`;
+    const existing = await db.$queryRaw<Array<{ id: string }>>`SELECT id FROM "edu"."ParentAccount" WHERE phone = ${phone} LIMIT 1`;
     const now = new Date();
     if (existing && existing.length > 0) {
-      await db.$executeRaw`UPDATE "ParentAccount" SET "passwordHash" = ${defaultHash}, "updatedAt" = ${now} WHERE phone = ${phone}`;
+      await db.$executeRaw`UPDATE "edu"."ParentAccount" SET "passwordHash" = ${defaultHash}, "updatedAt" = ${now} WHERE phone = ${phone}`;
     } else {
       const id = "pa_" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
       const fullName = opt(fd, "fullName") ?? "Phụ huynh";
-      await db.$executeRaw`INSERT INTO "ParentAccount" ("id", "phone", "fullName", "passwordHash", "createdAt", "updatedAt") VALUES (${id}, ${phone}, ${fullName}, ${defaultHash}, ${now}, ${now})`;
+      await db.$executeRaw`INSERT INTO "edu"."ParentAccount" ("id", "phone", "fullName", "passwordHash", "createdAt", "updatedAt") VALUES (${id}, ${phone}, ${fullName}, ${defaultHash}, ${now}, ${now})`;
     }
   }
   await audit(me.email, "reset_parent_password", "ParentAccount", phone);

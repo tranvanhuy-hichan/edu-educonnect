@@ -17,13 +17,13 @@ if [ -f "$FILE.sha256" ]; then ( cd "$(dirname "$FILE")" && sha256sum -c "$(base
 TMP="$(mktemp --suffix=.dump)"; trap 'rm -f "$TMP"' EXIT
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass env:BACKUP_PASSPHRASE -in "$FILE" -out "$TMP"
 
-existing="$(psql "$TARGET" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'")"
+existing="$(psql "$TARGET" -Atc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema IN ('public','edu')")"
 # --clean --if-exists luôn cần vì dump có CREATE SCHEMA public (DB trống đã có sẵn schema public); với DB trống thì không xoá gì cả.
 FLAGS=(--clean --if-exists --no-owner --no-privileges --exit-on-error)
 if [ "$existing" -gt 0 ]; then
   [ "$CONFIRM" = "--confirm-production" ] || { echo "DB đích đã có $existing bảng. Thêm --confirm-production nếu chắc chắn muốn GHI ĐÈ." >&2; exit 1; }
-  echo "⚠ Ghi đè DB đích sau 10 giây (Ctrl+C để huỷ)"; sleep 10
+  echo "⚠ Bản sao lưu gồm CẢ dữ liệu Cổng thông tin Đoàn (public) lẫn EduConnect (edu): khôi phục sẽ GHI ĐÈ cả hai. Ghi đè sau 10 giây (Ctrl+C để huỷ)"; sleep 10
 fi
 pg_restore "${FLAGS[@]}" --dbname "$TARGET" "$TMP"
-echo "✓ Đã khôi phục. Kiểm tra: User=$(psql "$TARGET" -Atc 'SELECT COUNT(*) FROM "User"'), ActivityLog=$(psql "$TARGET" -Atc 'SELECT COUNT(*) FROM "ActivityLog"')"
+echo "✓ Đã khôi phục. Kiểm tra: User=$(psql "$TARGET" -Atc 'SELECT COUNT(*) FROM "User"'), ActivityLog=$(psql "$TARGET" -Atc 'SELECT COUNT(*) FROM edu."ActivityLog"')"
 echo "Bước tiếp: npm run prisma:status (đối chiếu migration), rồi kiểm tra /api/ready."

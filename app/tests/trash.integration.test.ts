@@ -1,3 +1,4 @@
+import { testAccount } from "./helpers/account";
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { prisma } from "../src/lib/prisma";
@@ -17,7 +18,7 @@ async function base() {
 test("database: student trash round-trip restores the account, enrolment, views, attempts and class monitor", { skip: !enabled }, async () => {
   const { assignment } = await base();
   const t = tag();
-  const user = await prisma.user.create({ data: { email: `${t}@test.invalid`, passwordHash: "x", roles: ["STUDENT"], student: { create: { fullName: `HS ${t}`, code: `HS${t}`.toUpperCase().slice(0, 14) } } }, include: { student: true } });
+  const user = await prisma.user.create({ data: { email: `${t}@test.invalid`, accountId: await testAccount("x"), roles: ["STUDENT"], student: { create: { fullName: `HS ${t}`, code: `HS${t}`.toUpperCase().slice(0, 14) } } }, include: { student: true } });
   const sid = user.student!.id;
   const post = await prisma.lessonPost.create({ data: { assignmentId: assignment.id, title: `P ${t}`, content: "x" } });
   const ex = await prisma.exercise.create({ data: { lessonPostId: post.id, title: "E", content: "x" } });
@@ -63,7 +64,7 @@ test("database: student trash round-trip restores the account, enrolment, views,
 test("database: restore refuses cleanly on a code clash, and skips only the rows whose parent no longer exists", { skip: !enabled }, async () => {
   const t = tag();
   const code = `HS${t}`.toUpperCase().slice(0, 14);
-  const mk = (suffix: string) => prisma.user.create({ data: { email: `${t}${suffix}@test.invalid`, passwordHash: "x", roles: ["STUDENT"], student: { create: { fullName: `HS ${t}${suffix}`, code } } }, include: { student: true } });
+  const mk = async (suffix: string) => prisma.user.create({ data: { email: `${t}${suffix}@test.invalid`, accountId: await testAccount("x"), roles: ["STUDENT"], student: { create: { fullName: `HS ${t}${suffix}`, code } } }, include: { student: true } });
   const a = await mk("a");
   const { assignment } = await base();
   const grade = await prisma.gradeLevel.create({ data: { gradeName: `G-${t}`, sortOrder: 97 } });
@@ -102,7 +103,7 @@ test("database: class, lesson post, question and library lesson each restore exa
   const grade = await prisma.gradeLevel.create({ data: { gradeName: `G-${t}`, sortOrder: 96 } });
   const subjectId = assignment.subjectId;
   const created: { cls?: string; post?: string; q?: string[]; lesson?: string; ex?: string } = {};
-  const stu = await prisma.user.create({ data: { email: `${t}@test.invalid`, passwordHash: "x", roles: ["STUDENT"], student: { create: { fullName: `HS ${t}`, code: `HS${t}`.toUpperCase().slice(0, 14) } } }, include: { student: true } });
+  const stu = await prisma.user.create({ data: { email: `${t}@test.invalid`, accountId: await testAccount("x"), roles: ["STUDENT"], student: { create: { fullName: `HS ${t}`, code: `HS${t}`.toUpperCase().slice(0, 14) } } }, include: { student: true } });
   try {
     // ── Lớp ──
     const cls = await prisma.schoolClass.create({ data: { className: `C${t}`, gradeLevelId: grade.id, academicYearId: assignment.schoolClass.academicYearId } });

@@ -158,7 +158,7 @@ export function scheduleRepository(context?: DatabaseContext) {
     saveOptions: (id: string, settings: ScheduleOptions) => db.timetableVersion.update({ where: { id }, data: { settings } }),
     insertActivities: (data: Prisma.TimetableActivityCreateManyInput[]) => db.timetableActivity.createMany({ data }),
     insertSlots: (data: Prisma.TimetableSlotCreateManyInput[]) => db.timetableSlot.createMany({ data }),
-    lockTerm: (id: string) => db.$queryRaw`SELECT "id" FROM "AcademicTerm" WHERE "id" = ${id} FOR UPDATE`,
+    lockTerm: (id: string) => db.$queryRaw`SELECT "id" FROM "edu"."AcademicTerm" WHERE "id" = ${id} FOR UPDATE`,
     versionStartingOn: (academicTermId: string, startsOn: Date) => db.timetableVersion.findUnique({ where: { academicTermId_startsOn: { academicTermId, startsOn } } }),
     previousVersion: (academicTermId: string, startsOn: Date) => db.timetableVersion.findFirst({ where: { academicTermId, startsOn: { lt: startsOn } }, orderBy: { startsOn: "desc" } }),
     nextVersion: (academicTermId: string, startsOn: Date) => db.timetableVersion.findFirst({ where: { academicTermId, startsOn: { gt: startsOn } }, orderBy: { startsOn: "asc" } }),

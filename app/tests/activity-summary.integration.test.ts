@@ -8,7 +8,7 @@ test("dashboard activity summaries work before audit detail columns are migrated
   const rollback = new Error("rollback schema fixture");
   try {
     await assert.rejects(prisma.$transaction(async (tx) => {
-      await tx.$executeRawUnsafe('ALTER TABLE "ActivityLog" DROP COLUMN "beforeData", DROP COLUMN "afterData", DROP COLUMN "reason"');
+      await tx.$executeRawUnsafe('ALTER TABLE "edu"."ActivityLog" DROP COLUMN "beforeData", DROP COLUMN "afterData", DROP COLUMN "reason"');
       const entry = await tx.activityLog.create({
         data: { actorEmail: "summary@example.test", action: "create", targetType: "User", createdAt: new Date("2199-01-01") },
         select: { id: true },

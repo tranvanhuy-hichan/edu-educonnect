@@ -8,10 +8,16 @@ const TEST_PASSWORD = "test123";
 
 async function upsertUser(email: string, roles: Parameters<typeof prisma.user.create>[0]["data"]["roles"]) {
   const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+  // Tài khoản đăng nhập dùng chung (public."User") rồi hồ sơ EduConnect. CHỈ dùng seed này trên DB phát triển, không bao giờ trên DB thật.
+  const account = await prisma.doanUser.upsert({
+    where: { username: email },
+    update: { passwordHash },
+    create: { username: email, passwordHash, fullName: email, role: "EXTERNAL", mustChangePassword: false },
+  });
   return prisma.user.upsert({
     where: { email },
-    update: { roles, passwordHash },
-    create: { email, passwordHash, roles },
+    update: { roles },
+    create: { email, accountId: account.id, roles },
   });
 }
 

@@ -6,10 +6,10 @@ export const findClass = (id: string, context?: DatabaseContext) => databaseFor(
 export const findEnrollment = (studentId: string, academicYearId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId } }, include: { schoolClass: true } });
 export const countClassEnrollments = (schoolClassId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.count({ where: { schoolClassId } });
 export const listClassStudentIds = (schoolClassId: string, academicYearId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.findMany({ where: { schoolClassId, academicYearId }, select: { studentId: true } });
-export const lockStudent = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "Student" WHERE "id" = ${id} FOR UPDATE`;
-export const lockClass = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "SchoolClass" WHERE "id" = ${id} FOR UPDATE`;
-export const lockEnrollment = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "StudentClassEnrollment" WHERE "id" = ${id} FOR UPDATE`;
-export const lockStudentYear = (studentId: string, academicYearId: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "StudentClassEnrollment" WHERE "studentId" = ${studentId} AND "academicYearId" = ${academicYearId} FOR UPDATE`;
+export const lockStudent = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "edu"."Student" WHERE "id" = ${id} FOR UPDATE`;
+export const lockClass = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "edu"."SchoolClass" WHERE "id" = ${id} FOR UPDATE`;
+export const lockEnrollment = (id: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "edu"."StudentClassEnrollment" WHERE "id" = ${id} FOR UPDATE`;
+export const lockStudentYear = (studentId: string, academicYearId: string, context: DatabaseContext) => databaseFor(context).$queryRaw`SELECT "id" FROM "edu"."StudentClassEnrollment" WHERE "studentId" = ${studentId} AND "academicYearId" = ${academicYearId} FOR UPDATE`;
 export const appendAudit = (data: Prisma.ActivityLogUncheckedCreateInput, context?: DatabaseContext) => databaseFor(context).activityLog.create({ data });
 export const appendTransfer = (data: Prisma.ClassTransferUncheckedCreateInput, context: DatabaseContext) => databaseFor(context).classTransfer.create({ data });
 export const clearClassMonitor = (schoolClassId: string, studentId: string, context: DatabaseContext) => databaseFor(context).schoolClass.updateMany({ where: { id: schoolClassId, monitorStudentId: studentId }, data: { monitorStudentId: null } });
