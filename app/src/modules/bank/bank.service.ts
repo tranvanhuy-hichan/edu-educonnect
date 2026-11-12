@@ -94,7 +94,7 @@ export async function createExercise(user: SessionUser, lessonId: string, raw: u
   if (input.kind === "REVIEW" && !sources.length) throw new ConflictError("Bài ôn tập cần liên kết ít nhất một bài học trước");
   await validateFileReferences(user, input.attachments, "", "LIBRARY");
   const orderNo = (await repo.maxExerciseOrder(lessonId)) + 1;
-  return repo.createExercise({ lessonId, title: input.title, kind: input.kind, quizMode: input.quizMode, instructions: input.instructions, attachments: input.attachments, showAnswers: input.showAnswers, secureMode: input.quizMode && input.secureMode, maxViolations: input.maxViolations, orderNo }, sources);
+  return repo.createExercise({ lessonId, title: input.title, kind: input.kind, quizMode: input.quizMode, instructions: input.instructions, attachments: input.attachments, showAnswers: input.showAnswers, secureMode: input.quizMode && input.secureMode, maxViolations: input.maxViolations, shuffleQuestions: input.quizMode && input.shuffleQuestions, shuffleOptions: input.quizMode && input.shuffleOptions, maxAttempts: input.maxAttempts, attemptScoring: input.attemptScoring, timeLimitMinutes: input.timeLimitMinutes, allowReview: input.allowReview, orderNo }, sources);
 }
 
 export async function updateExercise(user: SessionUser, id: string, raw: unknown) {
@@ -105,7 +105,7 @@ export async function updateExercise(user: SessionUser, id: string, raw: unknown
   const sources = ex.kind === "REVIEW" ? await checkSources(ex.lesson.teacherId, ex.lesson, input.sourceLessonIds) : null;
   if (sources && !sources.length) throw new ConflictError("Bài ôn tập cần liên kết ít nhất một bài học trước");
   await validateFileReferences(user, input.attachments, "", "LIBRARY");
-  return repo.updateExercise(id, { title: input.title, instructions: input.instructions, attachments: input.attachments, showAnswers: input.showAnswers, secureMode: ex.quizMode && input.secureMode, maxViolations: input.maxViolations }, sources);
+  return repo.updateExercise(id, { title: input.title, instructions: input.instructions, attachments: input.attachments, showAnswers: input.showAnswers, secureMode: ex.quizMode && input.secureMode, maxViolations: input.maxViolations, shuffleQuestions: ex.quizMode && input.shuffleQuestions, shuffleOptions: ex.quizMode && input.shuffleOptions, maxAttempts: input.maxAttempts, attemptScoring: input.attemptScoring, timeLimitMinutes: input.timeLimitMinutes, allowReview: input.allowReview }, sources);
 }
 export async function archiveExercise(user: SessionUser, id: string) {
   await ownExercise(user, id);
@@ -193,7 +193,7 @@ function assertPublishable(ex: Copyable) {
 }
 const copyExercise = (lessonPostId: string, ex: Copyable, dueDate: Date | null) =>
   repo.createExerciseCopy({
-    lessonPostId, title: ex.title, content: ex.instructions, attachments: ex.attachments, quizMode: ex.quizMode, showAnswers: ex.showAnswers, dueDate, sourceExerciseId: ex.id, secureMode: ex.secureMode, maxViolations: ex.maxViolations,
+    lessonPostId, title: ex.title, content: ex.instructions, attachments: ex.attachments, quizMode: ex.quizMode, showAnswers: ex.showAnswers, dueDate, sourceExerciseId: ex.id, secureMode: ex.secureMode, maxViolations: ex.maxViolations, shuffleQuestions: ex.shuffleQuestions, shuffleOptions: ex.shuffleOptions, maxAttempts: ex.maxAttempts, attemptScoring: ex.attemptScoring, timeLimitMinutes: ex.timeLimitMinutes, allowReview: ex.allowReview,
     questions: ex.questions.map((q) => ({ questionId: q.questionId, order: q.order, points: q.points })),
   });
 

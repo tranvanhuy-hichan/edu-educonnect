@@ -19,6 +19,12 @@ export const createExerciseSchema = z.object({
   quizMode: z.boolean().default(false),
   showAnswers: z.enum(["AFTER_SUBMIT", "AFTER_DUE", "NEVER"]).optional(),
   secureMode: z.boolean().optional(),
+  shuffleQuestions: z.boolean().optional(),
+  shuffleOptions: z.boolean().optional(),
+  maxAttempts: z.number().int().min(1).max(10).optional(),
+  attemptScoring: z.enum(["BEST", "LAST"]).optional(),
+  timeLimitMinutes: z.number().int().min(0).max(600).optional(),
+  allowReview: z.boolean().optional(),
   maxViolations: z.number().int().min(0).max(20).optional(),
 });
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;

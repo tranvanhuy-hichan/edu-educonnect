@@ -3,7 +3,9 @@ import { isAdmin } from "@/lib/auth/session";
 import { canManageClassSubjectAssignment } from "@/lib/auth/permission";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import { gradeQuestion, toGrade10 } from "./question.grading";
+import { attemptsLeft, canRevealAnswers, deadlineOf, isOvertime, shouldReplaceSummary } from "./quiz-attempts";
 import * as repo from "./quiz.repository";
+import { notifyUsers } from "@/modules/notification/notification.service";
 
 /** Chỉ giáo viên phụ trách lớp-môn (hoặc quản lý) thao tác trên bộ câu hỏi của bài tập trắc nghiệm. */
 async function loadManagedQuiz(user: SessionUser, exerciseId: string) {
@@ -63,27 +65,96 @@ export async function moveExerciseQuestion(user: SessionUser, id: string, dir: -
   await repo.reorder(all.map((x) => x.id));
 }
 
-/** Học sinh nộp bài trắc nghiệm: chấm tự động từng câu, lưu điểm từng câu và điểm hệ 10 của cả bài. Mỗi học sinh làm một lần. */
-export async function submitQuiz(user: SessionUser, exerciseId: string, answers: Record<string, unknown>, opts: { autoSubmitted?: boolean } = {}) {
-  if (!user.studentId) throw new ForbiddenError("Chỉ học sinh mới được nộp bài");
+type GradingExercise = NonNullable<Awaited<ReturnType<typeof repo.findExerciseForGrading>>>;
+
+/** Chấm bài và ghi nhận một lượt làm. Dùng chung cho nộp bình thường, tự nộp do vi phạm và đóng lượt quá giờ. */
+async function gradeAndRecord(ex: GradingExercise, studentId: string, answers: Record<string, unknown>, ctx: { attemptId: string | null; attemptNo: number; autoSubmitted: boolean; overtime: boolean; submittedAt: Date }) {
+  const graded = ex.questions.map((eq) => ({ eq, ...gradeQuestion(eq.question, answers[eq.questionId], eq.points) }));
+  const earned = graded.reduce((t, g) => t + g.score, 0);
+  const max = ex.questions.reduce((t, eq) => t + eq.points, 0);
+  const grade = toGrade10(earned, max);
+  try {
+    const r = await repo.recordAttempt({
+      exerciseId: ex.id, studentId, attemptId: ctx.attemptId, attemptNo: ctx.attemptNo, scoring: ex.attemptScoring, submittedAt: ctx.submittedAt,
+      isLate: Boolean(ex.dueDate && ctx.submittedAt > ex.dueDate), grade, autoSubmitted: ctx.autoSubmitted, overtime: ctx.overtime,
+      answers: graded.map((g) => ({ questionId: g.eq.questionId, answer: answers[g.eq.questionId], score: g.score, maxScore: g.eq.points, isCorrect: g.isCorrect })),
+      shouldReplace: (existing) => shouldReplaceSummary(ex.attemptScoring, existing, grade),
+    });
+    return Object.assign(r.submission, { attemptGrade: grade, attemptNo: ctx.attemptNo, counted: r.counted });
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2002") throw new ConflictError("Lượt làm bài này đã được nộp rồi");
+    throw e;
+  }
+}
+
+async function loadStudentExercise(user: SessionUser, exerciseId: string) {
+  if (!user.studentId) throw new ForbiddenError("Chỉ học sinh mới được làm bài");
   const ex = await repo.findExerciseForGrading(exerciseId);
   if (!ex || !ex.quizMode) throw new ForbiddenError("Bài tập không tồn tại");
   if (!(await repo.isStudentInClass(user.studentId, ex.lessonPost.assignment.schoolClassId))) throw new ForbiddenError("Bạn không thuộc lớp học của môn này");
   if (!ex.questions.length) throw new ConflictError("Bài tập chưa có câu hỏi");
+  return { ex, studentId: user.studentId };
+}
 
-  const now = new Date();
-  const graded = ex.questions.map((eq) => ({ eq, ...gradeQuestion(eq.question, answers[eq.questionId], eq.points) }));
-  const earned = graded.reduce((s, g) => s + g.score, 0);
-  const max = ex.questions.reduce((s, eq) => s + eq.points, 0);
-  try {
-    return await repo.createGradedSubmission({
-      exerciseId, studentId: user.studentId, submittedAt: now, isLate: Boolean(ex.dueDate && now > ex.dueDate), grade: toGrade10(earned, max), autoSubmitted: opts.autoSubmitted === true,
-      answers: graded.map((g) => ({ questionId: g.eq.questionId, answer: answers[g.eq.questionId], score: g.score, maxScore: g.eq.points, isCorrect: g.isCorrect })),
-    });
-  } catch (e) {
-    if ((e as { code?: string }).code === "P2002") throw new ConflictError("Bạn đã nộp bài tập này rồi");
-    throw e;
+/** Lượt làm đang dở đã quá giờ (kể cả thời gian du di): đóng lại với những gì chưa nộp = 0 điểm, để vẫn tính là đã dùng một lượt. */
+async function closeExpiredAttempt(ex: GradingExercise, studentId: string) {
+  const active = await repo.findActiveAttempt(ex.id, studentId);
+  if (active && isOvertime(active.startedAt, ex.timeLimitMinutes)) {
+    await gradeAndRecord(ex, studentId, {}, { attemptId: active.id, attemptNo: active.attemptNo, autoSubmitted: true, overtime: true, submittedAt: deadlineOf(active.startedAt, ex.timeLimitMinutes) });
   }
+}
+
+/** Bắt đầu một lượt làm bài (bài có giới hạn thời gian hoặc thi nghiêm túc). Làm dở rồi vào lại thì trả về lượt đang chạy, đồng hồ không đặt lại. */
+export async function startAttempt(user: SessionUser, exerciseId: string) {
+  const { ex, studentId } = await loadStudentExercise(user, exerciseId);
+  await closeExpiredAttempt(ex, studentId);
+  const used = await repo.countSubmittedAttempts(exerciseId, studentId);
+  let active = await repo.findActiveAttempt(exerciseId, studentId);
+  if (!active) {
+    if (attemptsLeft(ex.maxAttempts, used) <= 0) throw new ConflictError("Em đã hết lượt làm bài này");
+    try { active = await repo.createAttempt(exerciseId, studentId, used + 1); } catch (e) {
+      if ((e as { code?: string }).code !== "P2002") throw e;
+      active = await repo.findActiveAttempt(exerciseId, studentId); // hai yêu cầu cùng lúc: lấy lượt vừa được tạo
+      if (!active) throw e;
+    }
+  }
+  return { attemptNo: active.attemptNo, startedAt: active.startedAt.toISOString(), serverNow: new Date().toISOString(), timeLimitMinutes: ex.timeLimitMinutes };
+}
+
+/** Trạng thái làm bài của học sinh: đã dùng mấy lượt, còn mấy lượt, lượt đang dở, lịch sử điểm. */
+export async function quizAttemptState(user: SessionUser, exerciseId: string) {
+  const { ex, studentId } = await loadStudentExercise(user, exerciseId);
+  await closeExpiredAttempt(ex, studentId);
+  const [history, active] = await Promise.all([repo.listAttempts(exerciseId, studentId), repo.findActiveAttempt(exerciseId, studentId)]);
+  return { used: history.length, max: ex.maxAttempts, left: attemptsLeft(ex.maxAttempts, history.length), history, active };
+}
+
+/**
+ * Học sinh nộp bài trắc nghiệm: chấm tự động từng câu, lưu điểm từng câu và điểm hệ 10.
+ * Số lần làm tối đa, giờ làm bài và cách tính điểm (cao nhất / lần cuối) theo cài đặt của bài tập.
+ */
+export async function submitQuiz(user: SessionUser, exerciseId: string, answers: Record<string, unknown>, opts: { autoSubmitted?: boolean } = {}) {
+  const { ex, studentId } = await loadStudentExercise(user, exerciseId);
+  await closeExpiredAttempt(ex, studentId);
+  const used = await repo.countSubmittedAttempts(exerciseId, studentId);
+  if (attemptsLeft(ex.maxAttempts, used) <= 0) throw new ConflictError(ex.maxAttempts > 1 ? "Em đã hết lượt làm bài này" : "Bạn đã nộp bài tập này rồi");
+  const active = await repo.findActiveAttempt(exerciseId, studentId);
+  if (ex.timeLimitMinutes > 0 && !active) throw new ConflictError("Hãy bấm Bắt đầu làm bài trước khi nộp (bài có giới hạn thời gian)");
+  const now = new Date();
+  const overtime = !!active && isOvertime(active.startedAt, ex.timeLimitMinutes, now);
+  const sub = await gradeAndRecord(ex, studentId, answers, { attemptId: active?.id ?? null, attemptNo: active?.attemptNo ?? used + 1, autoSubmitted: opts.autoSubmitted === true, overtime, submittedAt: now });
+  if (opts.autoSubmitted) await notifyAutoSubmit(studentId, ex.lessonPost.assignment.teacherId, ex.title, ex.lessonPostId, exerciseId);
+  return sub;
+}
+
+/** Bài bị nộp tự động do vi phạm: báo cho học sinh và giáo viên phụ trách (chuông thông báo). Lỗi gửi thông báo không làm hỏng việc nộp bài. */
+async function notifyAutoSubmit(studentId: string, teacherId: string, title: string, lessonPostId: string, exerciseId: string) {
+  try {
+    const info = await repo.autoSubmitNoticeInfo(studentId, teacherId);
+    const link = `/bai-hoc/${lessonPostId}?tab=bai-tap&ex=${exerciseId}`;
+    if (info.studentUserId) await notifyUsers([info.studentUserId], { title: "Bài kiểm tra bị nộp tự động do vi phạm", content: `Bài "${title}" đã được nộp tự động vì em vi phạm quy chế thi nhiều lần (thoát toàn màn hình, chuyển tab/ứng dụng...).`, type: "ASSIGNMENT", link });
+    if (info.teacherUserId) await notifyUsers([info.teacherUserId], { title: "Học sinh bị nộp bài tự động do vi phạm", content: `${info.studentName} bị nộp tự động bài "${title}" do vi phạm quy chế thi. Mở bài tập để xem chi tiết các vi phạm.`, type: "ASSIGNMENT", link });
+  } catch { /* không làm gián đoạn */ }
 }
 
 /** Giáo viên cho học sinh làm lại: xóa bài nộp (và các câu trả lời) của học sinh đó. */
@@ -91,7 +162,7 @@ export async function resetQuizSubmission(user: SessionUser, submissionId: strin
   const sub = await repo.findSubmission(submissionId);
   if (!sub?.autoGraded) throw new ConflictError("Chỉ cho làm lại được bài trắc nghiệm");
   if (!(await canManageClassSubjectAssignment(user, sub.exercise.lessonPost.assignmentId))) throw new ForbiddenError("Không có quyền thao tác trên bài tập này");
-  await repo.deleteSubmission(submissionId);
+  await repo.deleteSubmission(submissionId, sub.exerciseId, sub.studentId);
   return sub.exercise;
 }
 
@@ -102,11 +173,9 @@ export const lessonPostOfExerciseQuestion = async (id: string) => {
   return eq ? lessonPostOfExercise(eq.exerciseId) : null;
 };
 
-/** Học sinh có được xem đáp án đúng của bài này chưa (theo cài đặt của giáo viên). */
-export function canRevealKey(ex: { showAnswers: string; dueDate: Date | null }, submitted: boolean, now = new Date()) {
-  if (!submitted || ex.showAnswers === "NEVER") return false;
-  if (ex.showAnswers === "AFTER_SUBMIT") return true;
-  return !ex.dueDate || now > new Date(ex.dueDate.getTime() + 86400_000); // hết ngày hạn nộp
+/** Học sinh có được xem đáp án đúng của bài này chưa (theo cài đặt của giáo viên và số lượt làm còn lại). */
+export function canRevealKey(ex: { showAnswers: string; dueDate: Date | null }, submitted: boolean, left = 0, now = new Date()) {
+  return canRevealAnswers({ showAnswers: ex.showAnswers, dueDate: ex.dueDate, submitted, attemptsLeft: left, now });
 }
 
 /* ================= Chế độ thi nghiêm túc ================= */
@@ -128,15 +197,17 @@ export async function reportViolation(user: SessionUser, exerciseId: string, typ
   const ex = await repo.findExercise(exerciseId);
   if (!ex || !ex.quizMode || !ex.secureMode) throw new ConflictError("Bài tập không ở chế độ thi nghiêm túc");
   if (!(await repo.isStudentInClass(user.studentId, ex.lessonPost.assignment.schoolClassId))) throw new ForbiddenError("Bạn không thuộc lớp học của môn này");
-  if (await repo.findStudentSubmission(exerciseId, user.studentId)) {
-    // đã nộp rồi (ví dụ tự nộp do vi phạm): không ghi thêm
+  const active = await repo.findActiveAttempt(exerciseId, user.studentId);
+  if (!active && (await repo.findStudentSubmission(exerciseId, user.studentId))) {
+    // không có lượt đang làm (đã nộp rồi, ví dụ tự nộp do vi phạm): không ghi thêm
     return { count: await repo.countViolations(exerciseId, user.studentId), max: ex.maxViolations, exceeded: true };
   }
   const last = await repo.lastViolation(exerciseId, user.studentId, type);
   if (!last || Date.now() - last.createdAt.getTime() >= VIOLATION_DEBOUNCE_MS) {
     await repo.createViolation({ exerciseId, studentId: user.studentId, type, detail: detail?.slice(0, 200) || null });
   }
-  const count = await repo.countViolations(exerciseId, user.studentId);
+  // giới hạn tính riêng cho từng lượt làm: chỉ đếm vi phạm từ lúc lượt này bắt đầu
+  const count = await repo.countViolations(exerciseId, user.studentId, active?.startedAt);
   return { count, max: ex.maxViolations, exceeded: isOverLimit(count, ex.maxViolations) };
 }
 

@@ -35,9 +35,12 @@ test("database: thi nghiêm túc ghi nhận vi phạm, chống trùng, tự nộ
     const sub = await submitQuiz(student, ex.id, {}, { autoSubmitted: true });
     touched.push(sub.id);
     assert.equal((await prisma.assignmentSubmission.findUniqueOrThrow({ where: { id: sub.id } })).autoSubmitted, true);
+    // học sinh và giáo viên đều được báo (chuông thông báo)
+    assert.equal(await prisma.notification.count({ where: { userId: student.userId, title: { contains: "nộp tự động" } } }), 1);
+    assert.equal(await prisma.notification.count({ where: { userId: teacher.userId, title: { contains: "nộp bài tự động" }, content: { contains: suser.student!.fullName } } }), 1); // lọc theo tên học sinh: test khác chạy song song cũng tạo thông báo cho giáo viên này
     assert.deepEqual(await reportViolation(student, ex.id, "MOUSE_LEAVE"), { count: 3, max: 3, exceeded: true });
     // max = 0: chỉ ghi nhận
-    await prisma.studentAnswer.deleteMany({ where: { submissionId: sub.id } }); await prisma.assignmentSubmission.delete({ where: { id: sub.id } });
+    await prisma.studentAnswer.deleteMany({ where: { submissionId: sub.id } }); await prisma.assignmentSubmission.delete({ where: { id: sub.id } }); await prisma.quizAttempt.deleteMany({ where: { exerciseId: ex.id } });
     await prisma.examViolation.deleteMany({ where: { exerciseId: ex.id } });
     await prisma.exercise.update({ where: { id: ex.id }, data: { maxViolations: 0 } });
     assert.equal((await reportViolation(student, ex.id, "EXIT_FULLSCREEN")).exceeded, false);
@@ -58,6 +61,11 @@ test("database: thi nghiêm túc ghi nhận vi phạm, chống trùng, tự nộ
       await prisma.libraryExercise.update({ where: { id: lib.id }, data: { secureMode: false, maxViolations: 3 } });
     }
   } finally {
+    // dọn cả bài nộp nếu test dừng giữa chừng, để lần chạy sau không bị coi là đã nộp
+    await prisma.studentAnswer.deleteMany({ where: { submission: { exerciseId: ex.id, studentId: student.studentId } } });
+    await prisma.assignmentSubmission.deleteMany({ where: { exerciseId: ex.id, studentId: student.studentId } });
+    await prisma.quizAttempt.deleteMany({ where: { exerciseId: ex.id } });
+    await prisma.notification.deleteMany({ where: { userId: { in: [student.userId, teacher.userId] }, title: { contains: "tự động" } } });
     await prisma.examViolation.deleteMany({ where: { exerciseId: ex.id } });
     await prisma.exercise.update({ where: { id: ex.id }, data: { secureMode: false, maxViolations: 3 } });
   }

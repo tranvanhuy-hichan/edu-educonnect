@@ -22,6 +22,12 @@ export const exerciseInput = z.object({
   attachments: files,
   showAnswers,
   secureMode: z.boolean().default(false),
+  shuffleQuestions: z.boolean().default(false),
+  shuffleOptions: z.boolean().default(false),
+  maxAttempts: z.number().int().min(1).max(10).default(1),
+  attemptScoring: z.enum(["BEST", "LAST"]).default("BEST"),
+  timeLimitMinutes: z.number().int().min(0).max(600).default(0),
+  allowReview: z.boolean().default(true),
   maxViolations: z.number().int().min(0).max(20).default(3),
   sourceLessonIds: z.array(z.string().min(1)).max(30).default([]),
 });

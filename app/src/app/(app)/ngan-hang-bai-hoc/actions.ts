@@ -12,6 +12,10 @@ const TEACH = [...MANAGER_ROLES, ...TEACHING_ROLES];
 const refresh = () => { revalidatePath("/ngan-hang-bai-hoc", "layout"); revalidatePath("/ngan-hang-cau-hoi"); };
 const showAnswersOf = (fd: FormData) => str(fd, "showAnswers") || "AFTER_DUE";
 const secureOf = (fd: FormData) => str(fd, "secureMode") === "1";
+const shuffleQOf = (fd: FormData) => str(fd, "shuffleQuestions") === "1";
+const shuffleOOf = (fd: FormData) => str(fd, "shuffleOptions") === "1";
+const intIn = (fd: FormData, k: string, min: number, max: number, d: number) => { const n = parseInt(str(fd, k).replace(/\D/g, ""), 10); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+const attemptSettings = (fd: FormData) => ({ maxAttempts: intIn(fd, "maxAttempts", 1, 10, 1), attemptScoring: str(fd, "attemptScoring") === "LAST" ? "LAST" : "BEST", timeLimitMinutes: intIn(fd, "timeLimitMinutes", 0, 600, 0), allowReview: str(fd, "allowReview") === "1" });
 const maxViolationsOf = (fd: FormData) => { const n = parseInt(str(fd, "maxViolations").replace(/\D/g, ""), 10); return Number.isFinite(n) ? Math.min(n, 20) : 3; };
 const intOf = (v: string) => { const n = parseInt(v.replace(/\D/g, ""), 10); return Number.isFinite(n) ? n : undefined; };
 
@@ -61,14 +65,14 @@ export const createExerciseAction = wrap(async (fd) => {
   const lessonId = str(fd, "lessonId");
   const ex = await bank.createExercise(me, lessonId, {
     title: str(fd, "title"), kind: str(fd, "kind") === "REVIEW" ? "REVIEW" : "NORMAL", quizMode: str(fd, "quizMode") !== "0", instructions: str(fd, "instructions"),
-    attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String),
+    attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), shuffleQuestions: shuffleQOf(fd), shuffleOptions: shuffleOOf(fd), ...attemptSettings(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String),
   });
   refresh();
   redirect(`/ngan-hang-bai-hoc/${lessonId}?tab=bai-tap&ex=${ex.id}`);
 });
 export const updateExerciseAction = wrap(async (fd) => {
   const me = await assertRole(...TEACH);
-  await bank.updateExercise(me, str(fd, "id"), { title: str(fd, "title"), instructions: str(fd, "instructions"), attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String) });
+  await bank.updateExercise(me, str(fd, "id"), { title: str(fd, "title"), instructions: str(fd, "instructions"), attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), shuffleQuestions: shuffleQOf(fd), shuffleOptions: shuffleOOf(fd), ...attemptSettings(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String) });
   refresh();
   return "Đã lưu bài tập";
 });
