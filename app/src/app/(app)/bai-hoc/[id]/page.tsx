@@ -229,9 +229,9 @@ export default async function LessonPostDetail({ params, searchParams }: { param
             {student && <Link href="?tab=bai-tap" className="inline-block text-sm text-slate-500 hover:text-orange-700">‹ Bài tập của bài học</Link>}
             <Card>
               <h2 className="text-lg font-semibold">{exercise.title}</h2>
-              {exercise.quizMode && !student && (exercise.shuffleQuestions || exercise.shuffleOptions || exercise.secureMode || exercise.maxAttempts > 1 || exercise.timeLimitMinutes > 0 || !exercise.allowReview) && (
+              {exercise.quizMode && !student && (exercise.shuffleQuestions || exercise.shuffleOptions || exercise.secureMode || (attemptState?.max ?? exercise.maxAttempts) > 1 || exercise.timeLimitMinutes > 0 || !exercise.allowReview) && (
                 <div className="mt-1 flex flex-wrap gap-1.5">
-                  {exercise.maxAttempts > 1 && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">{exercise.maxAttempts} lượt · {SCORING_LABEL[exercise.attemptScoring].toLowerCase()}</span>}
+                  {(attemptState?.max ?? exercise.maxAttempts) > 1 && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">{exercise.maxAttempts} lượt · {SCORING_LABEL[exercise.attemptScoring].toLowerCase()}</span>}
                   {exercise.timeLimitMinutes > 0 && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">{exercise.timeLimitMinutes} phút</span>}
                   {!exercise.allowReview && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">Không cho xem lại bài</span>}
                   {exercise.shuffleQuestions && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Xáo câu hỏi</span>}
@@ -284,9 +284,9 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                               <ul className="mt-2 space-y-0.5 text-xs">{violationRows.map((v) => <li key={v.id}>{fmtTime(v.createdAt)} · {VIOLATION_LABEL[v.type] ?? v.type}</li>)}</ul>
                             </div>
                           )}
-                          {attemptState && exercise.maxAttempts > 1 && (
+                          {attemptState && (attemptState?.max ?? exercise.maxAttempts) > 1 && (
                             <div className="rounded-md border p-3 text-sm">
-                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><b>Các lượt làm ({attemptState.used}/{exercise.maxAttempts})</b><span className="text-xs text-slate-500">{SCORING_LABEL[exercise.attemptScoring]}</span></div>
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><b>Các lượt làm ({attemptState.used}/{attemptState.max})</b><span className="text-xs text-slate-500">{SCORING_LABEL[exercise.attemptScoring]}</span></div>
                               <ul className="space-y-1">{attemptState.history.map((h) => (
                                 <li key={h.id} className="flex flex-wrap items-center gap-2 text-xs"><span className="w-14 font-medium">Lượt {h.attemptNo}</span><b>{fmtPts(h.grade ?? 0)}/10</b><span className="text-slate-500">{h.submittedAt ? fmtTime(h.submittedAt) : ""}</span>
                                   {h.attemptNo === mine.attemptNo && <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-800">Đang được tính</span>}
@@ -310,12 +310,12 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                         gated ? (
                           <>
                             {late && <p className="mb-3 text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
-                            <ExamRunner exerciseId={exercise.id} title={exercise.title} count={quizItems.length} secure={exercise.secureMode} maxViolations={exercise.maxViolations} priorViolations={violationRows.length} timeLimitMinutes={exercise.timeLimitMinutes} attemptNo={formAttemptNo} maxAttempts={exercise.maxAttempts} report={reportViolation} start={startAttempt} action={submitQuizWork}>
+                            <ExamRunner exerciseId={exercise.id} title={exercise.title} count={quizItems.length} secure={exercise.secureMode} maxViolations={exercise.maxViolations} priorViolations={violationRows.length} timeLimitMinutes={exercise.timeLimitMinutes} attemptNo={formAttemptNo} maxAttempts={attemptState?.max ?? exercise.maxAttempts} report={reportViolation} start={startAttempt} action={submitQuizWork}>
                               <QuizTake items={mineItems} />
                             </ExamRunner>
                           </>
                         ) : (
-                        <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText={exercise.maxAttempts > 1 ? "Nộp bài? Nộp xong lượt này không sửa được." : "Nộp bài? Em chỉ được làm bài một lần."} reset={false} className="flex flex-col gap-4 [&>button]:self-start">
+                        <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText={(attemptState?.max ?? exercise.maxAttempts) > 1 ? "Nộp bài? Nộp xong lượt này không sửa được." : "Nộp bài? Em chỉ được làm bài một lần."} reset={false} className="flex flex-col gap-4 [&>button]:self-start">
                           <input type="hidden" name="exerciseId" value={exercise.id} />
                           <h2 className="font-semibold">Làm bài ({quizItems.length} câu)</h2>
                           <QuizTake items={mineItems} />
@@ -331,7 +331,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                         <span><b>{subs.length}</b>/{roster.length} học sinh đã nộp</span>
                         {subs.length > 0 && <span>Điểm trung bình: <b>{fmtPts(subs.reduce((t, x) => t + (x.grade ?? 0), 0) / subs.length)}</b></span>}
                       </Card>
-                      <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ...(exercise.maxAttempts > 1 ? ["Số lần"] : []), ...(exercise.secureMode ? ["Vi phạm"] : []), ""]}>
+                      <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ...((attemptState?.max ?? exercise.maxAttempts) > 1 ? ["Số lần"] : []), ...(exercise.secureMode ? ["Vi phạm"] : []), ""]}>
                         {roster.map((s) => {
                           const sub = subOf.get(s.id);
                           return (
@@ -340,7 +340,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                               <td>{sub ? <div className="flex flex-col gap-0.5"><span className="inline-flex w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span>{sub.isLate && <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nộp muộn</span>}</div> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
                               <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
                               <td>{sub?.grade != null ? <b>{fmtPts(sub.grade)}</b> : <span className="text-slate-400">-</span>}</td>
-                              {exercise.maxAttempts > 1 && <td>{attemptsOf.get(s.id)?.length ?? (sub ? 1 : 0)}/{exercise.maxAttempts}</td>}
+                              {(attemptState?.max ?? exercise.maxAttempts) > 1 && <td>{attemptsOf.get(s.id)?.length ?? (sub ? 1 : 0)}/{exercise.maxAttempts}</td>}
                               {exercise.secureMode && <td>{(violationsOf.get(s.id)?.length ?? 0) > 0 ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{violationsOf.get(s.id)!.length}{sub?.autoSubmitted ? " · tự nộp" : ""}</span> : <span className="text-slate-400">0</span>}</td>}
                               <td>{sub && manage && (
                                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -359,7 +359,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                                     )}
                                     <QuizReview items={arrangeForStudent(quizItems, flags, shuffleSeedFor(exercise.id, s.id, sub.attemptNo))} answers={quizAnswers.filter((x) => x.submissionId === sub.id)} reveal />
                                   </DialogButton>
-                                  <ActionForm action={resetQuiz} submit="Cho làm lại" compact danger confirmText={`Xóa bài làm của ${s.fullName} để em làm lại từ đầu?`} className="inline-flex"><input type="hidden" name="submissionId" value={sub.id} /></ActionForm>
+                                  <ActionForm action={resetQuiz} submit="Cho làm lại" compact danger confirmText={`Cấp thêm một lượt làm cho ${s.fullName}, giữ nguyên lịch sử?`} className="inline-flex"><input type="hidden" name="submissionId" value={sub.id} /></ActionForm>
                                 </div>
                               )}</td>
                             </tr>

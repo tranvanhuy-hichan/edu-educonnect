@@ -75,6 +75,7 @@ async function gradeAndRecord(ex: GradingExercise, studentId: string, answers: R
   const grade = toGrade10(earned, max);
   try {
     const r = await repo.recordAttempt({
+      snapshot: JSON.parse(JSON.stringify({ questions: ex.questions, answers: graded.map((g) => ({ questionId: g.eq.questionId, answer: answers[g.eq.questionId] ?? null, score: g.score, maxScore: g.eq.points, isCorrect: g.isCorrect })) })),
       exerciseId: ex.id, studentId, attemptId: ctx.attemptId, attemptNo: ctx.attemptNo, scoring: ex.attemptScoring, submittedAt: ctx.submittedAt,
       isLate: Boolean(ex.dueDate && ctx.submittedAt > ex.dueDate), grade, autoSubmitted: ctx.autoSubmitted, overtime: ctx.overtime,
       answers: graded.map((g) => ({ questionId: g.eq.questionId, answer: answers[g.eq.questionId], score: g.score, maxScore: g.eq.points, isCorrect: g.isCorrect })),
@@ -111,7 +112,7 @@ export async function startAttempt(user: SessionUser, exerciseId: string) {
   const used = await repo.countSubmittedAttempts(exerciseId, studentId);
   let active = await repo.findActiveAttempt(exerciseId, studentId);
   if (!active) {
-    if (attemptsLeft(ex.maxAttempts, used) <= 0) throw new ConflictError("Em đã hết lượt làm bài này");
+    if (attemptsLeft(ex.maxAttempts + await repo.extraAttempts(ex.id, studentId), used) <= 0) throw new ConflictError("Em đã hết lượt làm bài này");
     try { active = await repo.createAttempt(exerciseId, studentId, used + 1); } catch (e) {
       if ((e as { code?: string }).code !== "P2002") throw e;
       active = await repo.findActiveAttempt(exerciseId, studentId); // hai yêu cầu cùng lúc: lấy lượt vừa được tạo
@@ -126,7 +127,8 @@ export async function quizAttemptState(user: SessionUser, exerciseId: string) {
   const { ex, studentId } = await loadStudentExercise(user, exerciseId);
   await closeExpiredAttempt(ex, studentId);
   const [history, active] = await Promise.all([repo.listAttempts(exerciseId, studentId), repo.findActiveAttempt(exerciseId, studentId)]);
-  return { used: history.length, max: ex.maxAttempts, left: attemptsLeft(ex.maxAttempts, history.length), history, active };
+  const max = ex.maxAttempts + await repo.extraAttempts(ex.id, studentId);
+  return { used: history.length, max, left: attemptsLeft(max, history.length), history, active };
 }
 
 /**
@@ -137,13 +139,15 @@ export async function submitQuiz(user: SessionUser, exerciseId: string, answers:
   const { ex, studentId } = await loadStudentExercise(user, exerciseId);
   await closeExpiredAttempt(ex, studentId);
   const used = await repo.countSubmittedAttempts(exerciseId, studentId);
-  if (attemptsLeft(ex.maxAttempts, used) <= 0) throw new ConflictError(ex.maxAttempts > 1 ? "Em đã hết lượt làm bài này" : "Bạn đã nộp bài tập này rồi");
+  if (attemptsLeft(ex.maxAttempts + await repo.extraAttempts(ex.id, studentId), used) <= 0) throw new ConflictError(ex.maxAttempts > 1 ? "Em đã hết lượt làm bài này" : "Bạn đã nộp bài tập này rồi");
   const active = await repo.findActiveAttempt(exerciseId, studentId);
-  if (ex.timeLimitMinutes > 0 && !active) throw new ConflictError("Hãy bấm Bắt đầu làm bài trước khi nộp (bài có giới hạn thời gian)");
+  if ((ex.timeLimitMinutes > 0 || ex.secureMode) && !active) throw new ConflictError("Hãy bấm Bắt đầu làm bài trước khi nộp (bài có giới hạn thời gian)");
   const now = new Date();
   const overtime = !!active && isOvertime(active.startedAt, ex.timeLimitMinutes, now);
-  const sub = await gradeAndRecord(ex, studentId, answers, { attemptId: active?.id ?? null, attemptNo: active?.attemptNo ?? used + 1, autoSubmitted: opts.autoSubmitted === true, overtime, submittedAt: now });
-  if (opts.autoSubmitted) await notifyAutoSubmit(studentId, ex.lessonPost.assignment.teacherId, ex.title, ex.lessonPostId, exerciseId);
+  const violations = ex.secureMode && active ? await repo.countViolations(ex.id, studentId, active.startedAt) : 0;
+  const forced = ex.secureMode && isOverLimit(violations, ex.maxViolations);
+  const sub = await gradeAndRecord(ex, studentId, answers, { attemptId: active?.id ?? null, attemptNo: active?.attemptNo ?? used + 1, autoSubmitted: forced || opts.autoSubmitted === true, overtime, submittedAt: now });
+  if (forced || opts.autoSubmitted) await notifyAutoSubmit(studentId, ex.lessonPost.assignment.teacherId, ex.title, ex.lessonPostId, exerciseId);
   return sub;
 }
 
@@ -162,7 +166,7 @@ export async function resetQuizSubmission(user: SessionUser, submissionId: strin
   const sub = await repo.findSubmission(submissionId);
   if (!sub?.autoGraded) throw new ConflictError("Chỉ cho làm lại được bài trắc nghiệm");
   if (!(await canManageClassSubjectAssignment(user, sub.exercise.lessonPost.assignmentId))) throw new ForbiddenError("Không có quyền thao tác trên bài tập này");
-  await repo.deleteSubmission(submissionId, sub.exerciseId, sub.studentId);
+  await repo.grantRetake(submissionId);
   return sub.exercise;
 }
 
@@ -191,7 +195,7 @@ export const VIOLATION_DEBOUNCE_MS = 1500;
 export const isOverLimit = (count: number, max: number) => max > 0 && count >= max;
 
 /** Ghi nhận một vi phạm của học sinh đang làm bài thi nghiêm túc. Trả về số vi phạm hiện có và việc có phải tự nộp bài hay không. */
-export async function reportViolation(user: SessionUser, exerciseId: string, type: string, detail?: string | null) {
+export async function reportViolation(user: SessionUser, exerciseId: string, type: string, detail?: string | null, answers: Record<string, unknown> = {}) {
   if (!user.studentId) throw new ForbiddenError("Chỉ học sinh mới ghi nhận được vi phạm");
   if (!(VIOLATION_TYPES as readonly string[]).includes(type)) throw new ConflictError("Loại vi phạm không hợp lệ");
   const ex = await repo.findExercise(exerciseId);
@@ -202,13 +206,16 @@ export async function reportViolation(user: SessionUser, exerciseId: string, typ
     // không có lượt đang làm (đã nộp rồi, ví dụ tự nộp do vi phạm): không ghi thêm
     return { count: await repo.countViolations(exerciseId, user.studentId), max: ex.maxViolations, exceeded: true };
   }
+  if (!active) throw new ConflictError("Hãy bắt đầu lượt thi trước khi ghi nhận vi phạm");
   const last = await repo.lastViolation(exerciseId, user.studentId, type);
   if (!last || Date.now() - last.createdAt.getTime() >= VIOLATION_DEBOUNCE_MS) {
     await repo.createViolation({ exerciseId, studentId: user.studentId, type, detail: detail?.slice(0, 200) || null });
   }
   // giới hạn tính riêng cho từng lượt làm: chỉ đếm vi phạm từ lúc lượt này bắt đầu
   const count = await repo.countViolations(exerciseId, user.studentId, active?.startedAt);
-  return { count, max: ex.maxViolations, exceeded: isOverLimit(count, ex.maxViolations) };
+  const exceeded = isOverLimit(count, ex.maxViolations);
+  if (exceeded) await submitQuiz(user, exerciseId, answers, { autoSubmitted: true });
+  return { count, max: ex.maxViolations, exceeded };
 }
 
 export const listExerciseViolations = (exerciseId: string) => repo.listViolations(exerciseId);

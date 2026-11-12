@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import JSZip from "jszip";
 import { parseStringPromise } from "xml2js";
 import { attrOf, child, kidsOf, nameOf, ommlToLatex, textOf, type XmlNode } from "./omml";
@@ -8,8 +9,22 @@ export type ParsedDocx = { text: string; images: DocxImage[] };
 const IMAGE_MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", bmp: "image/bmp", emf: "image/x-emf", wmf: "image/x-wmf", tif: "image/tiff", tiff: "image/tiff" };
 const UPLOADABLE = new Set(["image/png", "image/jpeg", "image/webp"]);
 
-const xml = (s: string) =>
-  parseStringPromise(s, { explicitChildren: true, preserveChildrenOrder: true, charsAsChildren: true, includeWhiteChars: true, explicitArray: true, explicitRoot: false, trim: false, normalize: false }) as Promise<XmlNode>;
+function validateXml(s: string) {
+  if (/<!DOCTYPE|<!ENTITY/i.test(s)) throw new Error("XML không được chứa DTD/entity");
+  let depth = 0, count = 0;
+  const stripped = s.replace(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>/g, "");
+  for (const tag of stripped.matchAll(/<[^>]+>/g)) {
+    const t = tag[0];
+    if (t.startsWith("<?") || t.startsWith("<!")) continue;
+    if (t.startsWith("</")) depth--;
+    else if (!t.endsWith("/>")) depth++;
+    if (++count > 100000 || depth > 100) throw new Error("XML quá phức tạp");
+  }
+}
+const xml = (s: string) => {
+  validateXml(s);
+  return parseStringPromise(s, { explicitChildren: true, preserveChildrenOrder: true, charsAsChildren: true, includeWhiteChars: true, explicitArray: true, explicitRoot: false, trim: false, normalize: false }) as Promise<XmlNode>;
+};
 
 /** Tìm mọi quan hệ ảnh (a:blip r:embed / v:imagedata r:id) bên trong một nút, theo thứ tự xuất hiện. */
 function imageRels(n: XmlNode, out: string[] = []): string[] {
@@ -30,12 +45,25 @@ const isMarked = (r: XmlNode) => {
 /** Đọc tệp Word: văn bản theo thứ tự, công thức thành LaTeX trong $...$, ảnh nhúng thành [[IMG:n]] (và trả ra dữ liệu ảnh). */
 export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
   const zip = await JSZip.loadAsync(buffer);
+  if (Object.keys(zip.files).length > 1000) throw new Error("Tệp Word có quá nhiều thành phần");
+  let expanded = 0;
+  const readEntry = (file: JSZip.JSZipObject): Promise<Buffer> => new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []; let size = 0;
+    const stream = file.nodeStream("nodebuffer") as Readable;
+    stream.on("data", (chunk: Uint8Array) => {
+      size += chunk.length; expanded += chunk.length;
+      if (size > 8 * 1024 * 1024 || expanded > 32 * 1024 * 1024) {
+        stream.destroy(); reject(new Error("Dữ liệu giải nén vượt giới hạn")); return;
+      }
+      chunks.push(Buffer.from(chunk));
+    }).on("error", reject).on("end", () => resolve(Buffer.concat(chunks)));
+  });
   const docFile = zip.file("word/document.xml");
   if (!docFile) throw new Error("Tệp Word không hợp lệ (thiếu nội dung văn bản)");
-  const doc = await xml(await docFile.async("string"));
+  const doc = await xml((await readEntry(docFile)).toString("utf8"));
   const relFile = zip.file("word/_rels/document.xml.rels");
   const rels = new Map<string, string>();
-  if (relFile) for (const r of kidsOf(await xml(await relFile.async("string")))) if (nameOf(r) === "Relationship" && r.$?.Id && r.$.Target) rels.set(r.$.Id, r.$.Target);
+  if (relFile) for (const r of kidsOf(await xml((await readEntry(relFile)).toString("utf8")))) if (nameOf(r) === "Relationship" && r.$?.Id && r.$.Target) rels.set(r.$.Id, r.$.Target);
 
   const images: DocxImage[] = [];
   const byTarget = new Map<string, number>();
@@ -50,7 +78,7 @@ export async function parseDocx(buffer: Buffer): Promise<ParsedDocx> {
       const ext = (path.split(".").pop() ?? "").toLowerCase();
       const mime = IMAGE_MIME[ext] ?? "application/octet-stream";
       n = images.length + 1;
-      images.push({ n, name: path.split("/").pop() ?? `image${n}`, mime, data: Buffer.from(await file.async("uint8array")), supported: UPLOADABLE.has(mime) });
+      images.push({ n, name: path.split("/").pop() ?? `image${n}`, mime, data: await readEntry(file), supported: UPLOADABLE.has(mime) });
       byTarget.set(path, n);
     }
     return `[[IMG:${n}]]`;

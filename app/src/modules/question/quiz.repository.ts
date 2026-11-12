@@ -1,3 +1,4 @@
+import { ConflictError } from "@/shared/errors";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
@@ -39,7 +40,8 @@ export type GradedAnswer = { questionId: string; answer: unknown; score: number;
 
 export const countSubmittedAttempts = (exerciseId: string, studentId: string) => prisma.quizAttempt.count({ where: { exerciseId, studentId, submittedAt: { not: null } } });
 export const findActiveAttempt = (exerciseId: string, studentId: string) => prisma.quizAttempt.findFirst({ where: { exerciseId, studentId, submittedAt: null }, orderBy: { attemptNo: "desc" } });
-export const listAttempts = (exerciseId: string, studentId?: string) => prisma.quizAttempt.findMany({ where: { exerciseId, ...(studentId ? { studentId } : {}), submittedAt: { not: null } }, orderBy: [{ studentId: "asc" }, { attemptNo: "asc" }] });
+export const extraAttempts = (exerciseId: string, studentId: string) => prisma.assignmentSubmission.findUnique({ where: { exerciseId_studentId: { exerciseId, studentId } }, select: { extraAttempts: true } }).then((s) => s?.extraAttempts ?? 0);
+export const listAttempts = (exerciseId: string, studentId?: string) => prisma.quizAttempt.findMany({ where: { exerciseId, ...(studentId ? { studentId } : {}), submittedAt: { not: null } }, select: { id: true, exerciseId: true, studentId: true, attemptNo: true, startedAt: true, submittedAt: true, grade: true, isLate: true, autoSubmitted: true, overtime: true }, orderBy: [{ studentId: "asc" }, { attemptNo: "asc" }] });
 export const createAttempt = (exerciseId: string, studentId: string, attemptNo: number, startedAt = new Date()) => prisma.quizAttempt.create({ data: { exerciseId, studentId, attemptNo, startedAt } });
 
 /**
@@ -48,11 +50,15 @@ export const createAttempt = (exerciseId: string, studentId: string, attemptNo: 
  */
 export const recordAttempt = (d: {
   exerciseId: string; studentId: string; attemptId: string | null; attemptNo: number; scoring: string; submittedAt: Date; isLate: boolean; grade: number;
-  autoSubmitted: boolean; overtime: boolean; answers: GradedAnswer[]; shouldReplace: (existingGrade: number | null) => boolean;
+  snapshot: Prisma.InputJsonValue; autoSubmitted: boolean; overtime: boolean; answers: GradedAnswer[]; shouldReplace: (existingGrade: number | null) => boolean;
 }) =>
   prisma.$transaction(async (tx) => {
-    const attemptData = { submittedAt: d.submittedAt, grade: d.grade, isLate: d.isLate, autoSubmitted: d.autoSubmitted, overtime: d.overtime };
-    if (d.attemptId) await tx.quizAttempt.update({ where: { id: d.attemptId }, data: attemptData });
+    await tx.$queryRaw`SELECT id FROM "Student" WHERE id = ${d.studentId} FOR UPDATE`;
+    const attemptData = { snapshot: d.snapshot, submittedAt: d.submittedAt, grade: d.grade, isLate: d.isLate, autoSubmitted: d.autoSubmitted, overtime: d.overtime };
+    if (d.attemptId) {
+      const closed = await tx.quizAttempt.updateMany({ where: { id: d.attemptId, exerciseId: d.exerciseId, studentId: d.studentId, submittedAt: null }, data: attemptData });
+      if (closed.count !== 1) throw new ConflictError("Lượt làm bài này đã được nộp rồi");
+    }
     else await tx.quizAttempt.create({ data: { exerciseId: d.exerciseId, studentId: d.studentId, attemptNo: d.attemptNo, startedAt: d.submittedAt, ...attemptData } });
     const existing = await tx.assignmentSubmission.findUnique({ where: { exerciseId_studentId: { exerciseId: d.exerciseId, studentId: d.studentId } } });
     const answers = d.answers.map((a) => ({ ...a, answer: (a.answer ?? Prisma.DbNull) as Prisma.InputJsonValue }));
@@ -70,5 +76,5 @@ export const recordAttempt = (d: {
   });
 
 export const findSubmission = (id: string) => prisma.assignmentSubmission.findUnique({ where: { id }, include: { exercise: { include: { lessonPost: true } } } });
-export const deleteSubmission = (id: string, exerciseId: string, studentId: string) => prisma.$transaction([prisma.studentAnswer.deleteMany({ where: { submissionId: id } }), prisma.assignmentSubmission.delete({ where: { id } }), prisma.quizAttempt.deleteMany({ where: { exerciseId, studentId } }), prisma.examViolation.deleteMany({ where: { exerciseId, studentId } })]);
+export const grantRetake = (id: string) => prisma.assignmentSubmission.update({ where: { id }, data: { extraAttempts: { increment: 1 } } });
 export const isStudentInClass = (studentId: string, schoolClassId: string) => prisma.studentClassEnrollment.findFirst({ where: { studentId, schoolClassId }, select: { id: true } }).then((x) => x !== null);

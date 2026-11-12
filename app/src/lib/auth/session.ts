@@ -1,6 +1,7 @@
 import type { Role } from "@prisma/client";
 
 export type SessionUser = {
+  credentialTag?: string;
   userId: string;
   email: string;
   roles: Role[];

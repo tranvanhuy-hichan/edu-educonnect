@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
+export const listGrades = (context?: DatabaseContext) => databaseFor(context).gradeLevel.findMany({ orderBy: { sortOrder: "asc" } });
 export const findYear = (id: string, context?: DatabaseContext) => databaseFor(context).academicYear.findUniqueOrThrow({ where: { id } });
 export const findClass = (id: string, context?: DatabaseContext) => databaseFor(context).schoolClass.findUniqueOrThrow({ where: { id }, include: { academicYear: true } });
 export const findEnrollment = (studentId: string, academicYearId: string, context?: DatabaseContext) => databaseFor(context).studentClassEnrollment.findUnique({ where: { studentId_academicYearId: { studentId, academicYearId } }, include: { schoolClass: true } });

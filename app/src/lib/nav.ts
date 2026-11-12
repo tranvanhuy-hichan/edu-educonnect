@@ -1,4 +1,4 @@
-import { FileQuestion, FolderOpen, Home, School, GraduationCap, CalendarDays, Repeat, PenLine, Users, Layers, Building2, BookOpen, Library, Trophy, ClipboardList, ScrollText, ArrowUpCircle, UserCog, Settings, FileClock, Presentation, type LucideIcon } from "lucide-react";
+import { FileQuestion, FolderOpen, Home, School, GraduationCap, CalendarDays, Repeat, PenLine, Users, Layers, Building2, BookOpen, Library, Trophy, ClipboardList, ScrollText, Activity, ArrowUpCircle, UserCog, Settings, FileClock, Presentation, type LucideIcon } from "lucide-react";
 import type { Role } from "@/lib/guard";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; children?: NavItem[] };
@@ -69,6 +69,7 @@ const SYSTEM: NavGroup[] = [
       { href: "/tai-khoan", label: "Tài khoản", icon: UserCog },
       { href: "/cau-hinh", label: "Cấu hình", icon: Settings },
       { href: "/nhat-ky", label: "Nhật ký hoạt động", icon: FileClock },
+      { href: "/van-hanh", label: "Vận hành hệ thống", icon: Activity },
     ],
   },
 ];
@@ -177,7 +178,7 @@ const TITLES: Record<string, string> = {
   "lich-hoc": "Thời khóa biểu", "lich-thi": "Lịch thi", "lop-hoc": "Lớp học", "hoc-sinh": "Học sinh", "giao-vien": "Giáo viên", "phan-cong": "Phân công giảng dạy",
   "nhap-diem": "Nhập điểm", "so-dau-bai": "Sổ đầu bài", "thi-dua": "Thi đua", "len-lop": "Xét lên lớp", "mon-hoc": "Môn học",
   "phong-hoc": "Phòng học", "thu-vien": "Thư viện", "bai-hoc": "Bài học", "giang-day": "Giảng dạy", "ngan-hang-bai-hoc": "Bài học", "ngan-hang-cau-hoi": "Ngân hàng câu hỏi", "lop-cua-toi": "Lớp của tôi",
-  "lop-chu-nhiem": "Lớp chủ nhiệm", "diem-cua-toi": "Bảng điểm", "tai-khoan": "Tài khoản", "cau-hinh": "Cấu hình", "nhat-ky": "Nhật ký hoạt động",
+  "lop-chu-nhiem": "Lớp chủ nhiệm", "diem-cua-toi": "Bảng điểm", "tai-khoan": "Tài khoản", "cau-hinh": "Cấu hình", "nhat-ky": "Nhật ký hoạt động", "van-hanh": "Vận hành hệ thống",
   "doi-mat-khau": "Đổi mật khẩu", ghi: "Ghi sổ đầu bài", them: "Thêm mới",
 };
 /** Tên thống nhất cho mọi vai trò. */

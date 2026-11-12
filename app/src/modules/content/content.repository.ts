@@ -145,9 +145,15 @@ function exerciseDeletion(where: { lessonPostId?: string; id?: string }) {
     prisma.exercise.deleteMany({ where }),
   ];
 }
-export const deleteExercise = (id: string) => prisma.$transaction(exerciseDeletion({ id }));
-export const deleteLessonPost = (id: string) => prisma.$transaction([
+export const deleteExercise = async (id: string) => {
+  if (await prisma.quizAttempt.count({ where: { exerciseId: id } })) throw new Error("Bài tập đã có lượt làm, không thể xóa lịch sử");
+  return prisma.$transaction(exerciseDeletion({ id }));
+};
+export const deleteLessonPost = async (id: string) => {
+  if (await prisma.quizAttempt.count({ where: { exercise: { lessonPostId: id } } })) throw new Error("Bài học đã có lượt làm, không thể xóa lịch sử");
+  return prisma.$transaction([
   ...exerciseDeletion({ lessonPostId: id }),
   prisma.lessonPostView.deleteMany({ where: { lessonPostId: id } }),
   prisma.lessonPost.delete({ where: { id } }),
 ]);
+};

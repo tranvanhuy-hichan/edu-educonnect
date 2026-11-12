@@ -1,3 +1,4 @@
+import { assertGradeProgression } from "./grade-progression";
 import { withTransaction, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
 import * as records from "@/modules/academic/records.repository";
 import { isDeepStrictEqual } from "node:util";
@@ -72,6 +73,7 @@ export async function runClassPromotionJob(
       const to = await records.findYear(input.academicYearToId, tx);
       if (to.startDate <= from.endDate) throw new Error("Năm đích phải sau năm nguồn");
       for (const classId of [...new Set(input.assignments.map((row) => row.targetSchoolClassId))].sort()) await records.lockClass(classId, tx);
+      const grades = await records.listGrades(tx);
       let created = 0;
       for (const row of [...input.assignments].sort((a, b) => a.studentId.localeCompare(b.studentId))) {
         const enrollment = await requireYearStudentWriter(user, row.studentId, from.id, tx);
@@ -80,6 +82,7 @@ export async function runClassPromotionJob(
         if (!result || result.reviewStatus !== "APPROVED" || !["LEN_LOP", "O_LAI"].includes(result.result)) throw new Error("Học sinh chưa có kết quả đủ điều kiện và đã được phê duyệt");
         const target = await records.findClass(row.targetSchoolClassId, tx);
         if (target.academicYearId !== to.id) throw new Error("Lớp đích không thuộc năm học đích");
+        assertGradeProgression(grades, enrollment.schoolClass.gradeLevelId, target.gradeLevelId, result.result);
         const existing = await records.findEnrollment(row.studentId, to.id, tx);
         if (existing) {
           if (existing.schoolClassId !== target.id) throw new Error("Học sinh đã được xếp vào một lớp đích khác");

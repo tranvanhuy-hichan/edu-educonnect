@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { prisma } from "../src/lib/prisma";
-import { isOverLimit, reportViolation, submitQuiz, VIOLATION_DEBOUNCE_MS } from "../src/modules/question/quiz.service";
+import { isOverLimit, reportViolation, startAttempt, VIOLATION_DEBOUNCE_MS } from "../src/modules/question/quiz.service";
 import { publishLesson } from "../src/modules/bank/bank.service";
 
 test("isOverLimit: max = 0 chỉ ghi nhận, không bao giờ tự nộp", () => {
@@ -24,6 +24,7 @@ test("database: thi nghiêm túc ghi nhận vi phạm, chống trùng, tự nộ
     // quyền và dữ liệu vào
     await assert.rejects(reportViolation(teacher, ex.id, "TAB_SWITCH"), /Chỉ học sinh/);
     await assert.rejects(reportViolation(student, ex.id, "HACK"), /không hợp lệ/);
+    await startAttempt(student, ex.id);
     // đếm, chống trùng trong khoảng debounce, sau đó đếm tiếp
     assert.deepEqual(await reportViolation(student, ex.id, "TAB_SWITCH", "x"), { count: 1, max: 3, exceeded: false });
     assert.equal((await reportViolation(student, ex.id, "TAB_SWITCH")).count, 1, "cùng loại trong 1.5s chỉ tính một lần");
@@ -32,7 +33,7 @@ test("database: thi nghiêm túc ghi nhận vi phạm, chống trùng, tự nộ
     const third = await reportViolation(student, ex.id, "TAB_SWITCH");
     assert.deepEqual(third, { count: 3, max: 3, exceeded: true });
     // tự nộp: đánh dấu autoSubmitted; sau khi nộp không ghi thêm vi phạm
-    const sub = await submitQuiz(student, ex.id, {}, { autoSubmitted: true });
+    const sub = await prisma.assignmentSubmission.findUniqueOrThrow({ where: { exerciseId_studentId: { exerciseId: ex.id, studentId: student.studentId } } });
     touched.push(sub.id);
     assert.equal((await prisma.assignmentSubmission.findUniqueOrThrow({ where: { id: sub.id } })).autoSubmitted, true);
     // học sinh và giáo viên đều được báo (chuông thông báo)
@@ -43,6 +44,7 @@ test("database: thi nghiêm túc ghi nhận vi phạm, chống trùng, tự nộ
     await prisma.studentAnswer.deleteMany({ where: { submissionId: sub.id } }); await prisma.assignmentSubmission.delete({ where: { id: sub.id } }); await prisma.quizAttempt.deleteMany({ where: { exerciseId: ex.id } });
     await prisma.examViolation.deleteMany({ where: { exerciseId: ex.id } });
     await prisma.exercise.update({ where: { id: ex.id }, data: { maxViolations: 0 } });
+    await startAttempt(student, ex.id);
     assert.equal((await reportViolation(student, ex.id, "EXIT_FULLSCREEN")).exceeded, false);
 
     // cài đặt thi nghiêm túc được sao chép khi đăng bài tập mẫu cho lớp

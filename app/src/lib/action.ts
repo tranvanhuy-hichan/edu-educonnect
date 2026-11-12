@@ -1,3 +1,6 @@
+import { logger } from "@/lib/logger";
+import { reportError } from "@/lib/observability/report-error";
+import { getRequestContext } from "@/lib/observability/request-context";
 export type Res = { ok?: string; error?: string; data?: Record<string, string> } | null;
 
 /** Bọc server action: bắt lỗi → trả {error}, giữ nguyên redirect của Next. */
@@ -9,8 +12,15 @@ export function wrap(fn: (fd: FormData) => Promise<string | { ok: string; data?:
       if (r) return r;
       return { ok: "Đã lưu" };
     } catch (e) {
-      const err = e as { digest?: string; message?: string };
+      const err = e as { digest?: string; message?: string; name?: string; constructor?: { name?: string } };
       if (err.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      // Lỗi hạ tầng (Prisma/DB...) không phải thông báo nghiệp vụ: ghi lại đầy đủ, chỉ trả mã tham chiếu cho người dùng.
+      if (/^PrismaClient/.test(err.constructor?.name ?? err.name ?? "")) {
+        void reportError(e, { source: "action" });
+        const ref = getRequestContext()?.requestId?.slice(0, 8);
+        return { error: `Lỗi hệ thống, vui lòng thử lại.${ref ? ` Mã tham chiếu: ${ref}` : ""}` };
+      }
+      logger.warn({ err: e }, "action_rejected");
       return { error: err.message ?? "Có lỗi xảy ra" };
     }
   };

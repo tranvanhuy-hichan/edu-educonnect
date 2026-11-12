@@ -1,3 +1,4 @@
+import { matchesCredential } from "./credential-tag";
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -6,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 export const PARENT_COOKIE_NAME = "educonnect_parent_token";
 
 export type ParentSessionPayload = {
+  credentialTag: string;
   parentId: string;
   phone: string;
   fullName: string | null;
@@ -49,24 +51,10 @@ export async function getParentSession(): Promise<ParentMe | null> {
   if (!payload || !payload.parentId) return null;
 
   try {
-    const p = prisma as unknown as { parentAccount?: { findUnique: (q: unknown) => Promise<ParentMe | null> } };
-    if (p.parentAccount?.findUnique) {
-      const parent = await p.parentAccount.findUnique({
-        where: { id: payload.parentId },
-        select: { id: true, phone: true, fullName: true, createdAt: true },
-      });
-      if (parent) return parent;
-    }
-    const rows = await prisma.$queryRaw<ParentMe[]>`
-      SELECT id, phone, "fullName", "createdAt"
-      FROM "ParentAccount"
-      WHERE id = ${payload.parentId}
-      LIMIT 1
-    `;
-    return rows[0] ?? null;
-  } catch {
-    return null;
-  }
+    const parent = await prisma.parentAccount.findUnique({ where: { id: payload.parentId } });
+    if (!parent || !matchesCredential(payload.credentialTag, parent.passwordHash)) return null;
+    return { id: parent.id, phone: parent.phone, fullName: parent.fullName, createdAt: parent.createdAt };
+  } catch { return null; }
 }
 
 /** Dùng trong page / server action: yêu cầu phụ huynh đã đăng nhập. */

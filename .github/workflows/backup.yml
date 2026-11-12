@@ -1,0 +1,61 @@
+name: Backup database
+
+# Sao lưu hằng ngày lúc 03:00 giờ Việt Nam, MÃ HOÁ rồi tải lên kho lưu trữ, và KHÔI PHỤC THỬ vào DB tạm để chắc chắn bản sao dùng được.
+# Cần secrets: PROD_DIRECT_URL (kết nối trực tiếp, KHÔNG phải pooler), BACKUP_PASSPHRASE (>= 24 ký tự; cất thêm ở nơi an toàn khác!).
+# Tuỳ chọn lưu ngoài GitHub (khuyến nghị): BACKUP_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_DEFAULT_REGION, BACKUP_S3_ENDPOINT (R2/MinIO/B2).
+on:
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    services:
+      verify-db:
+        image: postgres:17
+        env: { POSTGRES_PASSWORD: verify, POSTGRES_DB: verify }
+        ports: ["5433:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      HAS_S3: ${{ secrets.BACKUP_S3_BUCKET != '' }}
+      PGURL: ${{ secrets.PROD_DIRECT_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Kiểm tra secrets
+        run: |
+          [ -n "$PGURL" ] || { echo "::error::Thiếu secret PROD_DIRECT_URL"; exit 1; }
+          [ "${#BACKUP_PASSPHRASE}" -ge 24 ] || { echo "::error::BACKUP_PASSPHRASE cần >= 24 ký tự"; exit 1; }
+      - name: Cài pg_dump 17 (>= phiên bản máy chủ)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-17
+      - name: Dump + mã hoá + khôi phục thử
+        run: scripts/ops/backup.sh --out backups --verify "postgresql://postgres:verify@localhost:5433/verify"
+      - name: Tải lên S3 tương thích (nếu có cấu hình)
+        if: env.HAS_S3 == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+          S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+          S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+        run: |
+          ep=(); [ -n "$S3_ENDPOINT" ] && ep=(--endpoint-url "$S3_ENDPOINT")
+          aws "${ep[@]}" s3 cp backups/ "s3://$S3_BUCKET/educonnect/$(date -u +%Y/%m)/" --recursive --exclude "*" --include "*.enc" --include "*.sha256"
+      - name: Lưu artifact (30 ngày) — CHỈ dùng khi repo là private
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/*
+          retention-days: 30
+          if-no-files-found: error

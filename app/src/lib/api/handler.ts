@@ -1,7 +1,10 @@
+import { resolveSessionIdentity } from "@/modules/auth/auth.service";
 import { NextResponse, type NextRequest } from "next/server";
 import { ZodError } from "zod";
 import { getSessionUser } from "@/lib/auth/request-session";
 import type { SessionUser } from "@/lib/auth/session";
+import { reportError } from "@/lib/observability/report-error";
+import { getRequestContext, setRequestUser } from "@/lib/observability/request-context";
 import { ConflictError, ForbiddenError } from "@/shared/errors";
 import { AccountDisabledError, InvalidCredentialsError } from "@/modules/auth/auth.service";
 
@@ -18,11 +21,13 @@ export function withAuth<Ctx = { params: Promise<Record<string, never>> }>(
   handler: AuthedHandler<Ctx>,
 ) {
   return async (request: NextRequest, ctx: Ctx): Promise<Response> => {
-    const user = getSessionUser(request);
+    const tokenUser = getSessionUser(request);
+    const user = tokenUser ? await resolveSessionIdentity(tokenUser.userId, tokenUser.credentialTag) : null;
     if (!user) {
       return NextResponse.json({ error: "Chưa đăng nhập" }, { status: 401 });
     }
 
+    setRequestUser(user.userId);
     try {
       return await handler(request, user, ctx);
     } catch (error) {
@@ -51,6 +56,7 @@ export function mapErrorToResponse(error: unknown): Response {
     return NextResponse.json({ error: error.message }, { status: 403 });
   }
 
-  console.error(error);
-  return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
+  const requestId = getRequestContext()?.requestId;
+  void reportError(error, { source: "route", route: getRequestContext()?.path, method: getRequestContext()?.method });
+  return NextResponse.json({ error: "Lỗi hệ thống", requestId }, { status: 500 });
 }

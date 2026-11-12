@@ -99,6 +99,10 @@ model ActivityLog {
   reason     String?
   targetId   String?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorEmail])
+  @@index([targetType, createdAt])
 }
 
 model AcademicYear {
@@ -206,6 +210,8 @@ model TeacherSubject {
   subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@id([teacherId, subjectId])
+
+  @@index([subjectId])
 }
 
 model Student {
@@ -268,6 +274,9 @@ model SchoolClass {
 
   @@unique([className, academicYearId])
   @@unique([academicYearId, roomId, shift])
+
+  @@index([gradeLevelId])
+  @@index([homeroomTeacherId])
 }
 
 model StudentClassEnrollment {
@@ -281,6 +290,8 @@ model StudentClassEnrollment {
   academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
 
   @@unique([studentId, academicYearId])
+
+  @@index([schoolClassId, academicYearId])
 }
 
 model ClassSubject {
@@ -312,6 +323,9 @@ model ClassSubjectAssignment {
   timetableSlots  TimetableSlot[]
 
   @@unique([schoolClassId, subjectId, academicTermId]) // 1 môn/lớp/kỳ chỉ 1 GV
+
+  @@index([teacherId, academicTermId])
+  @@index([subjectId])
 }
 
 /// Bài học. Bài tập (Exercise) là phần đính kèm của một bài học, không đứng riêng.
@@ -328,6 +342,8 @@ model LessonPost {
   createdAt    DateTime                @default(now())
 
   @@index([sourceLessonId])
+
+  @@index([assignmentId])
 }
 
 /// Bài tập thuộc một bài học (tab "Bài tập" trong bài học). quizMode=true: bài trắc nghiệm gồm các câu hỏi lấy từ ngân hàng câu hỏi, hệ thống tự chấm.
@@ -355,6 +371,8 @@ model Exercise {
   submissions  AssignmentSubmission[]
   sourceExerciseId String? // bài tập mẫu trong kho mà bản này được đăng từ đó
   createdAt    DateTime               @default(now())
+
+  @@index([lessonPostId])
 }
 
 /// Ngân hàng câu hỏi: mỗi câu thuộc riêng một giáo viên (không chia sẻ), gắn với môn + khối.
@@ -395,6 +413,8 @@ model Question {
   @@index([teacherId, subjectId, archivedAt])
   @@index([libraryLessonId])
   @@index([importJobId])
+
+  @@index([subjectId, gradeLevelId])
 }
 
 model QuestionOption {
@@ -406,6 +426,8 @@ model QuestionOption {
   images     Json?
   isCorrect  Boolean  @default(false)
   order      Int      @default(0)
+
+  @@index([questionId])
 }
 
 /// Câu hỏi được chọn vào một bài tập: thứ tự + số điểm riêng của câu trong bài đó.
@@ -533,9 +555,12 @@ model QuizAttempt {
   grade         Float?
   isLate        Boolean   @default(false)
   autoSubmitted Boolean   @default(false)
+  snapshot      Json? // đề, đáp án và kết quả từng lượt; chỉ đọc phía quản lý
   overtime      Boolean   @default(false) // nộp sau khi hết giờ làm bài
 
   @@unique([exerciseId, studentId, attemptNo])
+
+  @@index([studentId])
 }
 
 /// Vi phạm ghi nhận khi học sinh làm bài ở chế độ thi nghiêm túc. type: EXIT_FULLSCREEN | TAB_SWITCH | WINDOW_BLUR | MOUSE_LEAVE | RELOAD
@@ -561,6 +586,8 @@ model LessonPostView {
   viewedAt     DateTime   @default(now())
 
   @@unique([lessonPostId, studentId])
+
+  @@index([studentId])
 }
 
 model AssignmentSubmission {
@@ -579,9 +606,12 @@ model AssignmentSubmission {
   autoGraded       Boolean         @default(false)
   autoSubmitted    Boolean         @default(false) // bị nộp tự động do vượt số vi phạm cho phép
   attemptNo        Int             @default(1) // lần làm đang được tính điểm / hiển thị (khi làm nhiều lần)
+  extraAttempts    Int @default(0)
   answers          StudentAnswer[]
 
   @@unique([exerciseId, studentId])
+
+  @@index([studentId])
 }
 
 /// Bài làm của học sinh cho một câu hỏi. answer: SINGLE_CHOICE -> { optionId }, TRUE_FALSE_GROUP -> { [optionId]: boolean }, SHORT_ANSWER -> { text }
@@ -597,6 +627,8 @@ model StudentAnswer {
   isCorrect    Boolean // đúng hoàn toàn (để thống kê)
 
   @@unique([submissionId, questionId])
+
+  @@index([questionId])
 }
 
 model LessonPlan {
@@ -629,6 +661,9 @@ model ScoreEntry {
   scoreType      ScoreType
   value          Float
   createdAt      DateTime     @default(now())
+
+  @@index([studentId, academicTermId])
+  @@index([assignmentId])
 }
 
 model SubjectTermAverage {
@@ -642,6 +677,8 @@ model SubjectTermAverage {
   averageValue   Float // computed, cập nhật lại mỗi khi ScoreEntry liên quan thay đổi
 
   @@unique([studentId, assignmentId, academicTermId])
+
+  @@index([assignmentId])
 }
 
 model TimetableVersion {
@@ -693,6 +730,9 @@ model TimetableSlot {
   // Ràng buộc "giáo viên không trùng giờ dạy 2 lớp" KHÔNG thể biểu diễn bằng @@unique
   // vì phải join assignmentId -> teacherId. Kiểm tra bắt buộc ở tầng service (scheduling.service.ts)
   // trước khi insert/update TimetableSlot.
+
+  @@index([schoolClassId, versionId])
+  @@index([versionId])
 }
 
 model ClassPeriodLog {
@@ -709,6 +749,8 @@ model ClassPeriodLog {
   absences              ClassPeriodAbsence[]
 
   @@unique([timetableSlotId, logDate])
+
+  @@index([schoolClassId])
 }
 
 /// Học sinh vắng trong một tiết (có phép / không phép). attendanceAbsentCount của sổ = số dòng này khi có danh sách.
@@ -721,6 +763,8 @@ model ClassPeriodAbsence {
   excused   Boolean        @default(false)
 
   @@unique([logId, studentId])
+
+  @@index([studentId])
 }
 
 model EmulationCriteria {
@@ -769,6 +813,8 @@ model LibraryBookCopy {
   loans       LibraryLoan[]
   loanItems   LibraryLoanItem[]
   createdAt   DateTime          @default(now())
+
+  @@index([bookTitleId])
 }
 
 model LibraryLoan {
@@ -786,6 +832,8 @@ model LibraryLoan {
   items        LibraryLoanItem[]
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @default(now()) @updatedAt
+
+  @@index([studentId])
 }
 
 model LibraryLoanItem {
@@ -798,6 +846,9 @@ model LibraryLoanItem {
   returnedDate DateTime?
   note         String?
   createdAt    DateTime        @default(now())
+
+  @@index([loanId])
+  @@index([bookCopyId])
 }
 
 model YearEndResult {
@@ -817,6 +868,8 @@ model YearEndResult {
   result         PromotionResult
 
   @@unique([studentId, academicYearId])
+
+  @@index([academicYearId])
 }
 
 model ClassPromotionJob {
@@ -932,6 +985,8 @@ model ExamInvigilation {
   position   Int
 
   @@id([examRoomId, teacherId])
+
+  @@index([teacherId])
 }
 
 model Notification {
@@ -976,6 +1031,8 @@ model StudentAssessment {
   updatedBy String
   updatedAt DateTime @updatedAt
   @@unique([studentId, assignmentId])
+
+  @@index([assignmentId])
 }
 
 // Lưu vết chuyển lớp; enrollment hiện tại vẫn là con trỏ lớp đang theo học.
@@ -1029,4 +1086,53 @@ model StoredFile {
   createdAt DateTime @default(now())
   @@index([assignmentId, purpose])
   @@index([uploadedBy, createdAt])
+}
+
+model LoginThrottle {
+  key String @id
+  count Int
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
+/// Hàng đợi tác vụ nền (nhập AI, dọn dẹp...). Worker nhận việc bằng FOR UPDATE SKIP LOCKED nên nhiều instance chạy song song không trùng việc.
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     Json
+  status      String    @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  dedupeKey   String?   @unique
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?
+  progress    Int       @default(0)
+  result      Json?
+  lastError   String?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  finishedAt  DateTime?
+
+  @@index([status, runAt])
+  @@index([type, createdAt])
+}
+
+/// Lỗi hệ thống được gom theo "dấu vân tay" (cùng lỗi, cùng route chỉ một dòng, tăng count). Quản trị xem tại /van-hanh.
+model ErrorLog {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  source      String // render | route | action | job | client
+  message     String
+  stack       String?
+  route       String?
+  method      String?
+  digest      String?
+  requestId   String?
+  count       Int      @default(1)
+  status      String   @default("OPEN") // OPEN | RESOLVED
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([status, lastSeenAt])
 }
