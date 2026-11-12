@@ -53,7 +53,7 @@ jobs:
           ep=(); [ -n "$S3_ENDPOINT" ] && ep=(--endpoint-url "$S3_ENDPOINT")
           aws "${ep[@]}" s3 cp backups/ "s3://$S3_BUCKET/educonnect/$(date -u +%Y/%m)/" --recursive --exclude "*" --include "*.enc" --include "*.sha256"
       - name: Lưu artifact (30 ngày) — CHỈ dùng khi repo là private
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: db-backup-${{ github.run_id }}
           path: backups/*
