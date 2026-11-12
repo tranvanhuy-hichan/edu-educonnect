@@ -1,4 +1,4 @@
-import { Home, School, GraduationCap, CalendarDays, Repeat, PenLine, Users, Layers, Building2, BookOpen, Library, Trophy, NotebookPen, ClipboardList, ScrollText, ArrowUpCircle, UserCog, Settings, FileClock, Presentation, type LucideIcon } from "lucide-react";
+import { FileQuestion, FolderOpen, Home, School, GraduationCap, CalendarDays, Repeat, PenLine, Users, Layers, Building2, BookOpen, Library, Trophy, ClipboardList, ScrollText, ArrowUpCircle, UserCog, Settings, FileClock, Presentation, type LucideIcon } from "lucide-react";
 import type { Role } from "@/lib/guard";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; children?: NavItem[] };
@@ -11,7 +11,11 @@ const scores: NavItem = { href: "/nhap-diem", label: "Nhập điểm", icon: Pen
 const diary: NavItem = { href: "/so-dau-bai", label: "Sổ đầu bài", icon: ScrollText };
 const library: NavItem = { href: "/thu-vien", label: "Thư viện", icon: Library };
 const lessons: NavItem = { href: "/bai-hoc", label: "Bài học", icon: BookOpen };
-const plans: NavItem = { href: "/giao-an", label: "Giáo án", icon: NotebookPen };
+/** Quản lý nội dung bài học (kho riêng của giáo viên), không gắn với lớp. */
+const lessonBank: NavItem = { href: "/ngan-hang-bai-hoc", label: "Bài học", icon: FolderOpen };
+/** Dành cho quản lý: Giảng dạy theo môn → khối → lớp → bài học của lớp. Giáo viên dùng "Lớp của tôi". */
+const teaching: NavItem = { href: "/giang-day", label: "Giảng dạy", icon: GraduationCap };
+const questionBank: NavItem = { href: "/ngan-hang-cau-hoi", label: "Ngân hàng câu hỏi", icon: FileQuestion };
 
 export const libraryManageItems: NavItem[] = [
   { href: "/thu-vien?tab=titles", label: "Đầu sách", icon: BookOpen },
@@ -21,7 +25,7 @@ export const libraryManageItems: NavItem[] = [
   { href: "/thu-vien?tab=stats", label: "Thống kê", icon: Trophy },
 ];
 
-/** Vận hành toàn trường — dùng chung cho Quản trị, Hiệu trưởng, Hiệu phó. */
+/** Vận hành toàn trường — dùng chung cho Quản trị, Hiệu trưởng, Hiệu phó. Gom theo công việc, mỗi nhóm 3-5 mục. */
 const MANAGE: NavGroup[] = [
   { items: [home] },
   {
@@ -29,15 +33,17 @@ const MANAGE: NavGroup[] = [
     items: [
       { href: "/lop-hoc", label: "Lớp học", icon: School },
       { href: "/hoc-sinh", label: "Học sinh", icon: GraduationCap },
+      { href: "/giao-vien", label: "Giáo viên", icon: Users },
       { href: "/phan-cong", label: "Phân công giảng dạy", icon: Repeat },
       schedule,
-      diary,
-      lessons,
-      plans,
     ],
   },
   {
-    title: "Kiểm tra & đánh giá",
+    title: "Giảng dạy & học liệu",
+    items: [teaching, lessonBank, questionBank, diary],
+  },
+  {
+    title: "Đánh giá",
     items: [
       exams,
       scores,
@@ -46,19 +52,12 @@ const MANAGE: NavGroup[] = [
     ],
   },
   {
-    title: "Nhân sự",
-    items: [{ href: "/giao-vien", label: "Giáo viên", icon: Users }],
-  },
-  {
     title: "Danh mục",
     items: [
       { href: "/mon-hoc", label: "Môn học", icon: ClipboardList },
       { href: "/phong-hoc", label: "Phòng học", icon: Building2 },
+      { href: "#thu-vien", label: "Thư viện", icon: Library, children: libraryManageItems },
     ],
-  },
-  {
-    title: "Thư viện",
-    items: [{ href: "#thu-vien", label: "Quản lý thư viện", icon: Library, children: libraryManageItems }],
   },
 ];
 
@@ -102,7 +101,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       { href: "/lop-chu-nhiem?tab=year", label: "Xét lên lớp", icon: ArrowUpCircle },
     ],
   }],
-  SUBJECT_TEACHER: [{ title: "Giảng dạy", items: [{ href: "/lop-cua-toi", label: "Lớp của tôi", icon: School }, schedule, exams, lessons, plans, scores, diary] }],
+  SUBJECT_TEACHER: [{ title: "Giảng dạy", items: [{ href: "/lop-cua-toi", label: "Lớp của tôi", icon: School }, schedule, exams, lessonBank, questionBank, scores, diary] }],
   LIBRARIAN: [
     { items: [home] },
     {
@@ -110,7 +109,7 @@ const NAV_BY_ROLE: Record<Role, NavGroup[]> = {
       items: libraryManageItems,
     },
   ],
-  STUDENT: [{ items: [{ ...home, label: "Tổng quan" }, schedule, exams, lessons, plans, { href: "/diem-cua-toi", label: "Bảng điểm", icon: ClipboardList }, library] }],
+  STUDENT: [{ items: [{ ...home, label: "Tổng quan" }, schedule, exams, lessons, { href: "/diem-cua-toi", label: "Bảng điểm", icon: ClipboardList }, library] }],
 };
 
 /** Thứ tự ưu tiên hiển thị khi một người giữ nhiều vai trò. */
@@ -155,7 +154,7 @@ export function buildNav(roles: Role[]): NavGroup[] {
 /** Five everyday destinations, restricted to the navigation available to the user. */
 export function buildMobileNav(roles: Role[]): NavItem[] {
   const allowed = buildNav(roles).flatMap((group) => group.items.flatMap((item) => item.children ?? [item]));
-  const preferred = ["/lop-hoc", "/lich-hoc", "/so-dau-bai", "/lop-chu-nhiem?tab=diary", "/nhap-diem", "/lop-chu-nhiem?tab=scores", "/bai-hoc", "/lich-thi", "/diem-cua-toi", "/thu-vien?tab=titles", "/thu-vien?tab=copies", "/thu-vien?tab=loans", "/thu-vien?tab=overdue", "/thu-vien"];
+  const preferred = ["/lop-hoc", "/lich-hoc", "/so-dau-bai", "/lop-chu-nhiem?tab=diary", "/nhap-diem", "/lop-chu-nhiem?tab=scores", "/giang-day", "/bai-hoc", "/lich-thi", "/diem-cua-toi", "/thu-vien?tab=titles", "/thu-vien?tab=copies", "/thu-vien?tab=loans", "/thu-vien?tab=overdue", "/thu-vien"];
   const items: NavItem[] = [home];
   for (const href of preferred) {
     const item = allowed.find((entry) => entry.href === href);
@@ -177,7 +176,7 @@ export const ROLE_LABEL: Record<Role, string> = {
 const TITLES: Record<string, string> = {
   "lich-hoc": "Thời khóa biểu", "lich-thi": "Lịch thi", "lop-hoc": "Lớp học", "hoc-sinh": "Học sinh", "giao-vien": "Giáo viên", "phan-cong": "Phân công giảng dạy",
   "nhap-diem": "Nhập điểm", "so-dau-bai": "Sổ đầu bài", "thi-dua": "Thi đua", "len-lop": "Xét lên lớp", "mon-hoc": "Môn học",
-  "phong-hoc": "Phòng học", "thu-vien": "Thư viện", "bai-hoc": "Bài học", "giao-an": "Giáo án", "lop-cua-toi": "Lớp của tôi",
+  "phong-hoc": "Phòng học", "thu-vien": "Thư viện", "bai-hoc": "Bài học", "giang-day": "Giảng dạy", "ngan-hang-bai-hoc": "Bài học", "ngan-hang-cau-hoi": "Ngân hàng câu hỏi", "lop-cua-toi": "Lớp của tôi",
   "lop-chu-nhiem": "Lớp chủ nhiệm", "diem-cua-toi": "Bảng điểm", "tai-khoan": "Tài khoản", "cau-hinh": "Cấu hình", "nhat-ky": "Nhật ký hoạt động",
   "doi-mat-khau": "Đổi mật khẩu", ghi: "Ghi sổ đầu bài", them: "Thêm mới",
 };

@@ -145,6 +145,9 @@ model GradeLevel {
   gradeName String        @unique // "Khối 10" | "Khối 11" | "Khối 12"
   sortOrder Int
   classes   SchoolClass[]
+  questions Question[]
+  libraryLessons LibraryLesson[]
+  importJobs ImportJob[]
 }
 
 model Room {
@@ -167,10 +170,16 @@ model Subject {
   defaultPeriodsPerWeek Int
   assignments           ClassSubjectAssignment[]
   teachers              TeacherSubject[]
+  questions             Question[]
+  libraryLessons        LibraryLesson[]
+  importJobs            ImportJob[]
 }
 
 model Teacher {
   invigilations ExamInvigilation[]
+  questions Question[]
+  libraryLessons LibraryLesson[]
+  importJobs ImportJob[]
   id              String                    @id @default(cuid())
   code            String?                   @unique
   userId          String                    @unique
@@ -313,10 +322,13 @@ model LessonPost {
   attachments  Json? // mảng url đính kèm
   views        LessonPostView[]
   exercises    Exercise[]
+  sourceLessonId String? // bài học trong kho mà bản này được đăng từ đó
   createdAt    DateTime                @default(now())
+
+  @@index([sourceLessonId])
 }
 
-/// Bài tập thuộc một bài học (tab "Bài tập" trong bài học). Sau này: trắc nghiệm tự chấm + tự luận tích hợp ngay trong bài tập.
+/// Bài tập thuộc một bài học (tab "Bài tập" trong bài học). quizMode=true: bài trắc nghiệm gồm các câu hỏi lấy từ ngân hàng câu hỏi, hệ thống tự chấm.
 model Exercise {
   id           String                 @id @default(cuid())
   lessonPostId String
@@ -325,29 +337,167 @@ model Exercise {
   content      String
   attachments  Json?
   dueDate      DateTime?
-  quizMode     Boolean                @default(false) // true = bài tập trắc nghiệm tự chấm
-  questions    Question[]
+  quizMode     Boolean                @default(false)
+  showAnswers  String                 @default("AFTER_DUE") // AFTER_SUBMIT | AFTER_DUE | NEVER: khi nào học sinh thấy đáp án đúng
+  questions    ExerciseQuestion[]
   submissions  AssignmentSubmission[]
+  sourceExerciseId String? // bài tập mẫu trong kho mà bản này được đăng từ đó
   createdAt    DateTime               @default(now())
 }
 
+/// Ngân hàng câu hỏi: mỗi câu thuộc riêng một giáo viên (không chia sẻ), gắn với môn + khối.
+/// type: SINGLE_CHOICE (chọn 1 đáp án) | TRUE_FALSE_GROUP (cụm Đúng/Sai: các ý a, b, c, d) | SHORT_ANSWER (điền đáp án) | PASSAGE (đoạn văn + câu hỏi con, parentId)
+/// content/ảnh: Markdown + LaTeX ($...$). answerKey (SHORT_ANSWER): { mode: "NUMBER" | "TEXT", answers: string[], tolerance: number }
 model Question {
-  id           String           @id @default(cuid())
-  exerciseId   String
-  exercise     Exercise         @relation(fields: [exerciseId], references: [id])
+  id           String             @id @default(cuid())
+  teacherId    String
+  teacher      Teacher            @relation(fields: [teacherId], references: [id])
+  subjectId    String
+  subject      Subject            @relation(fields: [subjectId], references: [id])
+  gradeLevelId String?
+  gradeLevel   GradeLevel?        @relation(fields: [gradeLevelId], references: [id])
+  type         String
   content      String
-  order        Int
+  images       Json? // mảng url ảnh đính kèm câu hỏi
+  topic        String? // chương / bài
+  difficulty   String             @default("MEDIUM") // EASY | MEDIUM | HARD
+  explanation  String? // lời giải / giải thích, hiện cùng đáp án đúng
+  answerKey    Json?
+  parentId     String?
+  parent       Question?          @relation("PassageChildren", fields: [parentId], references: [id])
+  children     Question[]         @relation("PassageChildren")
+  order        Int                @default(0)
+  archivedAt   DateTime? // "xóa" = lưu trữ, bài tập cũ vẫn tham chiếu được
+  libraryLessonId String? // thuộc bài học nào trong kho (null = chưa phân bài)
+  libraryLesson   LibraryLesson? @relation(fields: [libraryLessonId], references: [id])
+  reviewStatus    String   @default("READY") // READY | NEEDS_REVIEW (câu AI trích xuất chưa được giáo viên duyệt: chưa dùng được trong bài tập)
+  reviewNote      String?
+  importJobId     String?
   options      QuestionOption[]
+  exercises    ExerciseQuestion[]
+  libraryExercises LibraryExerciseQuestion[]
   answers      StudentAnswer[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([teacherId, subjectId, archivedAt])
+  @@index([libraryLessonId])
+  @@index([importJobId])
 }
 
 model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      String // A-D hoặc a-d
+  content    String
+  images     Json?
+  isCorrect  Boolean  @default(false)
+  order      Int      @default(0)
+}
+
+/// Câu hỏi được chọn vào một bài tập: thứ tự + số điểm riêng của câu trong bài đó.
+model ExerciseQuestion {
+  id         String   @id @default(cuid())
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id])
+  order      Int
+  points     Float    @default(1)
+
+  @@unique([exerciseId, questionId])
+}
+
+/// Ngân hàng bài học: bài học mẫu riêng của từng giáo viên, theo môn + khối. Đăng cho lớp = sao chép thành LessonPost.
+model LibraryLesson {
+  id           String                  @id @default(cuid())
+  teacherId    String
+  teacher      Teacher                 @relation(fields: [teacherId], references: [id])
+  subjectId    String
+  subject      Subject                 @relation(fields: [subjectId], references: [id])
+  gradeLevelId String
+  gradeLevel   GradeLevel              @relation(fields: [gradeLevelId], references: [id])
+  title        String
+  content      String                  @default("")
+  attachments  Json?
+  orderNo      Int                     @default(0) // thứ tự trong môn + khối: "các bài học trước" là các bài có orderNo nhỏ hơn
+  archivedAt   DateTime?
+  questions    Question[]
+  exercises    LibraryExercise[]
+  sourceOf     LibraryExerciseSource[]
+  importJobs   ImportJob[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@index([teacherId, subjectId, gradeLevelId, archivedAt])
+}
+
+/// Bài tập mẫu của một bài học trong kho. kind: NORMAL (câu hỏi của chính bài học) | REVIEW (bài ôn tập, lấy câu hỏi từ các bài học đã liên kết).
+model LibraryExercise {
+  id           String                    @id @default(cuid())
+  lessonId     String
+  lesson       LibraryLesson             @relation(fields: [lessonId], references: [id])
+  title        String
+  kind         String                    @default("NORMAL")
+  quizMode     Boolean                   @default(true)
+  instructions String                    @default("")
+  attachments  Json?
+  showAnswers  String                    @default("AFTER_DUE")
+  orderNo      Int                       @default(0)
+  archivedAt   DateTime?
+  questions    LibraryExerciseQuestion[]
+  sources      LibraryExerciseSource[]
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+}
+
+model LibraryExerciseQuestion {
   id         String          @id @default(cuid())
+  exerciseId String
+  exercise   LibraryExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   questionId String
   question   Question        @relation(fields: [questionId], references: [id])
-  content    String
-  isCorrect  Boolean         @default(false)
-  answers    StudentAnswer[]
+  order      Int
+  points     Float           @default(1)
+
+  @@unique([exerciseId, questionId])
+}
+
+/// Bài ôn tập liên kết với các bài học trước.
+model LibraryExerciseSource {
+  exerciseId String
+  exercise   LibraryExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     LibraryLesson   @relation(fields: [lessonId], references: [id])
+
+  @@id([exerciseId, lessonId])
+}
+
+/// Phiên nhập câu hỏi/đề kiểm tra từ tệp bằng AI. kind: QUESTIONS | TEST. status: PENDING | RUNNING | DONE | FAILED.
+model ImportJob {
+  id                String         @id @default(cuid())
+  teacherId         String
+  teacher           Teacher        @relation(fields: [teacherId], references: [id])
+  kind              String
+  status            String         @default("PENDING")
+  fileName          String
+  fileId            String
+  subjectId         String
+  subject           Subject        @relation(fields: [subjectId], references: [id])
+  gradeLevelId      String
+  gradeLevel        GradeLevel     @relation(fields: [gradeLevelId], references: [id])
+  libraryLessonId   String?
+  libraryLesson     LibraryLesson? @relation(fields: [libraryLessonId], references: [id])
+  libraryExerciseId String? // TEST: bài tập mẫu được tạo từ đề
+  questionCount     Int            @default(0)
+  flaggedCount      Int            @default(0)
+  warnings          Json?
+  error             String?
+  createdAt         DateTime       @default(now())
+  finishedAt        DateTime?
+
+  @@index([teacherId, createdAt])
 }
 
 model LessonPostView {
@@ -380,15 +530,17 @@ model AssignmentSubmission {
   @@unique([exerciseId, studentId])
 }
 
+/// Bài làm của học sinh cho một câu hỏi. answer: SINGLE_CHOICE -> { optionId }, TRUE_FALSE_GROUP -> { [optionId]: boolean }, SHORT_ANSWER -> { text }
 model StudentAnswer {
-  id               String                @id @default(cuid())
-  submissionId     String
-  submission       AssignmentSubmission  @relation(fields: [submissionId], references: [id])
-  questionId       String
-  question         Question              @relation(fields: [questionId], references: [id])
-  selectedOptionId String
-  selectedOption   QuestionOption        @relation(fields: [selectedOptionId], references: [id])
-  isCorrect        Boolean // snapshot tại thời điểm nộp, phục vụ tính điểm + thống kê
+  id           String               @id @default(cuid())
+  submissionId String
+  submission   AssignmentSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question             @relation(fields: [questionId], references: [id])
+  answer       Json?
+  score        Float // điểm đạt được, chốt tại thời điểm nộp
+  maxScore     Float // điểm tối đa của câu trong bài tập, chốt tại thời điểm nộp
+  isCorrect    Boolean // đúng hoàn toàn (để thống kê)
 
   @@unique([submissionId, questionId])
 }
@@ -817,7 +969,7 @@ model StoredFile {
   mimeType String
   size Int
   uploadedBy String
-  assignmentId String
+  assignmentId String? // null với ảnh câu hỏi (purpose QUESTION)
   purpose String
   exerciseId String?
   createdAt DateTime @default(now())

@@ -17,16 +17,9 @@ export const createExerciseSchema = z.object({
   attachments: z.array(z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ")).max(10).optional(),
   dueDate: z.coerce.date().optional(),
   quizMode: z.boolean().default(false),
+  showAnswers: z.enum(["AFTER_SUBMIT", "AFTER_DUE", "NEVER"]).optional(),
 });
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
-
-export const createLessonPlanSchema = z.object({
-  assignmentId: z.string().min(1),
-  title: z.string().min(1),
-  content: z.string().default(""),
-  attachment: z.string().refine(validAttachment, "Tệp đính kèm không hợp lệ").optional(),
-});
-export type CreateLessonPlanInput = z.infer<typeof createLessonPlanSchema>;
 
 export const createSubmissionSchema = z.object({
   content: z.string().default(""),

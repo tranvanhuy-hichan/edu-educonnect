@@ -1,6 +1,7 @@
 import { AttachmentUpload } from "@/components/attachment-upload";
 import { SearchableSelect } from "@/components/searchable-select";
 import { Fragment } from "react";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -25,6 +26,7 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES, "STUDENT");
   const sp = await searchParams;
   const student = isStudentOnly(me);
+  if (!student) redirect("/giang-day"); // giáo viên/quản lý quản lý bài học theo Giảng dạy (môn → khối → lớp)
   const view = pickView(sp.v, student ? "cards" : "table");
   const pg = getPaging(sp, 12);
   const scope = assignmentWhere(me);

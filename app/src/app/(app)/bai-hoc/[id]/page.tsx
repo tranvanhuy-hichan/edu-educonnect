@@ -1,4 +1,5 @@
 import { AttachmentLinks } from "@/components/attachment-links";
+import { PageCrumbs } from "@/components/page-crumbs";
 import { AttachmentUpload } from "@/components/attachment-upload";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,8 +12,12 @@ import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { fmtDate, todayUTC } from "@/lib/format";
 import { viewLessonPost } from "@/modules/content/content.service";
-import { assignmentWhere, isStudentOnly } from "@/server/learning-scope";
-import { createExercise, deleteExercise, deletePost, gradeWork, submitWork, updateExercise, updatePost } from "../actions";
+import { assignmentWhere, isManager, isStudentOnly } from "@/server/learning-scope";
+import { createExercise, deleteExercise, deletePost, gradeWork, resetQuiz, submitQuizWork, submitWork, updateExercise, updatePost } from "../actions";
+import { canRevealKey } from "@/modules/question/quiz.service";
+import { QuizManage, QuizReview, QuizTake, fmtPts, type QuizItem } from "./quiz-parts";
+import { libraryExercisesForPost } from "@/modules/bank/bank.service";
+import { publishExerciseToPostAction } from "../../ngan-hang-bai-hoc/actions";
 
 const fmtTime = (d: Date) => `${fmtDate(d)} ${new Date(d.getTime() + 7 * 3600_000).toISOString().slice(11, 16)}`;
 const linksOf = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
@@ -27,11 +32,12 @@ export default async function LessonPostDetail({ params, searchParams }: { param
     where: { id, assignment: assignmentWhere(me) },
     include: {
       assignment: { include: { schoolClass: { include: { enrollments: { include: { student: true } } } }, subject: true, academicTerm: true, teacher: true } },
-      exercises: { orderBy: { createdAt: "asc" }, include: { submissions: true } },
+      exercises: { orderBy: { createdAt: "asc" }, include: { submissions: true, _count: { select: { questions: true } } } },
     },
   });
   if (!post) notFound();
   const a = post.assignment;
+  const gradeName = student ? "" : (await db.gradeLevel.findUnique({ where: { id: a.schoolClass.gradeLevelId }, select: { gradeName: true } }))?.gradeName ?? "Khối";
   const manage = !student && (await canManageClassSubjectAssignment(me, a.id));
 
   // học sinh mở bài = ghi nhận "đã xem" theo từng người (không chỉ đếm lượt)
@@ -52,19 +58,62 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "content";
   const exercise = post.exercises.find((e) => e.id === sp.ex);
   const tabHref = (k: string) => `?tab=${k}`;
+  const libExercises = manage && tab === "bai-tap" && !exercise ? await libraryExercisesForPost(me, id) : [];
+
+  // Bài tập trắc nghiệm đang xem: câu hỏi, câu trả lời (học sinh chỉ lấy của chính mình), ứng viên để thêm từ ngân hàng
+  const quiz = tab === "bai-tap" && exercise?.quizMode ? exercise : undefined;
+  const quizItems: QuizItem[] = quiz ? await db.exerciseQuestion.findMany({ where: { exerciseId: quiz.id }, orderBy: { order: "asc" }, include: { question: { include: { options: { orderBy: { order: "asc" } } } } } }) : [];
+  const quizAnswers = quiz ? await db.studentAnswer.findMany({ where: { submission: { exerciseId: quiz.id, ...(student ? { studentId: me.studentId ?? "-" } : {}) } } }) : [];
+  const quizStats = new Map<string, { right: number; total: number }>();
+  if (!student) for (const x of quizAnswers) { const c = quizStats.get(x.questionId) ?? { right: 0, total: 0 }; c.total++; if (x.isCorrect) c.right++; quizStats.set(x.questionId, c); }
+  const quizCandidates = quiz && manage
+    ? (await db.question.findMany({ where: { teacherId: a.teacherId, subjectId: a.subjectId, gradeLevelId: a.schoolClass.gradeLevelId, reviewStatus: "READY", archivedAt: null, parentId: null, id: { notIn: quizItems.map((i) => i.question.id) } }, include: { gradeLevel: { select: { gradeName: true } } }, orderBy: { createdAt: "desc" }, take: 300 }))
+        .map((q) => ({ ...q, gradeName: q.gradeLevel?.gradeName ?? null, options: [] }))
+    : [];
 
   const linkList = (urls: string[]) => <AttachmentLinks urls={urls} />;
+  const radioCard = "flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50";
   const exerciseFields = (e?: (typeof post.exercises)[number]) => (
-    <>
+    <div className="group/q flex flex-col gap-3">
+      {!e && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className={radioCard}><input type="radio" name="quizMode" value="0" defaultChecked className="mt-1" /><span><b>Tự luận</b><br /><span className="text-xs font-normal text-slate-500">Học sinh nộp bài viết hoặc tệp, giáo viên chấm điểm</span></span></label>
+          <label className={radioCard}><input type="radio" name="quizMode" value="1" className="mt-1" /><span><b>Trắc nghiệm</b><br /><span className="text-xs font-normal text-slate-500">Chọn câu hỏi từ ngân hàng, hệ thống tự chấm điểm</span></span></label>
+        </div>
+      )}
       <Field label="Tiêu đề bài tập"><input name="title" defaultValue={e?.title} className={inputCls + " w-full"} required /></Field>
-      <Field label="Đề bài"><textarea name="content" rows={5} defaultValue={e?.content} className={inputCls + " h-auto w-full py-2"} /></Field>
+      <Field label="Đề bài / hướng dẫn làm bài"><textarea name="content" rows={4} defaultValue={e?.content} className={inputCls + " h-auto w-full py-2"} /></Field>
       <Field label="Hạn nộp"><input name="dueDate" type="date" defaultValue={e?.dueDate ? e.dueDate.toISOString().slice(0, 10) : ""} className={inputCls + " w-full"} /></Field>
+      <div className={e?.quizMode ? "block" : e ? "hidden" : "hidden group-has-[input[name=quizMode][value='1']:checked]/q:block"}>
+        <Field label="Khi nào học sinh được xem đáp án đúng (bài trắc nghiệm)">
+          <select name="showAnswers" defaultValue={e?.showAnswers ?? "AFTER_DUE"} className={inputCls + " w-full"}>
+            <option value="AFTER_DUE">Sau hạn nộp (không có hạn thì ngay sau khi nộp)</option>
+            <option value="AFTER_SUBMIT">Ngay sau khi học sinh nộp bài</option>
+            <option value="NEVER">Không công khai đáp án</option>
+          </select>
+        </Field>
+      </div>
       <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="EXERCISE" assignmentId={post.assignmentId} initialUrls={e ? linksOf(e.attachments) : []} /></div>
-    </>
+    </div>
   );
+
+  const exerciseHeaderActions = exercise ? (
+<div className="flex flex-wrap gap-2">
+                  <DialogButton label="Sửa bài tập" title="Sửa bài tập" variant="secondary" size="sm">
+                    <ActionForm action={updateExercise} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
+                      <input type="hidden" name="id" value={exercise.id} />
+                      {exerciseFields(exercise)}
+                    </ActionForm>
+                  </DialogButton>
+                  <ActionForm action={deleteExercise} submit="Xoá bài tập" compact danger confirmText="Xoá bài tập này cùng các bài nộp?" className="inline-flex"><input type="hidden" name="id" value={exercise.id} /></ActionForm>
+                </div>
+  ) : null;
 
   return (
     <div className="space-y-4">
+      {!student && (isManager(me)
+        ? <PageCrumbs items={[{ label: "Giảng dạy", href: "/giang-day" }, { label: a.subject.subjectName, href: `/giang-day?mon=${a.subjectId}` }, { label: gradeName, href: `/giang-day/${a.subjectId}/${a.schoolClass.gradeLevelId}` }, { label: a.schoolClass.className, href: `/giang-day/${a.subjectId}/${a.schoolClass.gradeLevelId}/${a.schoolClassId}` }, { label: post.title, href: exercise ? `/bai-hoc/${post.id}?tab=bai-tap` : undefined }, ...(exercise ? [{ label: exercise.title }] : [])]} />
+        : <PageCrumbs items={[{ label: "Lớp của tôi", href: "/lop-cua-toi" }, { label: `${a.schoolClass.className} · ${a.subject.subjectName}`, href: `/lop-cua-toi/${a.id}?tab=posts` }, { label: post.title, href: exercise ? `/bai-hoc/${post.id}?tab=bai-tap` : undefined }, ...(exercise ? [{ label: exercise.title }] : [])]} />)}
       <Card mobile="flat" className="detail-header flex flex-wrap items-center gap-4">
         <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-700"><BookOpen className="size-7" /></span>
         <div className="min-w-0 flex-1">
@@ -92,14 +141,32 @@ export default async function LessonPostDetail({ params, searchParams }: { param
       </Card>
 
       <Tabs
-        right={manage && tab === "bai-tap" && !exercise ? (
+        right={manage && tab === "bai-tap" && exercise ? exerciseHeaderActions : manage && tab === "bai-tap" ? (
+          <div className="flex flex-wrap gap-2">
+          <DialogButton label="Lấy từ kho bài tập" title="Lấy bài tập từ Ngân hàng bài học" variant="secondary" wide>
+            {libExercises.length ? (
+              <ActionForm action={publishExerciseToPostAction} submit="Thêm vào bài học" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
+                <input type="hidden" name="lessonPostId" value={post.id} />
+                <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
+                  {libExercises.map((e) => (
+                    <label key={e.id} className="flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
+                      <input type="radio" name="libraryExerciseId" value={e.id} required className="mt-1" />
+                      <span><b>{e.title}</b>{e.kind === "REVIEW" && <span className="ml-2 rounded-full bg-purple-100 px-2 py-0.5 text-[11px] font-medium text-purple-700">Ôn tập</span>}<br /><span className="text-xs text-slate-500">Bài {e.lesson.orderNo}. {e.lesson.title} · {e.quizMode ? `${e._count.questions} câu trắc nghiệm` : "Tự luận"}</span></span>
+                    </label>
+                  ))}
+                </div>
+                <Field label="Hạn nộp"><input name="dueDate" type="date" className={inputCls + " w-full"} /></Field>
+              </ActionForm>
+            ) : <p className="text-sm text-slate-600">Chưa có bài tập mẫu phù hợp (cùng môn, cùng khối, chưa đăng vào bài học này). Tạo bài tập ở <Link href="/ngan-hang-bai-hoc" className="font-medium text-orange-700 hover:underline">Ngân hàng bài học</Link>.</p>}
+          </DialogButton>
           <DialogButton label="+ Thêm bài tập" title={`Thêm bài tập · ${post.title}`}>
             <ActionForm action={createExercise} submit="Thêm bài tập" className="flex flex-col gap-3 [&>button]:self-start">
               <input type="hidden" name="lessonPostId" value={post.id} />
               {exerciseFields()}
-              <p className="text-xs text-slate-500">Hiện bài tập nộp dạng tự luận (văn bản). Trắc nghiệm tự chấm sẽ được tích hợp ngay trong bài tập ở bước sau.</p>
+              <p className="text-xs text-slate-500">Bài trắc nghiệm: sau khi tạo, bạn chọn câu hỏi từ Ngân hàng câu hỏi của mình (cùng môn với bài học).</p>
             </ActionForm>
           </DialogButton>
+          </div>
         ) : undefined}
         current={tabHref(tab)} items={TABS.map(([k, l]) => [tabHref(k), l] as [string, string])}
       />
@@ -120,7 +187,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
               const late = !!e.dueDate && e.dueDate < today && !mine;
               return (
                 <tr key={e.id} className="align-middle [&>td]:!py-3">
-                  <td className="min-w-48"><Link data-row href={`?tab=bai-tap&ex=${e.id}`} className="font-semibold text-orange-700 hover:underline">{e.title}</Link></td>
+                  <td className="min-w-48"><Link data-row href={`?tab=bai-tap&ex=${e.id}`} className="font-semibold text-orange-700 hover:underline">{e.title}</Link>{e.quizMode && <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">Trắc nghiệm · {e._count.questions} câu</span>}</td>
                   <td>{e.dueDate ? <span className={late ? "font-medium text-red-600" : ""}>{fmtDate(e.dueDate)}</span> : <span className="text-slate-400">Không có hạn</span>}</td>
                   {student ? (
                     <td>{mine ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{mine.grade != null ? `Đã chấm · ${mine.grade}` : "Đã nộp"}</span> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
@@ -145,20 +212,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
         const late = !!exercise.dueDate && exercise.dueDate < today;
         return (
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Link href="?tab=bai-tap" className="text-sm text-slate-500 hover:text-orange-700">Bài tập của bài học</Link>
-              {manage && (
-                <div className="flex flex-wrap gap-2">
-                  <DialogButton label="Sửa bài tập" title="Sửa bài tập" variant="secondary" size="sm">
-                    <ActionForm action={updateExercise} submit="Lưu" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
-                      <input type="hidden" name="id" value={exercise.id} />
-                      {exerciseFields(exercise)}
-                    </ActionForm>
-                  </DialogButton>
-                  <ActionForm action={deleteExercise} submit="Xoá bài tập" compact danger confirmText="Xoá bài tập này cùng các bài nộp?" className="inline-flex"><input type="hidden" name="id" value={exercise.id} /></ActionForm>
-                </div>
-              )}
-            </div>
+            {student && <Link href="?tab=bai-tap" className="inline-block text-sm text-slate-500 hover:text-orange-700">‹ Bài tập của bài học</Link>}
             <Card>
               <h2 className="text-lg font-semibold">{exercise.title}</h2>
               <div className="mt-1 text-xs text-slate-500">{exercise.dueDate ? <span className={late ? "font-medium text-red-600" : ""}>Hạn nộp {fmtDate(exercise.dueDate)}</span> : "Không có hạn nộp"}</div>
@@ -166,7 +220,69 @@ export default async function LessonPostDetail({ params, searchParams }: { param
               {linkList(linksOf(exercise.attachments))}
             </Card>
 
-            {student && (
+            {exercise.quizMode && (() => {
+              const reveal = canRevealKey(exercise, !!mine);
+              return (
+                <>
+                  {manage && <QuizManage items={quizItems} exerciseId={exercise.id} locked={subs.length > 0} stats={quizStats} candidates={quizCandidates} />}
+                  {student && (
+                    <Card mobile="flat">
+                      {mine ? (
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="font-semibold">Kết quả của tôi</h2>
+                            <span className="rounded-full bg-green-100 px-3 py-0.5 text-sm font-bold text-green-800">{fmtPts(mine.grade ?? 0)}/10</span>
+                            <span className="text-xs text-slate-500">Nộp lúc {fmtTime(mine.submittedAt)}</span>
+                            {mine.isLate && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp muộn</span>}
+                          </div>
+                          {!reveal && <p className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">{exercise.showAnswers === "NEVER" ? "Giáo viên không công khai đáp án đúng của bài này." : exercise.dueDate ? `Đáp án đúng sẽ hiện sau hạn nộp (${fmtDate(exercise.dueDate)}).` : "Đáp án đúng chưa được công khai."}</p>}
+                          <QuizReview items={quizItems} answers={quizAnswers} reveal={reveal} />
+                        </div>
+                      ) : quizItems.length ? (
+                        <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText="Nộp bài? Em chỉ được làm bài một lần." reset={false} className="flex flex-col gap-4 [&>button]:self-start">
+                          <input type="hidden" name="exerciseId" value={exercise.id} />
+                          <h2 className="font-semibold">Làm bài ({quizItems.length} câu)</h2>
+                          <QuizTake items={quizItems} />
+                          {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
+                        </ActionForm>
+                      ) : <p className="py-6 text-center text-sm text-slate-500">Giáo viên chưa thêm câu hỏi vào bài tập này.</p>}
+                    </Card>
+                  )}
+                  {!student && (
+                    <>
+                      <Card className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                        <span><b>{subs.length}</b>/{roster.length} học sinh đã nộp</span>
+                        {subs.length > 0 && <span>Điểm trung bình: <b>{fmtPts(subs.reduce((t, x) => t + (x.grade ?? 0), 0) / subs.length)}</b></span>}
+                      </Card>
+                      <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ""]}>
+                        {roster.map((s) => {
+                          const sub = subOf.get(s.id);
+                          return (
+                            <tr key={s.id} className="align-middle [&>td]:!py-3">
+                              <td><Link data-row href={`/hoc-sinh/${s.id}`} className="font-semibold hover:text-orange-700">{s.fullName}</Link><div className="text-xs text-slate-500">{s.code}</div></td>
+                              <td>{sub ? <div className="flex flex-col gap-0.5"><span className="inline-flex w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span>{sub.isLate && <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nộp muộn</span>}</div> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
+                              <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
+                              <td>{sub?.grade != null ? <b>{fmtPts(sub.grade)}</b> : <span className="text-slate-400">-</span>}</td>
+                              <td>{sub && manage && (
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  <DialogButton label="Xem bài làm" title={`Bài làm · ${s.fullName} · ${fmtPts(sub.grade ?? 0)}/10`} size="sm" variant="secondary" wide>
+                                    <QuizReview items={quizItems} answers={quizAnswers.filter((x) => x.submissionId === sub.id)} reveal />
+                                  </DialogButton>
+                                  <ActionForm action={resetQuiz} submit="Cho làm lại" compact danger confirmText={`Xóa bài làm của ${s.fullName} để em làm lại từ đầu?`} className="inline-flex"><input type="hidden" name="submissionId" value={sub.id} /></ActionForm>
+                                </div>
+                              )}</td>
+                            </tr>
+                          );
+                        })}
+                        {!roster.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
+                      </Table>
+                    </>
+                  )}
+                </>
+              );
+            })()}
+
+            {student && !exercise.quizMode && (
               <Card mobile="flat">
                 <h2 className="mb-3 font-semibold">Bài làm của tôi</h2>
                 {mine ? (
@@ -207,7 +323,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
               </Card>
             )}
 
-            {!student && (
+            {!student && !exercise.quizMode && (
               <div className="[&_table]:table-fixed [&_th:nth-child(1)]:w-[26%] [&_th:nth-child(2)]:w-[13%] [&_th:nth-child(3)]:w-[16%] [&_th:nth-child(4)]:w-[25%] [&_th:nth-child(5)]:w-[8%] [&_th:last-child]:text-right [&_td:last-child]:text-right">
                 <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Bài làm", "Điểm", ""]}>
                   {roster.map((s) => {

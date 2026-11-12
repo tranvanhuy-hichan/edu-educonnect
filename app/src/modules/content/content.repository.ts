@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import type {
-  CreateLessonPlanInput,
   CreateExerciseInput,
   CreateLessonPostInput,
 } from "@/modules/content/content.schema";
@@ -52,17 +51,6 @@ export function listViewsByLessonPost(lessonPostId: string) {
   return prisma.lessonPostView.findMany({
     where: { lessonPostId },
     include: { student: true },
-  });
-}
-
-export function createLessonPlan(input: CreateLessonPlanInput) {
-  return prisma.lessonPlan.create({ data: input });
-}
-
-export function listLessonPlansByAssignment(assignmentId: string) {
-  return prisma.lessonPlan.findMany({
-    where: { assignmentId },
-    orderBy: { publishedAt: "desc" },
   });
 }
 
@@ -146,18 +134,14 @@ export function findSubmissionById(submissionId: string) {
 
 export const notificationRecipients = (assignmentId: string) => prisma.classSubjectAssignment.findUnique({ where: { id: assignmentId }, include: { subject: true, schoolClass: { include: { enrollments: { include: { student: { select: { userId: true } } } } } } } });
 
-export const findLessonPlan = (id: string) => prisma.lessonPlan.findUniqueOrThrow({ where: { id } });
-export const updateLessonPlan = (id: string, data: { title: string; content: string; attachment: string | null }) => prisma.lessonPlan.update({ where: { id }, data });
-export const deleteLessonPlan = (id: string) => prisma.lessonPlan.delete({ where: { id } });
 export const updateLessonPost = (id: string, data: { title: string; content: string; attachments: string[] }) => prisma.lessonPost.update({ where: { id }, data });
-export const updateExercise = (id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null }) => prisma.exercise.update({ where: { id }, data });
+export const updateExercise = (id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string }) => prisma.exercise.update({ where: { id }, data });
 
 function exerciseDeletion(where: { lessonPostId?: string; id?: string }) {
   return [
-    prisma.studentAnswer.deleteMany({ where: { OR: [{ submission: { exercise: where } }, { question: { exercise: where } }] } }),
+    prisma.studentAnswer.deleteMany({ where: { submission: { exercise: where } } }),
     prisma.assignmentSubmission.deleteMany({ where: { exercise: where } }),
-    prisma.questionOption.deleteMany({ where: { question: { exercise: where } } }),
-    prisma.question.deleteMany({ where: { exercise: where } }),
+    prisma.exerciseQuestion.deleteMany({ where: { exercise: where } }),
     prisma.exercise.deleteMany({ where }),
   ];
 }
