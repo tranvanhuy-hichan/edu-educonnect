@@ -85,11 +85,11 @@ export const publishedExerciseSources = (lessonPostId: string) => prisma.exercis
 export const findPostForPublish = (id: string) => prisma.lessonPost.findUnique({ where: { id }, include: { assignment: { include: { schoolClass: { select: { gradeLevelId: true } } } } } });
 export const exercisesWithQuestions = (ids: string[]) =>
   prisma.libraryExercise.findMany({ where: { id: { in: ids }, archivedAt: null }, include: { questions: { orderBy: { order: "asc" }, include: { question: { select: { id: true, reviewStatus: true, archivedAt: true } } } } } });
-export const createExerciseCopy = (data: { lessonPostId: string; title: string; content: string; attachments: unknown; quizMode: boolean; showAnswers: string; secureMode: boolean; maxViolations: number; dueDate: Date | null; sourceExerciseId: string; questions: { questionId: string; order: number; points: number }[] }) =>
+export const createExerciseCopy = (data: { lessonPostId: string; title: string; content: string; attachments: unknown; quizMode: boolean; showAnswers: string; secureMode: boolean; maxViolations: number; shuffleQuestions: boolean; shuffleOptions: boolean; maxAttempts: number; attemptScoring: string; timeLimitMinutes: number; allowReview: boolean; dueDate: Date | null; sourceExerciseId: string; questions: { questionId: string; order: number; points: number }[] }) =>
   prisma.exercise.create({
     data: {
       lessonPostId: data.lessonPostId, title: data.title, content: data.content, attachments: (data.attachments ?? []) as Prisma.InputJsonValue, quizMode: data.quizMode,
-      showAnswers: data.showAnswers, secureMode: data.secureMode, maxViolations: data.maxViolations, dueDate: data.dueDate, sourceExerciseId: data.sourceExerciseId,
+      showAnswers: data.showAnswers, secureMode: data.secureMode, maxViolations: data.maxViolations, shuffleQuestions: data.shuffleQuestions, shuffleOptions: data.shuffleOptions, maxAttempts: data.maxAttempts, attemptScoring: data.attemptScoring, timeLimitMinutes: data.timeLimitMinutes, allowReview: data.allowReview, dueDate: data.dueDate, sourceExerciseId: data.sourceExerciseId,
       questions: { create: data.questions },
     },
   });

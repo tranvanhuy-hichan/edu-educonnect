@@ -13,11 +13,13 @@ import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
 import { fmtDate, todayUTC } from "@/lib/format";
 import { viewLessonPost } from "@/modules/content/content.service";
 import { assignmentWhere, isManager, isStudentOnly } from "@/server/learning-scope";
-import { createExercise, deleteExercise, deletePost, gradeWork, reportViolation, resetQuiz, submitQuizWork, submitWork, updateExercise, updatePost } from "../actions";
-import { SecureQuiz } from "./secure-quiz";
-import { SecureModeFields } from "@/components/secure-mode-fields";
+import { createExercise, deleteExercise, deletePost, gradeWork, reportViolation, resetQuiz, startAttempt, submitQuizWork, submitWork, updateExercise, updatePost } from "../actions";
+import { ExamRunner } from "./secure-quiz";
+import { SCORING_LABEL, shuffleSeedFor } from "@/modules/question/quiz-attempts";
+import { AttemptFields, SecureModeFields, ShuffleFields } from "@/components/secure-mode-fields";
+import { arrangeForStudent } from "@/modules/question/quiz-shuffle";
 import { VIOLATION_LABEL } from "@/modules/question/quiz.service";
-import { canRevealKey } from "@/modules/question/quiz.service";
+import { canRevealKey, quizAttemptState } from "@/modules/question/quiz.service";
 import { QuizManage, QuizReview, QuizTake, fmtPts, type QuizItem } from "./quiz-parts";
 import { libraryExercisesForPost } from "@/modules/bank/bank.service";
 import { publishExerciseToPostAction } from "../../ngan-hang-bai-hoc/actions";
@@ -25,12 +27,14 @@ import { publishExerciseToPostAction } from "../../ngan-hang-bai-hoc/actions";
 const fmtTime = (d: Date) => `${fmtDate(d)} ${new Date(d.getTime() + 7 * 3600_000).toISOString().slice(11, 16)}`;
 const linksOf = (v: unknown) => (Array.isArray(v) ? (v as string[]) : []);
 
-export default async function LessonPostDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; ex?: string }> }) {
+export default async function LessonPostDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; ex?: string; retry?: string }> }) {
   const me = await requireRole(...MANAGER_ROLES, ...TEACHING_ROLES, "STUDENT");
   const { id } = await params;
   const sp = await searchParams;
   const student = isStudentOnly(me);
 
+  // Học sinh: số lượt đã dùng/còn lại, lượt đang dở, lịch sử điểm. Chạy trước khi tải bài (có thể đóng lượt đã quá giờ).
+  const attemptState = student && sp.ex ? await quizAttemptState(me, sp.ex).catch(() => null) : null;
   const post = await db.lessonPost.findFirst({
     where: { id, assignment: assignmentWhere(me) },
     include: {
@@ -68,6 +72,9 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const quizItems: QuizItem[] = quiz ? await db.exerciseQuestion.findMany({ where: { exerciseId: quiz.id }, orderBy: { order: "asc" }, include: { question: { include: { options: { orderBy: { order: "asc" } } } } } }) : [];
   const quizAnswers = quiz ? await db.studentAnswer.findMany({ where: { submission: { exerciseId: quiz.id, ...(student ? { studentId: me.studentId ?? "-" } : {}) } } }) : [];
   const violationRows = quiz?.secureMode ? await db.examViolation.findMany({ where: { exerciseId: quiz.id, ...(student ? { studentId: me.studentId ?? "-" } : {}) }, orderBy: { createdAt: "asc" } }) : [];
+  const attemptRows = quiz && !student && quiz.maxAttempts > 1 ? await db.quizAttempt.findMany({ where: { exerciseId: quiz.id, submittedAt: { not: null } }, orderBy: { attemptNo: "asc" } }) : [];
+  const attemptsOf = new Map<string, typeof attemptRows>();
+  for (const a of attemptRows) (attemptsOf.get(a.studentId) ?? attemptsOf.set(a.studentId, []).get(a.studentId)!).push(a);
   const violationsOf = new Map<string, typeof violationRows>();
   for (const v of violationRows) (violationsOf.get(v.studentId) ?? violationsOf.set(v.studentId, []).get(v.studentId)!).push(v);
   const quizStats = new Map<string, { right: number; total: number }>();
@@ -99,7 +106,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
           </select>
         </Field>
       </div>
-      {e ? (e.quizMode ? <SecureModeFields defaultSecure={e.secureMode} defaultMax={e.maxViolations} /> : null) : <div className="hidden group-has-[input[name=quizMode][value='1']:checked]/q:block"><SecureModeFields /></div>}
+      {e ? (e.quizMode ? <><AttemptFields maxAttempts={e.maxAttempts} scoring={e.attemptScoring} timeLimit={e.timeLimitMinutes} allowReview={e.allowReview} /><ShuffleFields defaultQuestions={e.shuffleQuestions} defaultOptions={e.shuffleOptions} /><SecureModeFields defaultSecure={e.secureMode} defaultMax={e.maxViolations} /></> : null) : <div className="hidden space-y-3 group-has-[input[name=quizMode][value='1']:checked]/q:block"><AttemptFields /><ShuffleFields /><SecureModeFields /></div>}
       <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="EXERCISE" assignmentId={post.assignmentId} initialUrls={e ? linksOf(e.attachments) : []} /></div>
     </div>
   );
@@ -222,19 +229,40 @@ export default async function LessonPostDetail({ params, searchParams }: { param
             {student && <Link href="?tab=bai-tap" className="inline-block text-sm text-slate-500 hover:text-orange-700">‹ Bài tập của bài học</Link>}
             <Card>
               <h2 className="text-lg font-semibold">{exercise.title}</h2>
+              {exercise.quizMode && !student && (exercise.shuffleQuestions || exercise.shuffleOptions || exercise.secureMode || exercise.maxAttempts > 1 || exercise.timeLimitMinutes > 0 || !exercise.allowReview) && (
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {exercise.maxAttempts > 1 && <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">{exercise.maxAttempts} lượt · {SCORING_LABEL[exercise.attemptScoring].toLowerCase()}</span>}
+                  {exercise.timeLimitMinutes > 0 && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">{exercise.timeLimitMinutes} phút</span>}
+                  {!exercise.allowReview && <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-700">Không cho xem lại bài</span>}
+                  {exercise.shuffleQuestions && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Xáo câu hỏi</span>}
+                  {exercise.shuffleOptions && <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">Xáo đáp án</span>}
+                  {exercise.secureMode && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Thi nghiêm túc{exercise.maxViolations ? ` · tự nộp sau ${exercise.maxViolations} vi phạm` : ""}</span>}
+                </div>
+              )}
               <div className="mt-1 text-xs text-slate-500">{exercise.dueDate ? <span className={late ? "font-medium text-red-600" : ""}>Hạn nộp {fmtDate(exercise.dueDate)}</span> : "Không có hạn nộp"}</div>
               <p className="mt-3 whitespace-pre-line text-sm text-slate-700">{exercise.content}</p>
               {linkList(linksOf(exercise.attachments))}
             </Card>
 
             {exercise.quizMode && (() => {
-              const reveal = canRevealKey(exercise, !!mine);
+              const left = attemptState?.left ?? 0;
+              const reveal = canRevealKey(exercise, !!mine, left);
+              const retry = sp.retry === "1" && left > 0;
+              const showForm = quizItems.length > 0 && (!mine || retry || !!attemptState?.active);
+              const formAttemptNo = attemptState ? (attemptState.active?.attemptNo ?? attemptState.used + 1) : 1;
+              const gated = exercise.secureMode || exercise.timeLimitMinutes > 0;
+              // lượt nộp đúng lúc hết giờ (máy tự nộp): nộp sau >= thời lượng cho phép (trừ vài giây)
+              const timedOut = (h: { startedAt: Date; submittedAt: Date | null }) => exercise.timeLimitMinutes > 0 && !!h.submittedAt && h.submittedAt.getTime() - h.startedAt.getTime() >= exercise.timeLimitMinutes * 60_000 - 4000;
+              const lastAttempt = attemptState?.history.at(-1);
+              // xáo trộn đề theo từng học sinh (cố định theo học sinh nên tải lại trang vẫn thấy đúng thứ tự của mình)
+              const flags = { questions: exercise.shuffleQuestions, options: exercise.shuffleOptions };
+              const mineItems = student ? arrangeForStudent(quizItems, flags, shuffleSeedFor(exercise.id, me.studentId ?? "-", showForm ? formAttemptNo : (mine?.attemptNo ?? 1))) : quizItems;
               return (
                 <>
                   {manage && <QuizManage items={quizItems} exerciseId={exercise.id} locked={subs.length > 0} stats={quizStats} candidates={quizCandidates} />}
                   {student && (
                     <Card mobile="flat">
-                      {mine ? (
+                      {mine && !showForm ? (
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <h2 className="font-semibold">Kết quả của tôi</h2>
@@ -244,22 +272,53 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                             {mine.autoSubmitted && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Nộp tự động do vi phạm</span>}
                             {violationRows.length > 0 && <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-800">{violationRows.length} vi phạm</span>}
                           </div>
-                          {!reveal && <p className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">{exercise.showAnswers === "NEVER" ? "Giáo viên không công khai đáp án đúng của bài này." : exercise.dueDate ? `Đáp án đúng sẽ hiện sau hạn nộp (${fmtDate(exercise.dueDate)}).` : "Đáp án đúng chưa được công khai."}</p>}
-                          <QuizReview items={quizItems} answers={quizAnswers} reveal={reveal} />
+                          {lastAttempt && timedOut(lastAttempt) && !mine.autoSubmitted && (
+                            <div role="alert" className="rounded-lg border-2 border-slate-500 bg-slate-100 p-4 text-sm text-slate-800">
+                              <b className="text-base">Hết giờ làm bài.</b> Bài của em đã được nộp tự động khi đồng hồ về 0 ({exercise.timeLimitMinutes} phút). Các câu chưa làm được tính 0 điểm.
+                            </div>
+                          )}
+                          {mine.autoSubmitted && (
+                            <div role="alert" className="rounded-lg border-2 border-red-500 bg-red-50 p-4 text-sm text-red-800">
+                              <b className="text-base">Bài của em đã bị nộp tự động do vi phạm quy chế thi.</b>
+                              <p className="mt-1">Em đã vi phạm {violationRows.length}{exercise.maxViolations ? `/${exercise.maxViolations}` : ""} lần nên hệ thống nộp bài làm tại thời điểm đó. Các câu chưa làm được tính 0 điểm. Giáo viên đã được thông báo.</p>
+                              <ul className="mt-2 space-y-0.5 text-xs">{violationRows.map((v) => <li key={v.id}>{fmtTime(v.createdAt)} · {VIOLATION_LABEL[v.type] ?? v.type}</li>)}</ul>
+                            </div>
+                          )}
+                          {attemptState && exercise.maxAttempts > 1 && (
+                            <div className="rounded-md border p-3 text-sm">
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2"><b>Các lượt làm ({attemptState.used}/{exercise.maxAttempts})</b><span className="text-xs text-slate-500">{SCORING_LABEL[exercise.attemptScoring]}</span></div>
+                              <ul className="space-y-1">{attemptState.history.map((h) => (
+                                <li key={h.id} className="flex flex-wrap items-center gap-2 text-xs"><span className="w-14 font-medium">Lượt {h.attemptNo}</span><b>{fmtPts(h.grade ?? 0)}/10</b><span className="text-slate-500">{h.submittedAt ? fmtTime(h.submittedAt) : ""}</span>
+                                  {h.attemptNo === mine.attemptNo && <span className="rounded-full bg-green-100 px-2 py-0.5 font-semibold text-green-800">Đang được tính</span>}
+                                  {h.overtime && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Quá giờ</span>}
+                                  {!h.overtime && timedOut(h) && <span className="rounded-full bg-slate-200 px-2 py-0.5 font-semibold text-slate-700">Hết giờ tự nộp</span>}
+                                  {h.autoSubmitted && !h.overtime && <span className="rounded-full bg-red-100 px-2 py-0.5 font-semibold text-red-700">Tự nộp</span>}</li>
+                              ))}</ul>
+                              {left > 0 && <Link href={`?tab=bai-tap&ex=${exercise.id}&retry=1`} className="mt-3 inline-flex h-9 items-center rounded-md bg-orange-600 px-4 text-sm font-medium text-white hover:bg-orange-700">Làm lại (còn {left} lượt)</Link>}
+                            </div>
+                          )}
+                          {!exercise.allowReview ? (
+                            <p className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">Giáo viên không cho xem lại bài làm của bài này. Em chỉ xem được điểm.</p>
+                          ) : (
+                            <>
+                              {!reveal && <p className="rounded-md bg-slate-50 p-2.5 text-xs text-slate-600">{exercise.showAnswers === "NEVER" ? "Giáo viên không công khai đáp án đúng của bài này." : left > 0 ? "Đáp án đúng sẽ hiện khi em dùng hết lượt làm bài." : exercise.dueDate ? `Đáp án đúng sẽ hiện sau hạn nộp (${fmtDate(exercise.dueDate)}).` : "Đáp án đúng chưa được công khai."}</p>}
+                              <QuizReview items={mineItems} answers={quizAnswers} reveal={reveal} />
+                            </>
+                          )}
                         </div>
                       ) : quizItems.length ? (
-                        exercise.secureMode ? (
+                        gated ? (
                           <>
                             {late && <p className="mb-3 text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
-                            <SecureQuiz exerciseId={exercise.id} title={exercise.title} count={quizItems.length} maxViolations={exercise.maxViolations} priorViolations={violationRows.length} report={reportViolation} action={submitQuizWork}>
-                              <QuizTake items={quizItems} />
-                            </SecureQuiz>
+                            <ExamRunner exerciseId={exercise.id} title={exercise.title} count={quizItems.length} secure={exercise.secureMode} maxViolations={exercise.maxViolations} priorViolations={violationRows.length} timeLimitMinutes={exercise.timeLimitMinutes} attemptNo={formAttemptNo} maxAttempts={exercise.maxAttempts} report={reportViolation} start={startAttempt} action={submitQuizWork}>
+                              <QuizTake items={mineItems} />
+                            </ExamRunner>
                           </>
                         ) : (
-                        <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText="Nộp bài? Em chỉ được làm bài một lần." reset={false} className="flex flex-col gap-4 [&>button]:self-start">
+                        <ActionForm action={submitQuizWork} submit="Nộp bài" confirmText={exercise.maxAttempts > 1 ? "Nộp bài? Nộp xong lượt này không sửa được." : "Nộp bài? Em chỉ được làm bài một lần."} reset={false} className="flex flex-col gap-4 [&>button]:self-start">
                           <input type="hidden" name="exerciseId" value={exercise.id} />
                           <h2 className="font-semibold">Làm bài ({quizItems.length} câu)</h2>
-                          <QuizTake items={quizItems} />
+                          <QuizTake items={mineItems} />
                           {late && <p className="text-xs text-red-600">Đã quá hạn nộp ({fmtDate(exercise.dueDate)}). Bài nộp sẽ được gắn nhãn Nộp muộn.</p>}
                         </ActionForm>
                         )
@@ -272,7 +331,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                         <span><b>{subs.length}</b>/{roster.length} học sinh đã nộp</span>
                         {subs.length > 0 && <span>Điểm trung bình: <b>{fmtPts(subs.reduce((t, x) => t + (x.grade ?? 0), 0) / subs.length)}</b></span>}
                       </Card>
-                      <Table head={exercise.secureMode ? ["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", "Vi phạm", ""] : ["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ""]}>
+                      <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ...(exercise.maxAttempts > 1 ? ["Số lần"] : []), ...(exercise.secureMode ? ["Vi phạm"] : []), ""]}>
                         {roster.map((s) => {
                           const sub = subOf.get(s.id);
                           return (
@@ -281,6 +340,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                               <td>{sub ? <div className="flex flex-col gap-0.5"><span className="inline-flex w-fit rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">Đã nộp</span>{sub.isLate && <span className="inline-flex w-fit rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">Nộp muộn</span>}</div> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
                               <td>{sub ? fmtTime(sub.submittedAt) : <span className="text-slate-400">-</span>}</td>
                               <td>{sub?.grade != null ? <b>{fmtPts(sub.grade)}</b> : <span className="text-slate-400">-</span>}</td>
+                              {exercise.maxAttempts > 1 && <td>{attemptsOf.get(s.id)?.length ?? (sub ? 1 : 0)}/{exercise.maxAttempts}</td>}
                               {exercise.secureMode && <td>{(violationsOf.get(s.id)?.length ?? 0) > 0 ? <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">{violationsOf.get(s.id)!.length}{sub?.autoSubmitted ? " · tự nộp" : ""}</span> : <span className="text-slate-400">0</span>}</td>}
                               <td>{sub && manage && (
                                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -291,7 +351,13 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                                         <ul className="mt-1 space-y-0.5 text-xs text-red-800">{violationsOf.get(s.id)!.map((v) => <li key={v.id}>{fmtTime(v.createdAt)} · {VIOLATION_LABEL[v.type] ?? v.type}</li>)}</ul>
                                       </div>
                                     )}
-                                    <QuizReview items={quizItems} answers={quizAnswers.filter((x) => x.submissionId === sub.id)} reveal />
+                                    {(attemptsOf.get(s.id)?.length ?? 0) > 0 && (
+                                      <div className="mb-3 rounded-md border p-3 text-sm">
+                                        <b>Các lượt làm ({attemptsOf.get(s.id)!.length}/{exercise.maxAttempts}) · {SCORING_LABEL[exercise.attemptScoring]}</b>
+                                        <ul className="mt-1 space-y-0.5 text-xs">{attemptsOf.get(s.id)!.map((h) => <li key={h.id}>Lượt {h.attemptNo}: <b>{fmtPts(h.grade ?? 0)}/10</b> · {h.submittedAt ? fmtTime(h.submittedAt) : ""}{h.attemptNo === sub.attemptNo ? " · đang được tính" : ""}{h.overtime ? " · quá giờ" : ""}{h.autoSubmitted && !h.overtime ? " · tự nộp" : ""}</li>)}</ul>
+                                      </div>
+                                    )}
+                                    <QuizReview items={arrangeForStudent(quizItems, flags, shuffleSeedFor(exercise.id, s.id, sub.attemptNo))} answers={quizAnswers.filter((x) => x.submissionId === sub.id)} reveal />
                                   </DialogButton>
                                   <ActionForm action={resetQuiz} submit="Cho làm lại" compact danger confirmText={`Xóa bài làm của ${s.fullName} để em làm lại từ đầu?`} className="inline-flex"><input type="hidden" name="submissionId" value={sub.id} /></ActionForm>
                                 </div>

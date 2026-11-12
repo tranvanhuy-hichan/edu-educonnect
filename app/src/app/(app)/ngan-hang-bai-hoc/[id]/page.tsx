@@ -63,7 +63,7 @@ export default async function LessonBankDetail({ params, searchParams }: { param
     for (const r of ready) if (r.libraryLessonId) available[r.libraryLessonId] = r._count._all;
   }
   const unassigned = tab === "cau-hoi" && !readOnly ? await db.question.findMany({ where: { teacherId: lesson.teacherId, subjectId: lesson.subjectId, gradeLevelId: lesson.gradeLevelId, libraryLessonId: null, archivedAt: null, parentId: null }, orderBy: { createdAt: "desc" }, take: 200 }) : [];
-  const exForm = (e: NonNullable<typeof exercise>): ExerciseFormData => ({ id: e.id, title: e.title, instructions: e.instructions, showAnswers: e.showAnswers, kind: e.kind, quizMode: e.quizMode, secureMode: e.secureMode, maxViolations: e.maxViolations, attachments: e.attachments, sourceIds: e.sources.map((s) => s.lessonId) });
+  const exForm = (e: NonNullable<typeof exercise>): ExerciseFormData => ({ id: e.id, title: e.title, instructions: e.instructions, showAnswers: e.showAnswers, kind: e.kind, quizMode: e.quizMode, secureMode: e.secureMode, maxViolations: e.maxViolations, shuffleQuestions: e.shuffleQuestions, shuffleOptions: e.shuffleOptions, maxAttempts: e.maxAttempts, attemptScoring: e.attemptScoring, timeLimitMinutes: e.timeLimitMinutes, allowReview: e.allowReview, attachments: e.attachments, sourceIds: e.sources.map((s) => s.lessonId) });
 
   const questionActions = (
     <div className="btn-row flex flex-wrap gap-2">

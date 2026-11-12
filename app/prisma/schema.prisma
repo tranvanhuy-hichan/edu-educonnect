@@ -210,6 +210,7 @@ model TeacherSubject {
 
 model Student {
   examViolations ExamViolation[]
+  quizAttempts QuizAttempt[]
   examSeats ExamSeat[]
   assessments StudentAssessment[]
   transfers ClassTransfer[]
@@ -340,6 +341,13 @@ model Exercise {
   dueDate      DateTime?
   quizMode     Boolean                @default(false)
   showAnswers  String                 @default("AFTER_DUE") // AFTER_SUBMIT | AFTER_DUE | NEVER: khi nào học sinh thấy đáp án đúng
+  maxAttempts  Int                    @default(1) // số lần làm tối đa
+  attemptScoring String               @default("BEST") // BEST = lấy điểm cao nhất | LAST = lấy lần làm cuối
+  timeLimitMinutes Int                @default(0) // phút; 0 = không giới hạn, hết giờ tự nộp
+  allowReview  Boolean                @default(true) // cho học sinh xem lại bài sau khi hoàn thành
+  attempts     QuizAttempt[]
+  shuffleQuestions Boolean            @default(false) // mỗi học sinh một thứ tự câu hỏi khác nhau (cố định theo học sinh)
+  shuffleOptions   Boolean            @default(false) // mỗi học sinh một thứ tự đáp án khác nhau
   secureMode   Boolean                @default(false) // chế độ thi nghiêm túc: toàn màn hình, giám sát chuyển tab/ứng dụng
   maxViolations Int                   @default(3) // số vi phạm tối đa trước khi tự động nộp bài (0 = chỉ ghi nhận, không tự nộp)
   violations   ExamViolation[]
@@ -448,6 +456,12 @@ model LibraryExercise {
   instructions String                    @default("")
   attachments  Json?
   showAnswers  String                    @default("AFTER_DUE")
+  maxAttempts  Int                       @default(1)
+  attemptScoring String                  @default("BEST")
+  timeLimitMinutes Int                   @default(0)
+  allowReview  Boolean                   @default(true)
+  shuffleQuestions Boolean               @default(false)
+  shuffleOptions   Boolean               @default(false)
   secureMode   Boolean                   @default(false)
   maxViolations Int                      @default(3)
   orderNo      Int                       @default(0)
@@ -506,6 +520,24 @@ model ImportJob {
   @@index([teacherId, createdAt])
 }
 
+/// Một lượt làm bài trắc nghiệm của học sinh (bắt đầu lúc startedAt, nộp lúc submittedAt). Dùng để đếm số lần làm, tính giờ phía máy chủ và lưu lịch sử điểm.
+model QuizAttempt {
+  id            String    @id @default(cuid())
+  exerciseId    String
+  exercise      Exercise  @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  attemptNo     Int
+  startedAt     DateTime  @default(now())
+  submittedAt   DateTime?
+  grade         Float?
+  isLate        Boolean   @default(false)
+  autoSubmitted Boolean   @default(false)
+  overtime      Boolean   @default(false) // nộp sau khi hết giờ làm bài
+
+  @@unique([exerciseId, studentId, attemptNo])
+}
+
 /// Vi phạm ghi nhận khi học sinh làm bài ở chế độ thi nghiêm túc. type: EXIT_FULLSCREEN | TAB_SWITCH | WINDOW_BLUR | MOUSE_LEAVE | RELOAD
 model ExamViolation {
   id         String   @id @default(cuid())
@@ -546,6 +578,7 @@ model AssignmentSubmission {
   feedback         String?
   autoGraded       Boolean         @default(false)
   autoSubmitted    Boolean         @default(false) // bị nộp tự động do vượt số vi phạm cho phép
+  attemptNo        Int             @default(1) // lần làm đang được tính điểm / hiển thị (khi làm nhiều lần)
   answers          StudentAnswer[]
 
   @@unique([exerciseId, studentId])

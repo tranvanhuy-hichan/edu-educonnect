@@ -8,7 +8,7 @@ import { createExercise as createExerciseService, createLessonPosts, updateLesso
 
 import { attachmentLinks as parseLinks } from "@/lib/storage/validation";
 import { parseNumber } from "@/modules/question/question.grading";
-import { reportViolation as reportViolationService, addQuestionsToExercise, lessonPostOfExercise, lessonPostOfExerciseQuestion, moveExerciseQuestion, removeExerciseQuestion, resetQuizSubmission, submitQuiz, updateExerciseQuestionPoints } from "@/modules/question/quiz.service";
+import { reportViolation as reportViolationService, startAttempt as startAttemptService, addQuestionsToExercise, lessonPostOfExercise, lessonPostOfExerciseQuestion, moveExerciseQuestion, removeExerciseQuestion, resetQuizSubmission, submitQuiz, updateExerciseQuestionPoints } from "@/modules/question/quiz.service";
 
 const TEACH = [...MANAGER_ROLES, ...TEACHING_ROLES];
 
@@ -47,6 +47,10 @@ export const deletePost = wrap(async (fd) => {
 
 /** Bài tập luôn thuộc một bài học: tạo/sửa/xoá ngay trong tab "Bài tập" của bài học. */
 const secureOf = (fd: FormData) => str(fd, "secureMode") === "1";
+const shuffleQOf = (fd: FormData) => str(fd, "shuffleQuestions") === "1";
+const shuffleOOf = (fd: FormData) => str(fd, "shuffleOptions") === "1";
+const intIn = (fd: FormData, k: string, min: number, max: number, d: number) => { const n = parseInt(str(fd, k).replace(/\D/g, ""), 10); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+const attemptSettings = (fd: FormData) => ({ maxAttempts: intIn(fd, "maxAttempts", 1, 10, 1), attemptScoring: str(fd, "attemptScoring") === "LAST" ? ("LAST" as const) : ("BEST" as const), timeLimitMinutes: intIn(fd, "timeLimitMinutes", 0, 600, 0), allowReview: str(fd, "allowReview") === "1" });
 const maxViolationsOf = (fd: FormData) => { const n = parseInt(str(fd, "maxViolations").replace(/\D/g, ""), 10); return Number.isFinite(n) ? Math.min(n, 20) : undefined; };
 const showAnswersOf = (fd: FormData) => {
   const v = str(fd, "showAnswers");
@@ -61,7 +65,7 @@ export const createExercise = wrap(async (fd) => {
   const due = opt(fd, "dueDate");
   const links = parseLinks(str(fd, "attachments"));
   const lessonPostId = str(fd, "lessonPostId");
-  const ex = await createExerciseService(me, { lessonPostId, title, content, quizMode, showAnswers: showAnswersOf(fd), secureMode: quizMode ? secureOf(fd) : undefined, maxViolations: maxViolationsOf(fd), attachments: links.length ? links : undefined, dueDate: due ? new Date(due) : undefined });
+  const ex = await createExerciseService(me, { lessonPostId, title, content, quizMode, showAnswers: showAnswersOf(fd), secureMode: quizMode ? secureOf(fd) : undefined, maxViolations: maxViolationsOf(fd), shuffleQuestions: quizMode ? shuffleQOf(fd) : undefined, shuffleOptions: quizMode ? shuffleOOf(fd) : undefined, ...(quizMode ? attemptSettings(fd) : {}), attachments: links.length ? links : undefined, dueDate: due ? new Date(due) : undefined });
   await audit(me.email, "create_exercise", "Exercise", ex.id);
   revalidatePath(`/bai-hoc/${lessonPostId}`);
   revalidatePath("/bai-hoc");
@@ -76,7 +80,7 @@ export const updateExercise = wrap(async (fd) => {
   if (!title) throw new Error("Nhập tiêu đề bài tập");
   const due = opt(fd, "dueDate");
   const links = parseLinks(str(fd, "attachments"));
-  const ex = await updateExerciseService(me, id, { title, content, attachments: links, dueDate: due ? new Date(due) : null, showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd) });
+  const ex = await updateExerciseService(me, id, { title, content, attachments: links, dueDate: due ? new Date(due) : null, showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), shuffleQuestions: shuffleQOf(fd), shuffleOptions: shuffleOOf(fd), ...attemptSettings(fd) });
   revalidatePath(`/bai-hoc/${ex.lessonPostId}`);
   return "Đã lưu bài tập";
 });
@@ -166,7 +170,8 @@ export const submitQuizWork = wrap(async (fd) => {
   const exerciseId = str(fd, "exerciseId");
   const sub = await submitQuiz(me, exerciseId, answers, { autoSubmitted: str(fd, "autoSubmitted") === "1" });
   refreshQuiz(await exerciseOf(exerciseId));
-  return `Đã nộp bài. Điểm của em: ${String(sub.grade).replace(".", ",")}/10`;
+  const fmt = (n: number | null) => String(n ?? 0).replace(".", ",");
+  return sub.counted ? `Đã nộp bài. Điểm của em: ${fmt(sub.attemptGrade)}/10` : `Đã nộp bài. Điểm lần này: ${fmt(sub.attemptGrade)}/10 (điểm đang được tính vẫn là ${fmt(sub.grade)}/10)`;
 });
 
 export const resetQuiz = wrap(async (fd) => {
@@ -184,5 +189,15 @@ export async function reportViolation(exerciseId: string, type: string, detail?:
     return await reportViolationService(me, exerciseId, type, detail ?? null);
   } catch (e) {
     return { error: (e as Error).message || "Không ghi nhận được vi phạm" };
+  }
+}
+
+/** Học sinh bấm "Bắt đầu làm bài" (bài có giờ làm bài hoặc thi nghiêm túc): máy chủ ghi giờ bắt đầu để tính giờ và đếm lượt. */
+export async function startAttempt(exerciseId: string): Promise<{ attemptNo: number; startedAt: string; serverNow: string; timeLimitMinutes: number } | { error: string }> {
+  try {
+    const me = await assertRole("STUDENT");
+    return await startAttemptService(me, exerciseId);
+  } catch (e) {
+    return { error: (e as Error).message || "Không bắt đầu được bài làm" };
   }
 }

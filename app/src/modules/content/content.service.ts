@@ -224,14 +224,14 @@ export async function deleteLessonPost(user: SessionUser, id: string) {
   await contentRepository.deleteLessonPost(id);
   return post;
 }
-export async function updateExercise(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string; secureMode?: boolean; maxViolations?: number }) {
+export async function updateExercise(user: SessionUser, id: string, data: { title: string; content: string; attachments: string[]; dueDate: Date | null; showAnswers?: string; secureMode?: boolean; maxViolations?: number; shuffleQuestions?: boolean; shuffleOptions?: boolean; maxAttempts?: number; attemptScoring?: string; timeLimitMinutes?: number; allowReview?: boolean }) {
   const exercise = await contentRepository.findExercise(id);
   if (!exercise) throw new ConflictError("Bài tập không tồn tại");
   await assertCanManageAssignment(user, exercise.lessonPost.assignmentId);
   const parsed = createExerciseSchema.parse({ ...data, dueDate: data.dueDate ?? undefined, lessonPostId: exercise.lessonPostId, quizMode: exercise.quizMode });
   if (!exercise.quizMode && !parsed.content.trim() && !parsed.attachments?.length) throw new ConflictError("Nhập đề bài hoặc tải tệp bài tập");
   await validateFileReferences(user, parsed.attachments ?? [], exercise.lessonPost.assignmentId, "EXERCISE");
-  return contentRepository.updateExercise(id, { title: parsed.title, content: parsed.content, attachments: parsed.attachments ?? [], dueDate: parsed.dueDate ?? null, showAnswers: parsed.showAnswers, secureMode: exercise.quizMode ? parsed.secureMode : undefined, maxViolations: parsed.maxViolations });
+  return contentRepository.updateExercise(id, { title: parsed.title, content: parsed.content, attachments: parsed.attachments ?? [], dueDate: parsed.dueDate ?? null, showAnswers: parsed.showAnswers, secureMode: exercise.quizMode ? parsed.secureMode : undefined, maxViolations: parsed.maxViolations, shuffleQuestions: exercise.quizMode ? parsed.shuffleQuestions : undefined, shuffleOptions: exercise.quizMode ? parsed.shuffleOptions : undefined, maxAttempts: exercise.quizMode ? parsed.maxAttempts : undefined, attemptScoring: exercise.quizMode ? parsed.attemptScoring : undefined, timeLimitMinutes: exercise.quizMode ? parsed.timeLimitMinutes : undefined, allowReview: exercise.quizMode ? parsed.allowReview : undefined });
 }
 export async function deleteExercise(user: SessionUser, id: string) {
   const exercise = await contentRepository.findExercise(id);
