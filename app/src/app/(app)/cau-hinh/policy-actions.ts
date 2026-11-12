@@ -1,5 +1,5 @@
 "use server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { assertRole, ADMIN_ROLES } from "@/lib/guard";
 import { wrap, str } from "@/lib/action";
@@ -27,6 +27,7 @@ export const savePolicy = wrap(async (fd) => {
 
   await db.schoolSetting.upsert({ where: { id: "school" }, update: { policy: next }, create: { id: "school", policy: next } });
   await audit(me.email, "update_policy", "SchoolSetting", "school");
+  updateTag("school-setting");
   revalidatePath("/", "layout");
   return "Đã lưu quy chế. Áp dụng ngay cho các lần tính mới; hồ sơ đã duyệt giữ nguyên.";
 });

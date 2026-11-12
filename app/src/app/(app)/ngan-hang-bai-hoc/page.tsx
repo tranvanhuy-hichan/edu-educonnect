@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getGradeLevels, getSubjects } from "@/lib/catalog-cache";
 import { PageCrumbs } from "@/components/page-crumbs";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
@@ -20,8 +21,8 @@ export default async function LessonBank({ searchParams }: { searchParams: Promi
   const own = !!me.teacherId; // giáo viên: kho riêng (sửa được); quản lý/quản trị: xem bài học của tất cả giáo viên (chỉ xem)
   const sp = await searchParams;
   const [taught, grades, counts] = await Promise.all([
-    own ? db.teacherSubject.findMany({ where: { teacherId: me.teacherId! }, include: { subject: true }, orderBy: { subject: { subjectName: "asc" } } }).then((r) => r.map((x) => x.subject)) : db.subject.findMany({ orderBy: { subjectName: "asc" } }),
-    db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
+    own ? db.teacherSubject.findMany({ where: { teacherId: me.teacherId! }, include: { subject: true }, orderBy: { subject: { subjectName: "asc" } } }).then((r) => r.map((x) => x.subject)) : getSubjects(),
+    getGradeLevels(),
     bankRepo.lessonCountsByGrade(me.teacherId ?? undefined),
   ]);
   const countOf = (s?: string, g?: string) => counts.filter((c) => (!s || c.subjectId === s) && (!g || c.gradeLevelId === g)).reduce((t, c) => t + c._count._all, 0);
@@ -65,7 +66,23 @@ export default async function LessonBank({ searchParams }: { searchParams: Promi
               <Field label="Bài số"><input name="orderNo" defaultValue={nextNo} inputMode="numeric" className={inputCls + " w-full"} /></Field>
               <Field label="Tên bài học"><input name="title" className={inputCls + " w-full"} required /></Field>
             </div>
-            <Field label="Nội dung"><textarea name="content" rows={6} className={inputCls + " h-auto w-full py-2"} /></Field>
+            <Field label="Nội dung"><textarea name="content" rows={5} className={inputCls + " h-auto w-full py-2"} /></Field>
+            <div className="group/r space-y-3">
+              <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-sm has-[:checked]:border-orange-500 has-[:checked]:bg-orange-50">
+                <input type="checkbox" name="review" value="1" className="mt-1" />
+                <span><b>Đây là bài ôn tập</b><br /><span className="text-xs font-normal text-slate-500">Ôn lại các bài học trước: tự tạo bài tập ôn tập lấy câu hỏi từ các bài đã chọn</span></span>
+              </label>
+              <div className="hidden space-y-3 group-has-[input[name=review]:checked]/r:block">
+                <div className="space-y-1 text-xs font-medium text-slate-600">
+                  <p>Ôn tập các bài học</p>
+                  <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+                    {lessons.map((l) => <label key={l.id} className="flex items-center gap-2 text-sm font-normal"><input type="checkbox" name="sourceLessonIds" value={l.id} defaultChecked />Bài {l.orderNo}. {l.title}</label>)}
+                    {!lessons.length && <p className="text-sm font-normal text-slate-500">Chưa có bài học nào để ôn tập. Hãy tạo các bài học trước.</p>}
+                  </div>
+                </div>
+                <Field label="Số câu bốc tự động (không bắt buộc, có thể chọn câu sau)"><input name="autoTotal" inputMode="numeric" placeholder="vd 10" className={inputCls + " w-full sm:w-40"} /></Field>
+              </div>
+            </div>
             <div className="space-y-1 text-xs font-semibold"><p>Tệp đính kèm</p><AttachmentUpload purpose="LIBRARY" /></div>
           </ActionForm>
         </DialogButton>)}>{subject.subjectName} · {grade.gradeName} ({lessons.length} bài)</Title>

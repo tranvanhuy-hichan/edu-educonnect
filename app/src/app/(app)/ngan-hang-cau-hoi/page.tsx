@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getGradeLevels, getSubjects } from "@/lib/catalog-cache";
 import { PageCrumbs } from "@/components/page-crumbs";
 import { Sparkles } from "lucide-react";
 import { db } from "@/lib/db";
@@ -27,8 +28,8 @@ export default async function QuestionBank({ searchParams }: { searchParams: Pro
   const pg = getPaging(sp);
   const own = !!me.teacherId;
   const [subjects, grades] = await Promise.all([
-    own ? db.teacherSubject.findMany({ where: { teacherId: me.teacherId! }, include: { subject: true }, orderBy: { subject: { subjectName: "asc" } } }).then((r) => r.map((x) => x.subject)) : db.subject.findMany({ orderBy: { subjectName: "asc" } }),
-    db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
+    own ? db.teacherSubject.findMany({ where: { teacherId: me.teacherId! }, include: { subject: true }, orderBy: { subject: { subjectName: "asc" } } }).then((r) => r.map((x) => x.subject)) : getSubjects(),
+    getGradeLevels(),
   ]);
   const overview = own ? await bankOverview(me) : null;
   const countOf = (subjectId?: string, gradeId?: string | null) => (overview?.counts ?? []).filter((c) => (!subjectId || c.subjectId === subjectId) && (gradeId === undefined || c.gradeLevelId === gradeId)).reduce((t, c) => t + c._count._all, 0);
@@ -41,7 +42,7 @@ export default async function QuestionBank({ searchParams }: { searchParams: Pro
 
   const importLessons = own && subjectId && grade ? await db.libraryLesson.findMany({ where: { teacherId: me.teacherId!, subjectId, gradeLevelId: grade.id, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true } }) : [];
   const addBtn = own && subject && grade ? (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="btn-row flex flex-wrap items-center gap-2">
       <ImportDialog subjectId={subject.id} gradeLevelId={grade.id} lessons={importLessons} defaultLessonId={sp.lessonId && sp.lessonId !== "none" ? sp.lessonId : undefined} maxBytes={uploadLimit()} />
       {overview && overview.review > 0 && <Link href="/ngan-hang-cau-hoi/nhap" className={`${pill} h-9 bg-yellow-100 px-3 text-yellow-800`}><Sparkles className="mr-1 size-3.5" />{overview.review} câu AI chờ kiểm tra</Link>}
       <Link href="/ngan-hang-cau-hoi/nhap" className="inline-flex h-9 items-center rounded-md border bg-white px-3 text-sm font-medium hover:bg-slate-50">Phiên nhập AI</Link>

@@ -64,7 +64,7 @@ export async function moveExerciseQuestion(user: SessionUser, id: string, dir: -
 }
 
 /** Học sinh nộp bài trắc nghiệm: chấm tự động từng câu, lưu điểm từng câu và điểm hệ 10 của cả bài. Mỗi học sinh làm một lần. */
-export async function submitQuiz(user: SessionUser, exerciseId: string, answers: Record<string, unknown>) {
+export async function submitQuiz(user: SessionUser, exerciseId: string, answers: Record<string, unknown>, opts: { autoSubmitted?: boolean } = {}) {
   if (!user.studentId) throw new ForbiddenError("Chỉ học sinh mới được nộp bài");
   const ex = await repo.findExerciseForGrading(exerciseId);
   if (!ex || !ex.quizMode) throw new ForbiddenError("Bài tập không tồn tại");
@@ -77,7 +77,7 @@ export async function submitQuiz(user: SessionUser, exerciseId: string, answers:
   const max = ex.questions.reduce((s, eq) => s + eq.points, 0);
   try {
     return await repo.createGradedSubmission({
-      exerciseId, studentId: user.studentId, submittedAt: now, isLate: Boolean(ex.dueDate && now > ex.dueDate), grade: toGrade10(earned, max),
+      exerciseId, studentId: user.studentId, submittedAt: now, isLate: Boolean(ex.dueDate && now > ex.dueDate), grade: toGrade10(earned, max), autoSubmitted: opts.autoSubmitted === true,
       answers: graded.map((g) => ({ questionId: g.eq.questionId, answer: answers[g.eq.questionId], score: g.score, maxScore: g.eq.points, isCorrect: g.isCorrect })),
     });
   } catch (e) {
@@ -108,3 +108,36 @@ export function canRevealKey(ex: { showAnswers: string; dueDate: Date | null }, 
   if (ex.showAnswers === "AFTER_SUBMIT") return true;
   return !ex.dueDate || now > new Date(ex.dueDate.getTime() + 86400_000); // hết ngày hạn nộp
 }
+
+/* ================= Chế độ thi nghiêm túc ================= */
+export const VIOLATION_TYPES = ["EXIT_FULLSCREEN", "TAB_SWITCH", "WINDOW_BLUR", "MOUSE_LEAVE", "RELOAD"] as const;
+export type ViolationType = (typeof VIOLATION_TYPES)[number];
+export const VIOLATION_LABEL: Record<string, string> = {
+  EXIT_FULLSCREEN: "Thoát chế độ toàn màn hình", TAB_SWITCH: "Chuyển tab hoặc sang ứng dụng khác", WINDOW_BLUR: "Rời khỏi cửa sổ làm bài", MOUSE_LEAVE: "Đưa chuột ra ngoài màn hình thi", RELOAD: "Tải lại trang khi đang làm bài",
+};
+/** Hai lần báo cùng một loại trong khoảng này được tính là một (một thao tác thường kích hoạt nhiều sự kiện trình duyệt). */
+export const VIOLATION_DEBOUNCE_MS = 1500;
+
+/** Đã vượt số vi phạm cho phép chưa (max = 0: chỉ ghi nhận, không tự nộp). */
+export const isOverLimit = (count: number, max: number) => max > 0 && count >= max;
+
+/** Ghi nhận một vi phạm của học sinh đang làm bài thi nghiêm túc. Trả về số vi phạm hiện có và việc có phải tự nộp bài hay không. */
+export async function reportViolation(user: SessionUser, exerciseId: string, type: string, detail?: string | null) {
+  if (!user.studentId) throw new ForbiddenError("Chỉ học sinh mới ghi nhận được vi phạm");
+  if (!(VIOLATION_TYPES as readonly string[]).includes(type)) throw new ConflictError("Loại vi phạm không hợp lệ");
+  const ex = await repo.findExercise(exerciseId);
+  if (!ex || !ex.quizMode || !ex.secureMode) throw new ConflictError("Bài tập không ở chế độ thi nghiêm túc");
+  if (!(await repo.isStudentInClass(user.studentId, ex.lessonPost.assignment.schoolClassId))) throw new ForbiddenError("Bạn không thuộc lớp học của môn này");
+  if (await repo.findStudentSubmission(exerciseId, user.studentId)) {
+    // đã nộp rồi (ví dụ tự nộp do vi phạm): không ghi thêm
+    return { count: await repo.countViolations(exerciseId, user.studentId), max: ex.maxViolations, exceeded: true };
+  }
+  const last = await repo.lastViolation(exerciseId, user.studentId, type);
+  if (!last || Date.now() - last.createdAt.getTime() >= VIOLATION_DEBOUNCE_MS) {
+    await repo.createViolation({ exerciseId, studentId: user.studentId, type, detail: detail?.slice(0, 200) || null });
+  }
+  const count = await repo.countViolations(exerciseId, user.studentId);
+  return { count, max: ex.maxViolations, exceeded: isOverLimit(count, ex.maxViolations) };
+}
+
+export const listExerciseViolations = (exerciseId: string) => repo.listViolations(exerciseId);

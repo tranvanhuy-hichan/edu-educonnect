@@ -1,4 +1,5 @@
 import { PageCrumbs } from "@/components/page-crumbs";
+import { getGradeLevels } from "@/lib/catalog-cache";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
@@ -20,7 +21,7 @@ export default async function QuestionEditorPage({ params, searchParams }: { par
   const sp = await searchParams;
   const [taught, grades, lessonRows] = await Promise.all([
     db.teacherSubject.findMany({ where: { teacherId: me.teacherId }, include: { subject: true }, orderBy: { subject: { subjectName: "asc" } } }),
-    db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
+    getGradeLevels(),
     db.libraryLesson.findMany({ where: { teacherId: me.teacherId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true, subjectId: true, gradeLevelId: true } }),
   ]);
   const subjects = taught.map((t) => ({ id: t.subjectId, name: t.subject.subjectName }));

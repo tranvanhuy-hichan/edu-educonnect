@@ -21,6 +21,8 @@ export const exerciseInput = z.object({
   instructions: z.string().max(10000).default(""),
   attachments: files,
   showAnswers,
+  secureMode: z.boolean().default(false),
+  maxViolations: z.number().int().min(0).max(20).default(3),
   sourceLessonIds: z.array(z.string().min(1)).max(30).default([]),
 });
 export type ExerciseInput = z.infer<typeof exerciseInput>;

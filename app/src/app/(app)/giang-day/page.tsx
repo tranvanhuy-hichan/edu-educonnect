@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getGradeLevels, getSubjects } from "@/lib/catalog-cache";
 import { db } from "@/lib/db";
 import { SubjectGradeGrid } from "@/components/drill-cards";
 import { Title } from "@/components/ui";
@@ -11,8 +12,8 @@ export default async function Teaching({ searchParams }: { searchParams: Promise
   const manager = isManager(me);
   const [rows, grades, allSubjects, teachers] = await Promise.all([
     db.classSubjectAssignment.findMany({ where: { AND: [teachingScope(me), gv && manager ? { teacherId: gv } : {}] }, select: { subjectId: true, schoolClassId: true, schoolClass: { select: { gradeLevelId: true } } } }),
-    db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
-    db.subject.findMany({ orderBy: { subjectName: "asc" } }),
+    getGradeLevels(),
+    getSubjects(),
     manager ? db.teacher.findMany({ where: { assignments: { some: {} } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }) : Promise.resolve([]),
   ]);
   // số lớp (không trùng) theo môn và theo khối

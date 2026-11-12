@@ -4,9 +4,9 @@ import { getSchoolSetting } from "@/lib/school-setting";
 import { Shell } from "@/components/layout/shell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const me = await getMe();
+  // đọc phiên và cấu hình trường song song (tiết kiệm một lượt chờ CSDL)
+  const [me, brand] = await Promise.all([getMe(), getSchoolSetting()]);
   if (!me) redirect("/login");
-  const brand = await getSchoolSetting();
   return (
     <Shell roles={me.roles} userName={me.name} name={brand.schoolName} logo={brand.logoUrl ?? ""} mustChange={me.mustChangePwd}>
       {children}

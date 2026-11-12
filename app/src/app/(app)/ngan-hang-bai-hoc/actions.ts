@@ -11,13 +11,26 @@ import * as bank from "@/modules/bank/bank.service";
 const TEACH = [...MANAGER_ROLES, ...TEACHING_ROLES];
 const refresh = () => { revalidatePath("/ngan-hang-bai-hoc", "layout"); revalidatePath("/ngan-hang-cau-hoi"); };
 const showAnswersOf = (fd: FormData) => str(fd, "showAnswers") || "AFTER_DUE";
+const secureOf = (fd: FormData) => str(fd, "secureMode") === "1";
+const maxViolationsOf = (fd: FormData) => { const n = parseInt(str(fd, "maxViolations").replace(/\D/g, ""), 10); return Number.isFinite(n) ? Math.min(n, 20) : 3; };
 const intOf = (v: string) => { const n = parseInt(v.replace(/\D/g, ""), 10); return Number.isFinite(n) ? n : undefined; };
 
 /* ---------- Bài học ---------- */
 export const createLessonAction = wrap(async (fd) => {
   const me = await assertRole(...TEACH);
+  // Bài học ôn tập: tạo kèm một bài tập ôn tập liên kết các bài học trước (và bốc sẵn câu hỏi nếu giáo viên nhập số câu)
+  const review = str(fd, "review") === "1";
+  const sources = fd.getAll("sourceLessonIds").map(String);
+  if (review && !sources.length) throw new Error("Chọn ít nhất một bài học trước để ôn tập");
   const lesson = await bank.createLesson(me, { subjectId: str(fd, "subjectId"), gradeLevelId: str(fd, "gradeLevelId"), title: str(fd, "title"), content: str(fd, "content"), attachments: parseLinks(str(fd, "attachments")), orderNo: intOf(str(fd, "orderNo")) });
   await audit(me.email, "create_library_lesson", "LibraryLesson", lesson.id);
+  if (review) {
+    const ex = await bank.createExercise(me, lesson.id, { title: `Ôn tập: ${lesson.title}`, kind: "REVIEW", quizMode: true, instructions: "", attachments: [], showAnswers: "AFTER_SUBMIT", sourceLessonIds: sources });
+    const total = intOf(str(fd, "autoTotal"));
+    if (total) await bank.autoPick(me, ex.id, { total }, true, 1);
+    refresh();
+    redirect(`/ngan-hang-bai-hoc/${lesson.id}?tab=bai-tap&ex=${ex.id}`);
+  }
   refresh();
   redirect(`/ngan-hang-bai-hoc/${lesson.id}`);
 });
@@ -48,14 +61,14 @@ export const createExerciseAction = wrap(async (fd) => {
   const lessonId = str(fd, "lessonId");
   const ex = await bank.createExercise(me, lessonId, {
     title: str(fd, "title"), kind: str(fd, "kind") === "REVIEW" ? "REVIEW" : "NORMAL", quizMode: str(fd, "quizMode") !== "0", instructions: str(fd, "instructions"),
-    attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String),
+    attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String),
   });
   refresh();
   redirect(`/ngan-hang-bai-hoc/${lessonId}?tab=bai-tap&ex=${ex.id}`);
 });
 export const updateExerciseAction = wrap(async (fd) => {
   const me = await assertRole(...TEACH);
-  await bank.updateExercise(me, str(fd, "id"), { title: str(fd, "title"), instructions: str(fd, "instructions"), attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String) });
+  await bank.updateExercise(me, str(fd, "id"), { title: str(fd, "title"), instructions: str(fd, "instructions"), attachments: parseLinks(str(fd, "attachments")), showAnswers: showAnswersOf(fd), secureMode: secureOf(fd), maxViolations: maxViolationsOf(fd), sourceLessonIds: fd.getAll("sourceLessonIds").map(String) });
   refresh();
   return "Đã lưu bài tập";
 });
