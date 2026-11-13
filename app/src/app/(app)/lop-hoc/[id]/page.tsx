@@ -72,12 +72,6 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
               )}
             </div>
             <div className="mt-1 text-sm text-slate-600">{c.academicYear.yearName} · {fmtDate(c.academicYear.startDate)} → {fmtDate(c.academicYear.endDate)}</div>
-            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm sm:flex sm:flex-wrap sm:gap-x-6">
-              <div className="min-w-0"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Phòng học cố định</dt><dd className="font-medium">{c.room?.roomName ?? "Chưa phân công"}</dd></div>
-              <div className="min-w-0"><dt className="text-[11px] uppercase tracking-wide text-slate-500">GVCN</dt><dd className="truncate font-medium">{c.homeroomTeacher ? <Link href={`/giao-vien/${c.homeroomTeacher.id}`} className="hover:text-orange-700">{c.homeroomTeacher.fullName}</Link> : "-"}</dd></div>
-              <div className="min-w-0"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Sĩ số</dt><dd className="font-medium">{studentCount}/{CLASS_CAPACITY}</dd></div>
-              <div className="min-w-0"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Học kỳ hiện tại</dt><dd className="font-medium">{term?.termName ?? "-"}</dd></div>
-            </dl>
           </div>
           {canEdit && (
           <div className="flex w-full items-center gap-2 md:w-auto md:flex-wrap">
@@ -96,6 +90,12 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           </div>
           )}
         </div>
+        <dl className="grid grid-cols-2 gap-2 text-sm lg:grid-cols-4">
+          <div className="min-w-0 rounded-lg border px-3 py-2"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Phòng học cố định</dt><dd className="mt-0.5 font-medium">{c.room?.roomName ?? "Chưa phân công"}</dd></div>
+          <div className="min-w-0 rounded-lg border px-3 py-2"><dt className="text-[11px] uppercase tracking-wide text-slate-500">GVCN</dt><dd className="mt-0.5 truncate font-medium">{c.homeroomTeacher ? <Link href={`/giao-vien/${c.homeroomTeacher.id}`} className="hover:text-orange-700">{c.homeroomTeacher.fullName}</Link> : "-"}</dd></div>
+          <div className="min-w-0 rounded-lg border px-3 py-2"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Sĩ số</dt><dd className="mt-0.5 font-medium">{studentCount}/{CLASS_CAPACITY}</dd></div>
+          <div className="min-w-0 rounded-lg border px-3 py-2"><dt className="text-[11px] uppercase tracking-wide text-slate-500">Học kỳ hiện tại</dt><dd className="mt-0.5 font-medium">{term?.termName ?? "-"}</dd></div>
+        </dl>
       </Card>
 
       <Tabs current={`?tab=${tab}`} items={tabs.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
