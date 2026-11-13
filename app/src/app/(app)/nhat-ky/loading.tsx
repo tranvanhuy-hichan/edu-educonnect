@@ -1,7 +1,5 @@
-import { HeadSkeleton, ToolbarSkeleton, TableSkeleton } from "@/components/skeleton";
+import { SystemLoading } from "@/components/system-loading";
 
 export default function Loading() {
-  return (
-    <div><HeadSkeleton /><ToolbarSkeleton /><TableSkeleton rows={10} cols={5} /></div>
-  );
+  return <SystemLoading />;
 }
