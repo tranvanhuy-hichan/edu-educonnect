@@ -8,11 +8,8 @@ import { prisma } from "@/lib/prisma";
  */
 type Db = Prisma.TransactionClient | typeof prisma;
 
-/** Vai trò của tài khoản dùng chung chỉ thuộc Cổng Đoàn: không được cấp quyền vào EduConnect (Admin phải tách riêng). */
-export const DOAN_ONLY_ROLES = ["ADMIN", "DEPARTMENT_ACCOUNT"] as const;
-
 /** Chọn các cột tài khoản mà EduConnect cần đọc. */
-export const accountSelect = { passwordHash: true, mustChangePassword: true, status: true, role: true, username: true } as const;
+export const accountSelect = { superAdmin: true, passwordHash: true, mustChangePassword: true, status: true, role: true, username: true } as const;
 
 /**
  * Tạo tài khoản dùng chung cho người CHƯA có tài khoản ở Cổng Đoàn (giáo viên, nhân sự, học sinh tạo từ EduConnect).
@@ -37,7 +34,7 @@ export async function credentialOfUser(db: Db, userId: string) {
 }
 
 /** Làm phẳng user + account về dạng cũ (passwordHash, mustChangePwd) để phần còn lại của ứng dụng ít phải đổi. */
-export function flattenAccount<T extends { account: { passwordHash: string; mustChangePassword: boolean; status: string; role: string } }>(u: T) {
+export function flattenAccount<T extends { account: { passwordHash: string; mustChangePassword: boolean; status: string; role: string; superAdmin: boolean } }>(u: T) {
   const { account, ...rest } = u;
-  return { ...rest, passwordHash: account.passwordHash, mustChangePwd: account.mustChangePassword, accountStatus: account.status, accountRole: account.role };
+  return { ...rest, passwordHash: account.passwordHash, mustChangePwd: account.mustChangePassword, accountStatus: account.status, accountRole: account.role, accountSuperAdmin: account.superAdmin };
 }

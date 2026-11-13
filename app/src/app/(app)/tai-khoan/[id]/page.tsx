@@ -87,6 +87,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
         </div>
       </Card>
 
+      <Link href="/tai-khoan/nhan-su" className="inline-block text-sm text-orange-700">Quản lý nhân sự và phân công BCH →</Link>
       <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {/* ===== Tổng quan ===== */}

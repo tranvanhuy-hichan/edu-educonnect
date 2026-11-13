@@ -1,4 +1,4 @@
-import { DOAN_ONLY_ROLES } from "@/modules/account/account.repository";
+import { forbiddenSharedAccount } from "@/lib/auth/shared-account";
 import { consumeLoginAttempt } from "./login-throttle.repository";
 import { credentialTag, matchesCredential } from "@/lib/auth/credential-tag";
 import bcrypt from "bcryptjs";
@@ -53,7 +53,7 @@ export async function login(input: LoginInput): Promise<SessionUser> {
   }
 
   // Khoá ở tài khoản dùng chung (do Cổng Đoàn khoá) hoặc khoá riêng của EduConnect; tài khoản chỉ thuộc Cổng Đoàn (Admin) không vào được.
-  if (!user.isActive || user.accountStatus !== "ACTIVE" || DOAN_ONLY_ROLES.includes(user.accountRole as never)) {
+  if (!user.isActive || user.accountStatus !== "ACTIVE" || forbiddenSharedAccount(user)) {
     throw new AccountDisabledError();
   }
   await sessions.recordLoginSuccess(user.id);
@@ -81,7 +81,7 @@ const TOUCH_EVERY_MS = 5 * 60_000;
  */
 export async function resolveSessionIdentity(userId: string, tag?: string, meta?: { sid?: string; iat?: number }) {
   const user = await authRepository.findSessionIdentity(userId);
-  if (!user?.isActive || user.accountStatus !== "ACTIVE" || DOAN_ONLY_ROLES.includes(user.accountRole as never) || !matchesCredential(tag, user.passwordHash)) return null;
+  if (!user?.isActive || user.accountStatus !== "ACTIVE" || forbiddenSharedAccount(user) || !matchesCredential(tag, user.passwordHash)) return null;
   if (meta) {
     if (user.tokensValidAfter && (meta.iat ?? 0) * 1000 < user.tokensValidAfter.getTime()) return null;
     if (meta.sid) {
@@ -101,6 +101,6 @@ export async function resolveSessionIdentity(userId: string, tag?: string, meta?
 /** Danh tính cho worker nền (không có cookie/credential tag): chỉ cần tài khoản còn hoạt động. */
 export async function resolveWorkerIdentity(userId: string) {
   const user = await authRepository.findSessionIdentity(userId);
-  if (!user?.isActive || user.accountStatus !== "ACTIVE" || DOAN_ONLY_ROLES.includes(user.accountRole as never)) return null;
+  if (!user?.isActive || user.accountStatus !== "ACTIVE" || forbiddenSharedAccount(user)) return null;
   return { userId, email: user.email, roles: user.roles, teacherId: user.teacher?.id ?? null, studentId: user.student?.id ?? null };
 }

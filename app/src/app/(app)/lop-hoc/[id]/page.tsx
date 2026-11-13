@@ -1,3 +1,4 @@
+import { ClassOfficers } from "@/components/class-officers";
 import { AssignmentRow } from "@/components/assignment-row";
 import { SearchableSelect } from "@/components/searchable-select";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
@@ -97,6 +98,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         </div>
       </Card>
 
+      <ClassOfficers classId={id} canManage={me.roles.includes("ADMIN")} />
       <Tabs current={`?tab=${tab}`} items={tabs.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {tab === "overview" && await (async () => {

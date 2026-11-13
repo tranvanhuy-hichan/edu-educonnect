@@ -1,0 +1,21 @@
+"use server";
+import { runSharedCommand } from "@/lib/shared-command";
+import { revalidatePath } from "next/cache";
+import { assertRole } from "@/lib/guard";
+import { wrap, str } from "@/lib/action";
+import { db } from "@/lib/db";
+export const setClassOfficer = wrap(async (fd) => {
+  const me = await assertRole("ADMIN");
+  const classId = str(fd, "classId");
+  const office = str(fd, "office");
+  if (!["SECRETARY", "RED_MONITOR", "PRESIDENT"].includes(office)) throw new Error("Chức danh không hợp lệ");
+  const cls = await db.schoolClass.findUniqueOrThrow({ where: { id: classId }, include: { academicYear: true } });
+  const [{ y }] = await db.$queryRaw<{ y: number }[]>`SELECT edu.cur_school_year() AS y`;
+  if (!cls.departmentId || cls.academicYear.schoolYear !== y) throw new Error("Chỉ sửa chức danh của lớp đã liên kết trong năm học hiện hành");
+  const remove = str(fd, "remove") === "1";
+  const mid = str(fd, "memberId") || (str(fd, "accountId") ? (await db.doanMember.findUnique({ where: { userId: str(fd, "accountId") }, select: { id: true } }))?.id : null) || null;
+  if ((!remove || office === "RED_MONITOR") && !mid) throw new Error("Chọn học sinh hợp lệ");
+  await runSharedCommand(() => db.$queryRaw`SELECT 1 FROM edu.assign_class_officer('edu', ${me.id}, ${cls.departmentId}, ${office}, ${mid}, ${remove})`);
+  revalidatePath(`/lop-hoc/${classId}`); revalidatePath("/lop-hoc");
+  return "Đã cập nhật ban cán sự dùng chung";
+});

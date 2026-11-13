@@ -20,6 +20,7 @@ for (const m of readdirSync(dir)) {
     if (/^CREATE (SCHEMA|OR REPLACE FUNCTION)/i.test(s) || /^CREATE TRIGGER .* ON edu\./i.test(s) || /^DROP TRIGGER IF EXISTS \w+ ON edu\./i.test(s)) continue;
     // Duy nhất được phép chạm public: trigger đồng bộ có tiền tố sync_ trên các bảng dùng chung (không đổi bảng/cột nào của khkt).
     if (/^CREATE TRIGGER sync_\w+ .* ON public\."(SchoolYear|Department|Member)"/i.test(s) || /^DROP TRIGGER IF EXISTS sync_\w+ ON public\."(SchoolYear|Department|Member)"/i.test(s)) continue;
+    if (/^CREATE TRIGGER sync_account_role_guard BEFORE UPDATE OF role, "superAdmin" ON public\."User"/i.test(s) || /^DROP TRIGGER IF EXISTS sync_account_role_guard ON public\."User"$/i.test(s)) continue;
     if (!/"edu"\./.test(s.split(/ (REFERENCES|USING|FROM) /i)[0]) && !/ edu\./.test(s.split(" ").slice(0, 8).join(" "))) bad.push(`${m}: ${s.slice(0, 110)}`);
   }
 }
