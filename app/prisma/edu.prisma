@@ -1434,6 +1434,8 @@ model SyncSetting {
   enabled     Boolean @default(false)
   /// Tên miền email nội bộ cho học sinh tự nhận từ Cổng Đoàn (mã@tên-miền).
   emailDomain String  @default("doan.local")
+  /// Vai trò PostgreSQL mà Cổng Đoàn dùng để kết nối; bật chặn cứng quyền ghi (edu."DoanWritePolicy") cho kết nối này. NULL = tắt.
+  doanRole    String?
   @@schema("edu")
 }
 
