@@ -39,8 +39,7 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
   const visibleCount = visibleStaff.length + visibleStandalone.length;
   const groupHref = (g: string) => `?group=${g}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
-  return <div className="mx-auto w-full max-w-7xl space-y-5">
-    <Link href="/tai-khoan" className="inline-flex text-sm text-slate-500 hover:text-orange-700">← Tài khoản</Link>
+  return <div className="w-full space-y-5">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div><h1 className="text-2xl font-semibold tracking-tight">Quản lý nhân sự</h1><p className="mt-1 text-sm text-slate-500">Hồ sơ nhân sự, vai trò chuyên môn và phân công Đoàn trường.</p></div>
       <div className="flex flex-wrap gap-2">
