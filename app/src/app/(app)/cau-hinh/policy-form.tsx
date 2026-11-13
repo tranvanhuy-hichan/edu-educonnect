@@ -12,10 +12,10 @@ const NumIn = ({ value, onChange, step = 0.1, w = "w-20" }: { value: number; onC
   <input type="number" step={step} min={0} value={value} onChange={(e) => onChange(num(e.target.value))} className={`${inputCls} ${w}`} />
 );
 const TxtIn = ({ value, onChange, w = "w-40", ...rest }: { value: string; onChange: (s: string) => void; w?: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value">) => (
-  <input value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} ${w}`} {...rest} />
+  <input value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} ${w} min-w-0 max-w-full`} {...rest} />
 );
 const Sec = ({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) => (
-  <fieldset className="content-panel w-full space-y-3 rounded-lg border p-4"><legend className="px-2 text-sm font-semibold">{title}</legend>{hint && <p className="text-xs text-slate-500">{hint}</p>}{children}</fieldset>
+  <fieldset className="content-panel w-full min-w-0 space-y-3 rounded-lg border p-3 sm:p-4"><legend className="px-2 text-sm font-semibold">{title}</legend>{hint && <p className="text-xs text-slate-500">{hint}</p>}{children}</fieldset>
 );
 const Del = ({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) => (
   <button type="button" disabled={disabled} onClick={onClick} aria-label="Xóa dòng" className="rounded p-1.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30"><Trash2 className="size-4" /></button>
@@ -37,11 +37,11 @@ export function PolicyForm({ initial }: { initial: Policy }) {
       <Sec title="1. Thang xếp loại theo điểm trung bình" hint="Dùng ở bảng điểm, hồ sơ học sinh và thống kê lớp. Xếp từ mức cao nhất xuống thấp nhất; mức thấp nhất bắt đầu từ 0 điểm.">
         <div className="space-y-2">
           {p.gradeScale.map((g, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
-              <TxtIn value={g.name} onChange={(name) => set("gradeScale", patch(p.gradeScale, i, { name }))} placeholder="Tên mức" />
+            <div key={i} className="flex items-center gap-2 text-sm">
+              <TxtIn w="min-w-0 flex-1 sm:w-40 sm:flex-none" value={g.name} onChange={(name) => set("gradeScale", patch(p.gradeScale, i, { name }))} placeholder="Tên mức" />
               <span className="text-slate-500">từ</span>
-              <NumIn value={g.min} onChange={(min) => set("gradeScale", patch(p.gradeScale, i, { min }))} />
-              <span className="text-slate-500">điểm trở lên</span>
+              <NumIn w="w-20 shrink-0" value={g.min} onChange={(min) => set("gradeScale", patch(p.gradeScale, i, { min }))} />
+              <span className="hidden text-slate-500 sm:inline">điểm trở lên</span>
               <Del disabled={p.gradeScale.length <= 2} onClick={() => set("gradeScale", p.gradeScale.filter((_, at) => at !== i))} />
             </div>
           ))}
@@ -52,16 +52,16 @@ export function PolicyForm({ initial }: { initial: Policy }) {
       <Sec title="2. Xếp loại học lực cả năm" hint="Xét từ mức tốt nhất xuống. Học sinh đạt mức đầu tiên thỏa MỌI điều kiện của mức đó. Mức cuối cùng là mức không đạt, không cần điều kiện. Nếu lớp có ít môn hơn con số yêu cầu thì hệ thống chỉ yêu cầu tối đa bằng số môn của lớp.">
         <div className="space-y-3">
           {levels.map((l, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
-              <TxtIn value={l.name} onChange={(name) => set("learning", { ...p.learning, levels: patch(levels, i, { name }) })} placeholder="Tên mức" />
-              {i === last ? <span className="text-slate-500">— mức không đạt (mặc định khi không thỏa các mức trên)</span> : <>
-                <span className="text-slate-500">mọi môn từ</span><NumIn value={l.minEach} onChange={(minEach) => set("learning", { ...p.learning, levels: patch(levels, i, { minEach }) })} />
-                <span className="text-slate-500">điểm, và ít nhất</span><NumIn step={1} w="w-16" value={l.highCount} onChange={(highCount) => set("learning", { ...p.learning, levels: patch(levels, i, { highCount }) })} />
-                <span className="text-slate-500">môn từ</span><NumIn value={l.highScore} onChange={(highScore) => set("learning", { ...p.learning, levels: patch(levels, i, { highScore }) })} />
-                <span className="text-slate-500">điểm; tối đa</span><NumIn step={1} w="w-16" value={l.maxFailedComments} onChange={(maxFailedComments) => set("learning", { ...p.learning, levels: patch(levels, i, { maxFailedComments }) })} />
-                <span className="text-slate-500">môn nhận xét &ldquo;chưa đạt&rdquo;</span>
-                <Del disabled={levels.length <= 2} onClick={() => set("learning", { ...p.learning, levels: levels.filter((_, at) => at !== i) })} />
-              </>}
+            <div key={i} className="space-y-2 rounded-md border p-2 text-sm">
+              <div className="flex items-center gap-2">
+                <TxtIn w="min-w-0 flex-1 sm:w-40 sm:flex-none" value={l.name} onChange={(name) => set("learning", { ...p.learning, levels: patch(levels, i, { name }) })} placeholder="Tên mức" />
+                {i === last ? <span className="text-xs text-slate-500">Mức không đạt (mặc định)</span> : <Del disabled={levels.length <= 2} onClick={() => set("learning", { ...p.learning, levels: levels.filter((_, at) => at !== i) })} />}
+              </div>
+              {i !== last && <div className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
+                {([["Mọi môn từ (điểm)", "minEach", 0.1], ["Ít nhất (môn)", "highCount", 1], ["Số môn đó từ (điểm)", "highScore", 0.1], ["Tối đa môn “chưa đạt”", "maxFailedComments", 1]] as const).map(([label, key, step]) => (
+                  <label key={key} className="block space-y-1"><span className="block text-xs text-slate-500">{label}</span><NumIn step={step} w="w-full" value={l[key]} onChange={(v) => set("learning", { ...p.learning, levels: patch(levels, i, { [key]: v }) })} /></label>
+                ))}
+              </div>}
             </div>
           ))}
         </div>
