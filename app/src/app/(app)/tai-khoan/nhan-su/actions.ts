@@ -9,6 +9,8 @@ export const assignUnionLeader = wrap(async (fd) => {
   const me = await assertRole("ADMIN");
   const accountId = str(fd, "accountId");
   const title = str(fd, "position") || null;
+  const target = await db.user.findUnique({ where: { accountId }, select: { roles: true } });
+  if (target?.roles.includes("ADMIN")) throw new Error("Không được thay đổi phân quyền của tài khoản quản trị hệ thống");
   if (!accountId || (title && (title.length < 2 || title.length > 60))) throw new Error("Chọn nhân sự và chức danh hợp lệ");
   // Recheck target and actor inside the database command; revocation never locks the shared identity.
   await runSharedCommand(() => db.$queryRaw`SELECT 1 FROM edu.assign_union_leader('edu', ${me.id}, ${accountId}, ${title})`);

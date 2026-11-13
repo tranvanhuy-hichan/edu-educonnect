@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { assertRole, ADMIN_ROLES } from "@/lib/guard";
 import { wrap, str, int } from "@/lib/action";
 import { parseDate } from "@/lib/format";
+import { deleteSharedAcademicYear } from "@/modules/academic/calendar-management";
+import { schoolYearIdentity } from "@/modules/academic/school-year-name";
 import { audit } from "@/lib/audit";
 import { deleteImage, isCloudinaryConfigured, uploadSchoolLogo } from "@/lib/cloudinary";
 import * as scoringService from "@/modules/scoring/scoring.service";
@@ -35,13 +37,12 @@ const overlap = (a: { start: Date; end: Date }, b: { start: Date; end: Date }) =
 /* ===== Năm học & học kỳ ===== */
 export const addAcademicYear = wrap(async (fd) => {
   const me = await assertRole(...ADMIN_ROLES);
-  const yearName = str(fd, "yearName");
-  if (!yearName) throw new Error("Nhập tên năm học (vd 2027-2028)");
+  const { yearName, schoolYear } = schoolYearIdentity(str(fd, "yearName"));
   const hk1 = period(fd, "hk1", "Học kỳ 1"), hk2 = period(fd, "hk2", "Học kỳ 2");
   if (hk2.start <= hk1.end) throw new Error("Học kỳ 2 phải bắt đầu sau khi học kỳ 1 kết thúc");
   if (await db.academicYear.findUnique({ where: { yearName } })) throw new Error("Năm học này đã tồn tại");
   const year = await db.academicYear.create({ data: {
-    yearName, startDate: hk1.start, endDate: hk2.end,
+    yearName, schoolYear, startDate: hk1.start, endDate: hk2.end,
     terms: { create: [{ termName: "HK1", startDate: hk1.start, endDate: hk1.end }, { termName: "HK2", startDate: hk2.start, endDate: hk2.end }] },
   } });
   await audit(me.email, "create", "AcademicYear", year.id);
@@ -51,13 +52,15 @@ export const addAcademicYear = wrap(async (fd) => {
 
 export const updateAcademicYear = wrap(async (fd) => {
   const me = await assertRole(...ADMIN_ROLES);
-  const id = str(fd, "id"), yearName = str(fd, "yearName");
-  if (!yearName) throw new Error("Nhập tên năm học");
+  const id = str(fd, "id");
+  const { yearName, schoolYear } = schoolYearIdentity(str(fd, "yearName"));
+  const current = await db.academicYear.findUniqueOrThrow({ where: { id } });
+  if (current.schoolYear !== null && current.schoolYear !== schoolYear) throw new Error("Không đổi niên khóa đã liên kết. Hãy tạo năm học mới.");
   const { start, end } = dates(fd);
   if (await db.academicYear.findFirst({ where: { yearName, id: { not: id } } })) throw new Error("Đã có năm học cùng tên");
   const terms = await db.academicTerm.findMany({ where: { academicYearId: id } });
   if (terms.some((t) => t.startDate < start || t.endDate > end)) throw new Error("Thời gian năm học phải bao trùm các học kỳ của năm. Hãy sửa học kỳ trước hoặc dùng nút sửa học kỳ.");
-  await db.academicYear.update({ where: { id }, data: { yearName, startDate: start, endDate: end } });
+  await db.academicYear.update({ where: { id }, data: { yearName, schoolYear, startDate: start, endDate: end } });
   await audit(me.email, "update", "AcademicYear", id);
   done();
 });
@@ -65,14 +68,7 @@ export const updateAcademicYear = wrap(async (fd) => {
 export const deleteAcademicYear = wrap(async (fd) => {
   const me = await assertRole(...ADMIN_ROLES);
   const id = str(fd, "id");
-  const [classes, enrollments] = await Promise.all([db.schoolClass.count({ where: { academicYearId: id } }), db.studentClassEnrollment.count({ where: { academicYearId: id } })]);
-  if (classes || enrollments) throw new Error("Năm học đã có lớp/học sinh, không thể xoá");
-  const terms = await db.academicTerm.findMany({ where: { academicYearId: id }, select: { id: true } });
-  const used = await db.classSubjectAssignment.count({ where: { academicTermId: { in: terms.map((t) => t.id) } } });
-  if (used) throw new Error("Học kỳ của năm học này đã có phân công giảng dạy, không thể xoá");
-  await db.scoreWeightConfig.deleteMany({ where: { academicTermId: { in: terms.map((t) => t.id) } } });
-  await db.academicTerm.deleteMany({ where: { academicYearId: id } });
-  await db.academicYear.delete({ where: { id } });
+  await deleteSharedAcademicYear(id);
   await audit(me.email, "delete", "AcademicYear", id);
   done();
 });

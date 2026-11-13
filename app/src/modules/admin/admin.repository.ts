@@ -1,4 +1,5 @@
-import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
+import { ForbiddenError } from "@/shared/errors";
+import { createSharedAccount, setSharedPassword } from "@/modules/account/account.repository";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { databaseFor, type DatabaseContext } from "@/infrastructure/database/unit-of-work";
@@ -77,12 +78,11 @@ export function countActiveAdminsExcept(id: string) {
   return prisma.user.count({ where: { id: { not: id }, isActive: true, roles: { has: "ADMIN" } } });
 }
 
-export function updateUserRoles(id: string, roles: CreateUserInput["roles"]) {
-  return prisma.user.update({
-    where: { id },
-    data: { roles },
-    select: { id: true, email: true, roles: true, isActive: true },
-  });
+export async function updateUserRoles(id: string, roles: CreateUserInput["roles"]) {
+  // Keep the condition in the write itself so concurrent changes cannot edit an ADMIN.
+  const changed = await prisma.user.updateMany({ where: { id, NOT: { roles: { has: "ADMIN" } } }, data: { roles } });
+  if (!changed.count) throw new ForbiddenError("Không được sửa quyền tài khoản quản trị hệ thống");
+  return prisma.user.findUniqueOrThrow({ where: { id }, select: { id: true, email: true, roles: true, isActive: true } });
 }
 
 export function setUserActive(id: string, isActive: boolean) {

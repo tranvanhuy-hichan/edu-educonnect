@@ -16,6 +16,8 @@ Cổng Đoàn: **Cài đặt → Ban chấp hành**, dành cho quản trị tố
 
 Chi tiết lớp/chi đoàn có lớp trưởng, bí thư và nhiều cờ đỏ. Bí thư/cờ đỏ vẫn là học sinh thông thường tại EduConnect. Không kiêm bí thư và cờ đỏ; có thể kiêm lớp trưởng. Chuyển lớp/ngừng sinh hoạt tự gỡ phân công cũ. Chức danh Đoàn chỉ phản ánh lớp hiện hành; không dùng chức danh hiện tại làm lịch sử năm cũ.
 
+Trang quản lý nhân sự hiển thị danh sách theo cột, có tìm kiếm và lọc nhóm. Thêm nhân sự, thêm BCH riêng, sửa vai trò, phân công Đoàn và bảo mật đều mở bằng nút vào hộp thoại; không hiển thị biểu mẫu chỉnh sửa thường trực. Tài khoản có vai trò ADMIN chỉ hiển thị quyền, không có thao tác sửa. Service và câu lệnh cập nhật có điều kiện chặn mọi thay đổi vai trò của ADMIN, kể cả gọi trực tiếp hoặc thay đổi đồng thời.
+
 ## Hoạt động độc lập
 
 Không hệ thống nào cần gọi HTTP/API của ứng dụng kia để đăng nhập hoặc quản lý dữ liệu của mình. Dừng một web server không làm web còn lại ngừng hoạt động. Cả hai vẫn cần PostgreSQL tương ứng; việc dùng chung DB production là lựa chọn triển khai, không phải phụ thuộc web server.
@@ -44,3 +46,9 @@ Script bảo trì `app/scripts/adopt-union-teachers.ts --account=<username>` ch�
 - Snapshot trước/sau xác nhận tên đăng nhập, mật khẩu băm, role Đoàn, trạng thái khóa và cờ đổi mật khẩu của 5 tài khoản liên quan giữ nguyên. Không gộp lịch sử tài khoản.
 
 Các phát hiện cũ ngoài phạm vi: Cổng Đoàn chưa vô hiệu JWT cũ khi đổi mật khẩu; chưa nối lịch tự động gọi đối soát khi chuyển năm học. Build EduConnect còn cảnh báo Edge `node:crypto`; lint toàn dự án có lỗi cũ ngoài phần sửa. Không coi các kiểm tra trên là kiểm chứng mọi nghiệp vụ của hai hệ thống.
+
+## Đồng bộ danh sách năm học
+
+Trang cài đặt Cổng Đoàn chỉ hiển thị các năm đã lưu, giống danh sách EduConnect. Các năm dự phòng tự tính vẫn phục vụ bộ lọc nghiệp vụ khi cần, nhưng không được trình bày như năm đã tạo trong cài đặt. Đặt lại mặc định cập nhật bản ghi tại chỗ để trigger đồng bộ năm học và HK1/HK2; không xóa liên kết. EduConnect chuẩn hóa tên năm học về mã niên khóa ổn định (kể cả dấu gạch dài), không cho đổi niên khóa đã liên kết thành năm khác. Xóa năm học chưa sử dụng được thực hiện trên hai schema trong một giao dịch; năm đã có lớp/học sinh hoặc các phụ thuộc khác bị từ chối.
+
+Đã kiểm tra bằng trình duyệt rằng BCH sử dụng bảng/nút biểu tượng cùng các thành phần giao diện sẵn có của Cổng Đoàn, các biểu mẫu ẩn đến khi bấm nút, và trang cài đặt hai bên đều chỉ có năm 2026–2027 trong database hiện tại. Kiểm thử đặt lại và xóa năm trống chạy trong giao dịch hoàn tác, không đổi lịch production.

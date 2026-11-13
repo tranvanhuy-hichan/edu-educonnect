@@ -71,18 +71,13 @@ export async function updateUserRoles(
 
   const target = await adminRepository.findUserById(id);
   if (!target) throw new ConflictError("Tài khoản không tồn tại");
+  if (target.roles.includes("ADMIN")) throw new ForbiddenError("Không được sửa quyền tài khoản quản trị hệ thống");
 
   if (input.roles.includes("STUDENT") !== target.roles.includes("STUDENT")) {
     throw new ConflictError("Vai trò học sinh gắn với hồ sơ học sinh, không đổi ở đây");
   }
   if (hasTeacherRole(input.roles) && !target.teacher) {
     throw new ConflictError("Chưa có hồ sơ giáo viên — hãy tạo ở mục Giáo viên trước khi gán vai trò này");
-  }
-  if (target.roles.includes("ADMIN") && !input.roles.includes("ADMIN")) {
-    if (target.id === user.userId) throw new ConflictError("Không thể tự bỏ quyền quản trị của chính mình");
-    if ((await adminRepository.countActiveAdminsExcept(id)) === 0) {
-      throw new ConflictError("Hệ thống phải còn ít nhất một quản trị viên");
-    }
   }
 
   const updated = await adminRepository.updateUserRoles(id, input.roles);

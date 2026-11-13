@@ -50,6 +50,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
   const liveSessions = tab === "security" ? await sessionRepo.listLiveSessions(u.id) : [];
   const lockedNow = !!u.lockedUntil && u.lockedUntil.getTime() > new Date().getTime();
   const isSelf = u.id === me.id;
+  const protectedAdmin = u.roles.includes("ADMIN");
   const hue = [...u.id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 0);
   const cls = u.student?.enrollments[0]?.schoolClass;
 
@@ -101,7 +102,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
           </div>
           <div className="grid gap-4 xl:grid-cols-3">
             <Card className="p-0 xl:col-span-2">
-              <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">Vai trò</h2><Link href="?tab=roles" className="text-sm text-orange-700 hover:underline">Chỉnh sửa →</Link></div>
+              <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">Vai trò</h2>{!protectedAdmin && <Link href="?tab=roles" className="text-sm text-orange-700 hover:underline">Chỉnh sửa →</Link>}</div>
               <ul className="divide-y text-sm">
                 {u.roles.map((r) => <li key={r} className="flex items-center justify-between px-4 py-3"><b>{ROLE_LABEL[r]}</b><span className="text-xs text-slate-500">{r}</span></li>)}
               </ul>
@@ -123,7 +124,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
         <Card mobile="flat">
           <h2 className="mb-1 font-semibold">Vai trò của tài khoản</h2>
           <p className="mb-3 text-sm text-slate-600">Một người có thể giữ nhiều vai trò (vd GVCN kiêm GVBM) và sẽ thấy gộp menu của các vai trò đó. Vai trò giáo viên cần có hồ sơ giáo viên; vai trò học sinh gắn với hồ sơ học sinh nên không đổi ở đây.</p>
-          <ActionForm action={updateAccountRoles} submit="Lưu vai trò" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
+          {protectedAdmin ? <div className="rounded-lg border bg-slate-50 p-4"><p className="font-medium">Quyền quản trị hệ thống được bảo vệ</p><p className="mt-1 text-sm text-slate-500">Không thể thay đổi vai trò của tài khoản quản trị.</p><div className="mt-3 flex flex-wrap gap-2">{u.roles.map((r) => <span key={r} className="rounded bg-slate-100 px-2 py-1 text-xs">{ROLE_LABEL[r]}</span>)}</div></div> : <ActionForm action={updateAccountRoles} submit="Lưu vai trò" reset={false} className="flex flex-col gap-3 [&>button]:self-start">
             <input type="hidden" name="userId" value={u.id} />
             <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
               {u.roles.includes("STUDENT") && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked disabled className="size-4" /><input type="hidden" name="roles" value="STUDENT" /> {ROLE_LABEL.STUDENT}</label>}
@@ -139,7 +140,7 @@ export default async function AccountDetail({ params, searchParams }: { params: 
               })}
             </div>
             {!u.teacher && !u.student && <p className="text-xs text-slate-500">Muốn gán vai trò giáo viên, hãy tạo hồ sơ giáo viên ở mục Giáo viên trước.</p>}
-          </ActionForm>
+          </ActionForm>}
         </Card>
       )}
 
