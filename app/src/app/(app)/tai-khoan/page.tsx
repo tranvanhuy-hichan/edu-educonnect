@@ -98,8 +98,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
       <div className="flex flex-wrap items-center gap-2">
       <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
         <input type="hidden" name="v" value={view} />
-        <label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">Vai trò<select key={tab} name="tab" defaultValue={tab} className={inputCls}>{TABS.map(([key,label]) => <option key={key} value={key}>{label} ({counts[key] ?? 0})</option>)}</select></label>
-        <input name="q" defaultValue={q} placeholder="Tìm theo email, tên, mã..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
+        <label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto"><span className="shrink-0">Vai trò</span><select key={tab} name="tab" defaultValue={tab} className={inputCls + " min-w-0 flex-1 sm:flex-none"}>{TABS.map(([key,label]) => <option key={key} value={key}>{label} ({counts[key] ?? 0})</option>)}</select></label>
+        <input name="q" defaultValue={q} placeholder="Tìm theo email, tên, mã..." className={inputCls + " w-full min-w-0 sm:w-auto sm:flex-1 md:min-w-48"} />
         <MobileCollapse active={[status, sort !== "az" ? sort : ""].filter(Boolean).length}>
           <select name="status" defaultValue={status} className={inputCls}><option value="">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khoá</option></select>
           <select name="sort" defaultValue={sort} className={inputCls}><option value="az">Email A-Z</option><option value="za">Email Z-A</option><option value="new">Mới nhất</option></select>
