@@ -1,3 +1,4 @@
+import { AccountTabs } from "@/components/account-tabs";
 import Link from "next/link";
 import { LockKeyhole, Pencil, Plus, Search, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
@@ -41,7 +42,7 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
 
   return <div className="w-full space-y-5">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-      <div><h1 className="text-2xl font-semibold tracking-tight">Quản lý nhân sự</h1><p className="mt-1 text-sm text-slate-500">Hồ sơ nhân sự, vai trò chuyên môn và phân công Đoàn trường.</p></div>
+      <div><h1 className="text-2xl font-semibold tracking-tight">Tài khoản & Nhân sự</h1><p className="mt-1 text-sm text-slate-500">Hồ sơ nhân sự, vai trò chuyên môn và phân công Đoàn trường.</p></div>
       <div className="flex flex-wrap gap-2">
         <DialogButton label={<><UserPlus className="size-4" />Thêm BCH riêng</>} title="Thêm tài khoản BCH riêng" variant="secondary" width="sm">
           <p className="mb-4 text-sm text-slate-500">Dành cho học sinh tham gia BCH hoặc người chưa có tài khoản giáo viên. Tài khoản học sinh được giữ riêng.</p>
@@ -61,6 +62,7 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
         </DialogButton>
       </div>
     </header>
+    <AccountTabs current="/tai-khoan/nhan-su" />
     <div className="grid grid-cols-3 gap-3">
       {[["Nhân sự", staff.length, Users], ["Ban chấp hành", unionCount, ShieldCheck], ["BCH riêng", standalone.length, UserPlus]].map(([label, value, Icon]) => {
         const I = Icon as typeof Users;

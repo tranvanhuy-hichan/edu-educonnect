@@ -1,3 +1,4 @@
+import { AccountTabs } from "@/components/account-tabs";
 import Link from "next/link";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
 import { ROLE_LABEL } from "@/lib/nav";
@@ -37,7 +38,7 @@ export default async function AccountReviewPage() {
   const me = await requireRole(...ADMIN_ROLES);
   const r = await accountReview(me);
   return (
-    <div className="space-y-6">
+    <div className="space-y-6"><AccountTabs current="/tai-khoan/bao-mat" />
       <Title>Rà soát tài khoản</Title>
       <Card className="space-y-1 text-sm text-slate-600">
         <p>Liệt kê tài khoản có dấu hiệu không còn sử dụng để bạn quyết định khoá, giảm rủi ro bảo mật. Hệ thống <b>không tự khoá</b> ai. Khoá xong vẫn mở lại được và dữ liệu được giữ nguyên.</p>

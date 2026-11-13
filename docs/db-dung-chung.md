@@ -13,7 +13,7 @@ EduConnect và Cổng thông tin Đoàn (khkt-congthongtindoan) dùng **một da
 - Tài khoản chỉ của EduConnect (giáo viên, nhân sự) có vai trò khkt `EXTERNAL`: khkt từ chối đăng nhập và không gửi thông báo cho họ.
 - **Quyền tách riêng:** tài khoản BCH (`ADMIN`, không phải `superAdmin`) được dùng chung nếu đã có hồ sơ `edu.Teacher` và không mang role `STUDENT`. Quản trị tối cao Cổng Đoàn và `DEPARTMENT_ACCOUNT` không được liên kết. Quyền EduConnect chỉ lấy từ `edu.User.roles`, không suy từ role Đoàn.
 - Học sinh tham gia BCH dùng **tài khoản BCH riêng**, không liên kết tài khoản học sinh. Hai bên có thể tạo BCH riêng; chỉ giáo viên được dùng chung tài khoản BCH.
-- Quản lý nhân sự: EduConnect → Tài khoản → Quản lý nhân sự; Cổng Đoàn → Cài đặt → Ban chấp hành (quản trị tối cao). Bổ nhiệm bằng tài khoản giáo viên sẵn có; thu hồi chuyển quyền Đoàn về `EXTERNAL`, không khóa tài khoản hay đổi mật khẩu.
+- Quản lý nhân sự: EduConnect/Cổng Đoàn → Tài khoản & Nhân sự → Nhân sự & BCH (quản trị tối cao). Bổ nhiệm bằng tài khoản giáo viên sẵn có; thu hồi chuyển quyền Đoàn về `EXTERNAL`, không khóa tài khoản hay đổi mật khẩu.
 - Ban cán sự: lớp trưởng lưu ở `edu.SchoolClass.monitorStudentId`, bí thư/cờ đỏ ở liên kết chi đoàn. Hai giao diện dùng chung lệnh `edu.assign_class_officer()`, không thêm role vào học sinh EduConnect. Chỉ chỉnh chức danh của năm hiện hành; lớp cũ không hiển thị chức danh Đoàn hiện tại như dữ liệu lịch sử.
 - Cho đoàn viên dùng EduConnect: `npx tsx scripts/adopt-khkt-members.ts` (chạy thử) rồi thêm `--apply`.
 

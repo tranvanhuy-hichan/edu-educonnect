@@ -10,9 +10,9 @@
 
 ## Giao diện
 
-EduConnect: **Tài khoản → Quản lý nhân sự** (`/tai-khoan/nhan-su`) cho ADMIN: tìm nhân sự, sửa vai trò hiệu trưởng/phó hiệu trưởng/giáo viên/thủ thư qua hồ sơ tài khoản, phân công BCH trên giáo viên hiện có; tạo và quản lý tài khoản BCH riêng.
+EduConnect: **Tài khoản & Nhân sự → Nhân sự & BCH** (`/tai-khoan/nhan-su`) cho ADMIN: tìm nhân sự, sửa vai trò hiệu trưởng/phó hiệu trưởng/giáo viên/thủ thư qua hồ sơ tài khoản, phân công BCH trên giáo viên hiện có; tạo và quản lý tài khoản BCH riêng.
 
-Cổng Đoàn: **Cài đặt → Ban chấp hành**, dành cho quản trị tối cao: chọn **Liên kết tài khoản giáo viên** hoặc **Tạo tài khoản BCH riêng**; sửa chức danh, thu hồi/khóa/mở và đặt lại mật khẩu. Mật khẩu mới chỉ hiển thị một lần; bắt đổi khi đăng nhập.
+Cổng Đoàn: **Tài khoản & Nhân sự → Nhân sự & BCH**, dành cho quản trị tối cao: chọn **Liên kết tài khoản giáo viên** hoặc **Tạo tài khoản BCH riêng**; sửa chức danh, thu hồi/khóa/mở và đặt lại mật khẩu. Mật khẩu mới chỉ hiển thị một lần; bắt đổi khi đăng nhập.
 
 Chi tiết lớp/chi đoàn có lớp trưởng, bí thư và nhiều cờ đỏ. Bí thư/cờ đỏ vẫn là học sinh thông thường tại EduConnect. Không kiêm bí thư và cờ đỏ; có thể kiêm lớp trưởng. Chuyển lớp/ngừng sinh hoạt tự gỡ phân công cũ. Chức danh Đoàn chỉ phản ánh lớp hiện hành; không dùng chức danh hiện tại làm lịch sử năm cũ.
 
@@ -52,3 +52,5 @@ Các phát hiện cũ ngoài phạm vi: Cổng Đoàn chưa vô hiệu JWT cũ k
 Trang cài đặt Cổng Đoàn chỉ hiển thị các năm đã lưu, giống danh sách EduConnect. Các năm dự phòng tự tính vẫn phục vụ bộ lọc nghiệp vụ khi cần, nhưng không được trình bày như năm đã tạo trong cài đặt. Đặt lại mặc định cập nhật bản ghi tại chỗ để trigger đồng bộ năm học và HK1/HK2; không xóa liên kết. EduConnect chuẩn hóa tên năm học về mã niên khóa ổn định (kể cả dấu gạch dài), không cho đổi niên khóa đã liên kết thành năm khác. Xóa năm học chưa sử dụng được thực hiện trên hai schema trong một giao dịch; năm đã có lớp/học sinh hoặc các phụ thuộc khác bị từ chối.
 
 Đã kiểm tra bằng trình duyệt rằng BCH sử dụng bảng/nút biểu tượng cùng các thành phần giao diện sẵn có của Cổng Đoàn, các biểu mẫu ẩn đến khi bấm nút, và trang cài đặt hai bên đều chỉ có năm 2026–2027 trong database hiện tại. Kiểm thử đặt lại và xóa năm trống chạy trong giao dịch hoàn tác, không đổi lịch production.
+
+Điều hướng mới và các đường dẫn tương thích được mô tả tại [Điều hướng quản trị thống nhất](dieu-huong-quan-ly-chung.md).

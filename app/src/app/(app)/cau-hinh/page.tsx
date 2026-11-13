@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ToolbarActions } from "@/components/toolbar-actions";
 import { db } from "@/lib/db";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
@@ -11,30 +12,34 @@ import { getPolicy } from "@/lib/policy";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { addAcademicTerm, addAcademicYear, addGradeLevel, deleteAcademicTerm, deleteAcademicYear, deleteGradeLevel, removeSchoolLogo, saveScoreWeights, updateAcademicTerm, updateAcademicYear, updateGradeLevel, updateSchoolBrand } from "./actions";
 
-const TABS = [["years", "Năm học & học kỳ"], ["grades", "Khối lớp"], ["weights", "Hệ số điểm"], ["policy", "Quy chế"], ["brand", "Giao diện"]] as const;
+const TABS = [["years", "Năm học"], ["catalogs", "Danh mục"], ["policy", "Quy chế"], ["brand", "Giao diện"], ["system", "Hệ thống"]] as const;
 
-export default async function Settings({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function Settings({ searchParams }: { searchParams: Promise<{ tab?: string; section?: string }> }) {
   await requireRole(...ADMIN_ROLES);
   const sp = await searchParams;
-  const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "years";
+  const requested = sp.tab === "grades" ? "catalogs" : sp.tab === "weights" ? "policy" : sp.tab;
+  const tab = TABS.some(([k]) => k === requested) ? requested! : "years";
+  const section = sp.tab === "weights" || sp.section === "weights" ? "weights" : "general";
 
   const [yearCount, gradeCount, termCount] = await Promise.all([db.academicYear.count(), db.gradeLevel.count(), db.academicTerm.count()]);
-  const counts: Record<string, number> = { years: yearCount, grades: gradeCount, weights: termCount, policy: 0, brand: 0 };
+  const counts: Record<string, number> = { years: yearCount, catalogs: gradeCount, weights: termCount, policy: 0, brand: 0 };
   const [years, grades, terms] = await Promise.all([
     tab === "years" ? db.academicYear.findMany({
       orderBy: { startDate: "desc" },
       include: { _count: { select: { classes: true } }, terms: { orderBy: { termName: "asc" }, include: { _count: { select: { assignments: true, timetableSlots: true } } } } },
     }) : Promise.resolve([]),
-    tab === "grades" ? db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { classes: true } } } }) : Promise.resolve([]),
-    tab === "weights" ? db.academicTerm.findMany({ orderBy: [{ academicYear: { startDate: "desc" } }, { termName: "asc" }], include: { academicYear: true, scoreWeightConfig: true } }) : Promise.resolve([]),
+    tab === "catalogs" ? db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" }, include: { _count: { select: { classes: true } } } }) : Promise.resolve([]),
+    tab === "policy" && section === "weights" ? db.academicTerm.findMany({ orderBy: [{ academicYear: { startDate: "desc" } }, { termName: "asc" }], include: { academicYear: true, scoreWeightConfig: true } }) : Promise.resolve([]),
   ]);
 
   return (
     <div className="space-y-4">
-      <Title>Cấu hình</Title>
-      <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "brand" || k === "policy" ? l : `${l} (${counts[k]})`] as [string, string])} />
+      <Title>Cấu hình & Cài đặt</Title>
+      <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, !["years", "catalogs"].includes(k) ? l : `${l} (${counts[k]})`] as [string, string])} />
 
-      {tab === "policy" && <PolicyForm initial={await getPolicy()} />}
+      {tab === "policy" && <Tabs current={`?tab=policy&section=${section}`} items={[["?tab=policy&section=general", "Quy chế chung"], ["?tab=policy&section=weights", "Hệ số điểm"]]} />}
+      {tab === "policy" && section === "general" && <PolicyForm initial={await getPolicy()} />}
+      {tab === "system" && <div className="grid gap-3 md:grid-cols-2">{[["/van-hanh", "Vận hành hệ thống", "Theo dõi tác vụ và tình trạng hoạt động."], ["/nhat-ky", "Nhật ký hoạt động", "Tra cứu lịch sử thao tác."], ["/thung-rac", "Thùng rác", "Xem và khôi phục dữ liệu đã xóa."], ["/ket-noi-api", "Kết nối API", "Quản lý quyền truy cập từ hệ thống khác."]].map(([href,title,hint]) => <Link key={href} href={href} className="rounded-lg border bg-white p-4 hover:bg-slate-50"><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{hint}</p></Link>)}</div>}
 
       {tab === "years" && (
         <div className="space-y-4">
@@ -101,8 +106,9 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         </div>
       )}
 
-      {tab === "grades" && (
+      {tab === "catalogs" && (
         <Card mobile="flat">
+          <div className="mb-4 flex flex-wrap gap-2"><Link href="/mon-hoc" className="rounded-md border px-3 py-2 text-sm hover:bg-slate-50">Môn học →</Link><Link href="/phong-hoc" className="rounded-md border px-3 py-2 text-sm hover:bg-slate-50">Phòng học →</Link></div>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-semibold">Khối lớp</h2>
             <ToolbarActions label="Thao tác cấu hình"><DialogButton label="+ Thêm khối" title="Thêm khối lớp">
@@ -135,7 +141,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
         </Card>
       )}
 
-      {tab === "weights" && (
+      {tab === "policy" && section === "weights" && (
         <Card mobile="flat" className="space-y-3">
           <div>
             <h2 className="font-semibold">Hệ số điểm theo học kỳ</h2>
