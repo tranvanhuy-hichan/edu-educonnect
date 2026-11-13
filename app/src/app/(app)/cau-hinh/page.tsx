@@ -182,7 +182,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
               <p className="mt-1 text-sm text-slate-600">Hiện ở sidebar, trang đăng nhập và tiêu đề trình duyệt của toàn hệ thống.</p>
             </div>
             <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
-              <div className="flex flex-col items-center gap-4 rounded-xl border bg-slate-50/60 p-6 text-center">
+              <div className="flex flex-col items-center gap-4 rounded-xl border bg-slate-50/60 p-6 text-center dark:bg-slate-800/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {brand.logoUrl ? <img src={brand.logoUrl} alt="" className="size-32 rounded-full border-2 border-white object-cover shadow-md" /> : (
                   <div className="theme-sidebar grid size-32 place-items-center rounded-full text-5xl font-bold shadow-md" style={{ color: "var(--sb-fg)" }}>{brand.schoolName.slice(0, 1).toUpperCase()}</div>

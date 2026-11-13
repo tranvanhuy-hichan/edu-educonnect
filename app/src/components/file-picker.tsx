@@ -39,7 +39,7 @@ export function FilePicker({ name, accept, maxMB, hint, round, disabled, require
         onDragOver={(e) => { e.preventDefault(); if (!disabled) setOver(true); }}
         onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); if (!disabled) pick(e.dataTransfer.files[0] ?? null); }}
-        className={`flex flex-wrap items-center gap-4 rounded-xl border-2 border-dashed p-4 transition-colors ${over ? "border-orange-500 bg-orange-50" : "border-slate-300 bg-slate-50/60"} ${disabled ? "opacity-60" : ""}`}>
+        className={`flex flex-wrap items-center gap-4 rounded-xl border-2 border-dashed p-4 transition-colors ${over ? "border-orange-500 bg-orange-50 dark:bg-orange-500/10" : "border-slate-300 bg-slate-50/60 dark:bg-slate-800/40"} ${disabled ? "opacity-60" : ""}`}>
         {file ? (
           <>
             {preview

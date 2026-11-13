@@ -159,6 +159,8 @@ tr[data-clickable] { cursor: pointer; }
 
 /* Fallback cho các utility sáng chưa khai báo dark: riêng.
    Giữ nguyên bảng màu Tailwind để các lớp dark: vẫn có đúng sắc độ. */
+:root[data-dark="1"] [class*="bg-slate-50/"]:not([class*="dark:bg-"]) { background-color: rgb(24 34 52 / .6); }
+:root[data-dark="1"] [class*="hover:bg-slate-50/"]:not([class*="dark:hover:bg-"]):hover { background-color: #223047; }
 :root[data-dark="1"] .bg-slate-50:not([class*="dark:bg-"]) { background-color: #182234; }
 :root[data-dark="1"] .bg-slate-100:not([class*="dark:bg-"]) { background-color: #223047; }
 :root[data-dark="1"] .bg-slate-200:not([class*="dark:bg-"]) { background-color: #304158; }
