@@ -1,6 +1,7 @@
+import { AutoForm } from "@/components/auto-form";
 import { SystemTabs } from "@/components/system-tabs";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
-import { Card, Table, Tabs, Title } from "@/components/ui";
+import { Card, Table, inputCls, Title } from "@/components/ui";
 import { ActionForm } from "@/components/action-form";
 import { KIND_LABEL, listTrash } from "@/modules/trash/trash.service";
 import { TRASH_DAYS } from "@/modules/trash/trash.repository";
@@ -15,13 +16,12 @@ export default async function TrashPage({ searchParams }: { searchParams: Promis
   const [items, all] = await Promise.all([listTrash(me, kind), listTrash(me)]);
   const now = new Date().getTime();
   const count = (k: string) => all.filter((i) => i.kind === k).length;
-  const tab = (k: string) => `/thung-rac${k ? `?kind=${k}` : ""}`;
   return (
     <div className="space-y-4">
       <SystemTabs current="/thung-rac" />
       <Title>Thùng rác</Title>
       <Card className="text-sm text-slate-600">Học sinh, lớp, bài học và câu hỏi bị xoá được giữ <b>{TRASH_DAYS} ngày</b> tại đây, kèm các dữ liệu liên quan (điểm trung bình, bài nộp, xếp lớp…). Khôi phục lại nguyên trạng bằng một nút. Quá hạn sẽ bị xoá vĩnh viễn. Thông báo và phiên đăng nhập của học sinh không được lưu.</Card>
-      <Tabs current={tab(kind)} items={[[tab(""), `Tất cả (${all.length})`] as [string, string], ...Object.entries(KIND_LABEL).map(([k, l]) => [tab(k), `${l} (${count(k)})`] as [string, string])]} />
+      <AutoForm className="flex flex-wrap items-center gap-2"><label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">Loại dữ liệu<select key={kind} name="kind" defaultValue={kind} className={inputCls}><option value="">Tất cả ({all.length})</option>{Object.entries(KIND_LABEL).map(([key,label]) => <option key={key} value={key}>{label} ({count(key)})</option>)}</select></label></AutoForm>
       <Table head={["Loại", "Tên", "Chi tiết", "Xoá bởi", "Xoá lúc", "Còn lại", ""]}>
         {items.map((i) => (
           <tr key={i.id}>

@@ -8,7 +8,7 @@ import { requireRole, ADMIN_ROLES, type Role } from "@/lib/guard";
 import { ROLE_LABEL } from "@/lib/nav";
 import { ActionForm } from "@/components/action-form";
 import { DialogButton } from "@/components/dialog";
-import { Field, inputCls, Table, Tabs, Title } from "@/components/ui";
+import { Field, inputCls, Table, Title } from "@/components/ui";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
@@ -20,7 +20,8 @@ const CREATE_ROLES: Role[] = ["ADMIN", "PRINCIPAL", "VICE_PRINCIPAL", "HOMEROOM_
 export default async function Accounts({ searchParams }: { searchParams: Promise<{ q?: string; tab?: string; status?: string; sort?: string; page?: string; size?: string; v?: string }> }) {
   await requireRole(...ADMIN_ROLES);
   const sp = await searchParams;
-  const { q = "", tab = "all", status = "", sort = "az" } = sp;
+  const { q = "", status = "", sort = "az" } = sp;
+  const tab = TABS.some(([key]) => key === sp.tab) ? sp.tab! : "all";
   const view = pickView(sp.v, "table");
   const pg = getPaging(sp);
 
@@ -47,7 +48,6 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   ]);
   const counts: Record<string, number> = Object.fromEntries(TABS.map(([k], i) => [k, countList[i]]));
   const params = { q, tab, status, sort, size: sp.size, v: sp.v };
-  const tabHref = (k: string) => `/tai-khoan?tab=${k}&q=${encodeURIComponent(q)}&status=${status}&sort=${sort}`;
 
   const nameOf = (u: (typeof users)[number]) => u.teacher?.fullName ?? u.student?.fullName ?? u.email;
   const profileOf = (u: (typeof users)[number]) =>
@@ -95,10 +95,10 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
     <div className="space-y-4">
       <Title right={accountActions}>Tài khoản & Nhân sự ({counts.all})</Title>
       <AccountTabs current="/tai-khoan" />
-      <Tabs current={tabHref(tab)} items={TABS.map(([k, l]) => [tabHref(k), `${l} (${counts[k] ?? 0})`] as [string, string])} />
       <div className="flex flex-wrap items-center gap-2">
       <AutoForm className="flex min-w-0 w-full flex-1 flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value={tab} /><input type="hidden" name="v" value={view} />
+        <input type="hidden" name="v" value={view} />
+        <label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">Vai trò<select key={tab} name="tab" defaultValue={tab} className={inputCls}>{TABS.map(([key,label]) => <option key={key} value={key}>{label} ({counts[key] ?? 0})</option>)}</select></label>
         <input name="q" defaultValue={q} placeholder="Tìm theo email, tên, mã..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[status, sort !== "az" ? sort : ""].filter(Boolean).length}>
           <select name="status" defaultValue={status} className={inputCls}><option value="">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="locked">Đã khoá</option></select>

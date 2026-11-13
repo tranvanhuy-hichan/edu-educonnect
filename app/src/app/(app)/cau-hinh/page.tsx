@@ -1,3 +1,4 @@
+import { AutoForm } from "@/components/auto-form";
 import Link from "next/link";
 import { ToolbarActions } from "@/components/toolbar-actions";
 import { db } from "@/lib/db";
@@ -37,7 +38,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       <Title>Cấu hình & Cài đặt</Title>
       <Tabs current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, !["years", "catalogs"].includes(k) ? l : `${l} (${counts[k]})`] as [string, string])} />
 
-      {tab === "policy" && <Tabs current={`?tab=policy&section=${section}`} items={[["?tab=policy&section=general", "Quy chế chung"], ["?tab=policy&section=weights", "Hệ số điểm"]]} />}
+      {tab === "policy" && <AutoForm className="flex flex-wrap items-center gap-2"><input type="hidden" name="tab" value="policy" /><label className="flex items-center gap-2 text-sm text-slate-500">Nội dung quy chế<select key={section} name="section" defaultValue={section} className={inputCls}><option value="general">Quy chế chung</option><option value="weights">Hệ số điểm</option></select></label></AutoForm>}
       {tab === "policy" && section === "general" && <PolicyForm initial={await getPolicy()} />}
       {tab === "system" && <div className="grid gap-3 md:grid-cols-2">{[["/van-hanh", "Vận hành hệ thống", "Theo dõi tác vụ và tình trạng hoạt động."], ["/nhat-ky", "Nhật ký hoạt động", "Tra cứu lịch sử thao tác."], ["/thung-rac", "Thùng rác", "Xem và khôi phục dữ liệu đã xóa."], ["/ket-noi-api", "Kết nối API", "Quản lý quyền truy cập từ hệ thống khác."]].map(([href,title,hint]) => <Link key={href} href={href} className="rounded-lg border bg-white p-4 hover:bg-slate-50"><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{hint}</p></Link>)}</div>}
 

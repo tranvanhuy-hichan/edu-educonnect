@@ -1,3 +1,4 @@
+import { AutoForm } from "@/components/auto-form";
 import { AccountTabs } from "@/components/account-tabs";
 import Link from "next/link";
 import { LockKeyhole, Pencil, Plus, Search, ShieldCheck, UserPlus, Users } from "lucide-react";
@@ -38,7 +39,6 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
   const visibleStaff = group === "union" ? staff.filter((u) => u.account.role === "ADMIN") : staff;
   const visibleStandalone = group === "staff" ? [] : standalone;
   const visibleCount = visibleStaff.length + visibleStandalone.length;
-  const groupHref = (g: string) => `?group=${g}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return <div className="w-full space-y-5">
     <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
@@ -71,10 +71,10 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
     </div>
     <Card className="overflow-hidden !p-0">
       <div className="flex flex-col justify-between gap-3 border-b p-4 lg:flex-row lg:items-center">
-        <nav aria-label="Nhóm nhân sự" className="flex gap-1 overflow-x-auto rounded-lg bg-slate-100 p-1 text-sm">
-          {[["all", "Tất cả"], ["staff", "Nhân sự"], ["union", "Ban chấp hành"]].map(([key, label]) => <Link key={key} href={groupHref(key)} aria-current={group === key ? "page" : undefined} className={`whitespace-nowrap rounded-md px-3 py-1.5 font-medium ${group === key ? "bg-white shadow-sm" : "text-slate-500 hover:text-slate-900"}`}>{label}</Link>)}
-        </nav>
-        <form className="flex w-full gap-2 lg:max-w-sm"><input type="hidden" name="group" value={group} /><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" /><input aria-label="Tìm nhân sự" className={`${fieldClass} pl-9`} name="q" defaultValue={q} placeholder="Tìm tên hoặc tài khoản…" /></div><button className="h-9 rounded-md border px-3 text-sm hover:bg-slate-50">Tìm</button></form>
+        <AutoForm className="flex w-full flex-wrap items-center gap-2">
+          <label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">Nhóm<select key={group} name="group" defaultValue={group} className={inputCls} aria-label="Nhóm nhân sự"><option value="all">Tất cả ({staff.length + standalone.length})</option><option value="staff">Nhân sự ({staff.length})</option><option value="union">Ban chấp hành ({unionCount})</option></select></label>
+          <div className="relative min-w-0 flex-1 sm:ml-auto sm:max-w-sm"><Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-slate-400" /><input aria-label="Tìm nhân sự" className={`${fieldClass} pl-9`} name="q" defaultValue={q} placeholder="Tìm tên hoặc tài khoản…" /></div><button className="h-9 rounded-md border px-3 text-sm hover:bg-slate-50">Tìm</button>
+        </AutoForm>
       </div>
       <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.15fr)_112px_220px] items-center gap-4 border-b bg-slate-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 xl:grid"><span>Nhân sự</span><span>Vai trò EduConnect</span><span>Chức vụ Đoàn</span><span>Trạng thái</span><span className="text-right">Thao tác</span></div>
       <div className="divide-y">

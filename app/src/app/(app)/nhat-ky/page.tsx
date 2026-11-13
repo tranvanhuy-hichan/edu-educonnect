@@ -3,7 +3,7 @@ import { SearchableSelect } from "@/components/searchable-select";
 import { AutoForm } from "@/components/auto-form";
 import { SystemTabs } from "@/components/system-tabs";
 import { requireRole, ADMIN_ROLES } from "@/lib/guard";
-import { inputCls, Table, Tabs, Title } from "@/components/ui";
+import { inputCls, Table, Title } from "@/components/ui";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
@@ -49,15 +49,13 @@ export default async function ActivityLog({ searchParams }: { searchParams: Prom
   ]);
   const all = types.reduce((n, t) => n + t._count, 0);
   const params = { q, tab, action, from, to, size: sp.size };
-  const href = (k: string) => `/nhat-ky?tab=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&action=${encodeURIComponent(action)}&from=${from}&to=${to}`;
 
   return (
     <div className="space-y-4">
       <SystemTabs current="/nhat-ky" />
       <Title>Nhật ký hoạt động ({all})</Title>
-      <Tabs current={href(tab)} items={[[href("all"), `Tất cả (${all})`] as [string, string], ...types.map((t) => [href(t.targetType), `${label(TYPE_LABEL, t.targetType)} (${t._count})`] as [string, string])]} />
       <AutoForm className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="tab" value={tab} />
+        <label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto">Đối tượng<select key={tab} name="tab" defaultValue={tab} className={inputCls}><option value="all">Tất cả ({all})</option>{types.map(t => <option key={t.targetType} value={t.targetType}>{label(TYPE_LABEL,t.targetType)} ({t._count})</option>)}{tab !== "all" && !types.some(t => t.targetType === tab) && <option value={tab}>{label(TYPE_LABEL,tab)} (0)</option>}</select></label>
         <input name="q" defaultValue={q} placeholder="Tìm theo người thực hiện (email)..." className={inputCls + " min-w-0 flex-1 md:min-w-48"} />
         <MobileCollapse active={[action, from, to].filter(Boolean).length}>
           <SearchableSelect key={action} name="action" defaultValue={action} emptyLabel="Mọi hành động" ariaLabel="Hành động" className="w-full md:w-56" options={actions.map((a) => ({ value: a.action, label: label(ACTION_LABEL, a.action) }))} />

@@ -31,3 +31,15 @@ Cài đặt cá nhân Cổng Đoàn chuyển sang `/settings/profile` với ba t
 Cổng Đoàn chuyển `settings?tab=leaders` đến Nhân sự & BCH; `classpw` đến Bảo mật; `plancats` đến Danh mục; `gamecap` đến Quy chế; `account/password/passkey/notifications` đến cài đặt cá nhân tương ứng. Các trang cấu hình website cũ giữ nguyên URL nhưng dùng tab ngang chung.
 
 EduConnect vẫn nhận `cau-hinh?tab=grades` và `tab=weights`, mở đúng Danh mục và Quy chế → Hệ số điểm. Không yêu cầu migration database cho thay đổi điều hướng này.
+
+## Một hàng tab chính
+
+Không xếp hai thanh tab cùng kiểu trên một trang. Tab chỉ chuyển khu vực chính; lựa chọn bên trong nằm trong thanh công cụ bằng ô chọn có nhãn.
+
+- Tài khoản: vai trò là bộ lọc, không phải tab thứ hai.
+- Nhân sự: nhóm Tất cả/Nhân sự/BCH là bộ lọc cạnh tìm kiếm.
+- Quy chế: chọn nội dung Quy chế chung/Hệ số điểm trong ô chọn.
+- Nhật ký và Thùng rác: loại đối tượng/dữ liệu là bộ lọc; giữ thanh Vận hành hệ thống.
+- Giao diện Cổng Đoàn: chọn Thông tin website/Menu/Dòng chữ chạy/Trang giới thiệu trong ô Mục giao diện; giữ thanh Cấu hình & Cài đặt.
+
+Đường dẫn và tham số cũ vẫn giữ nguyên. Trang Lớp chủ nhiệm có hai vị trí render Tabs trong mã nguồn nhưng chúng ở các nhánh loại trừ nhau, không tạo hai hàng tab đồng thời.
