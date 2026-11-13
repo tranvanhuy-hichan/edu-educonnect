@@ -290,6 +290,7 @@ model Student {
   note            String?
   enrollments     StudentClassEnrollment[]
   monitorOf       SchoolClass[]            @relation("ClassMonitor")
+  academicDeputyOf ClassAcademicDeputy[]
   lessonPostViews LessonPostView[]
   submissions     AssignmentSubmission[]
   scoreEntries    ScoreEntry[]
@@ -323,6 +324,7 @@ model SchoolClass {
   periodLogs        ClassPeriodLog[]
   timetableActivities TimetableActivity[]
   emulationScores   ClassEmulationScore[]
+  academicDeputies  ClassAcademicDeputy[]
 
   @@unique([className, academicYearId])
   @@unique([academicYearId, departmentId])
@@ -330,6 +332,20 @@ model SchoolClass {
 
   @@index([gradeLevelId])
   @@index([homeroomTeacherId])
+  @@schema("edu")
+}
+
+/// Lớp phó học tập: chỉ có ở EduConnect (không đồng bộ Cổng Đoàn), một lớp có thể có nhiều.
+model ClassAcademicDeputy {
+  id            String      @id @default(cuid())
+  schoolClassId String
+  schoolClass   SchoolClass @relation(fields: [schoolClassId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([schoolClassId, studentId])
+  @@index([studentId])
   @@schema("edu")
 }
 

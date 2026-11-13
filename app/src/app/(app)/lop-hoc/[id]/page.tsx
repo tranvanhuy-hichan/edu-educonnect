@@ -1,4 +1,4 @@
-import { ClassOfficers } from "@/components/class-officers";
+import { ClassPersonnel, OfficersSummary } from "@/components/class-officers";
 import { AssignmentRow } from "@/components/assignment-row";
 import { SearchableSelect } from "@/components/searchable-select";
 import { loadScheduleSlots } from "@/modules/scheduling/schedule-slots";
@@ -23,7 +23,7 @@ import { deleteClass, enrollStudent, removeEnrollment, setMonitor, transferStude
 import { classAccounts } from "../../hoc-sinh/actions";
 import { ImportStudents } from "./import-students";
 
-const TABS = [["overview", "Tổng quan"], ["students", "Học sinh"], ["assignments", "Phân công giảng dạy"], ["timetable", "Thời khóa biểu"], ["diary", "Sổ đầu bài"], ["grades", "Bảng điểm"], ["settings", "Thông tin"]] as const;
+const TABS = [["overview", "Tổng quan"], ["students", "Học sinh"], ["personnel", "Nhân sự"], ["assignments", "Phân công giảng dạy"], ["timetable", "Thời khóa biểu"], ["diary", "Sổ đầu bài"], ["grades", "Bảng điểm"], ["settings", "Thông tin"]] as const;
 const menuForm = "flex flex-col items-stretch gap-1 [&>button]:w-full [&>button]:justify-self-stretch";
 
 export default async function ClassDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; w?: string; page?: string; size?: string }> }) {
@@ -34,7 +34,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
   const { id } = await params;
   const sp = await searchParams;
   // Giáo viên chỉ xem: tổng quan, phân công, thời khóa biểu, sổ đầu bài (không có danh sách học sinh, điểm, thông tin quản trị).
-  const tabs = TABS.filter(([k]) => canEdit || ["overview", "assignments", "timetable", "diary"].includes(k));
+  const tabs = TABS.filter(([k]) => canEdit || ["overview", "personnel", "assignments", "timetable", "diary"].includes(k));
   const tab = tabs.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
   const pg = getPaging(sp, 15);
   const c = await db.schoolClass.findUnique({ where: { id }, include: { subjects: { include: { subject: true } }, room: true, gradeLevel: true, academicYear: true, homeroomTeacher: true } });
@@ -98,7 +98,6 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
         </div>
       </Card>
 
-      <ClassOfficers classId={id} canManage={me.roles.includes("ADMIN")} />
       <Tabs current={`?tab=${tab}`} items={tabs.map(([k, l]) => [`?tab=${k}`, l] as [string, string])} />
 
       {tab === "overview" && await (async () => {
@@ -115,6 +114,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
               <Stat icon={CalendarDays} label="Tiết/tuần" value={slotCount} tone="bg-sky-100 text-sky-700" />
               <Stat icon={GraduationCap} label="Điểm TB lớp" value={avg == null ? "-" : `${avg.toFixed(2)} · ${rankOf(avg, policy.gradeScale)}`} tone="bg-yellow-100 text-yellow-700" />
             </div>
+            <OfficersSummary classId={id} />
             <Card className="p-0">
               <div className="flex items-center justify-between border-b px-4 py-3"><h2 className="font-semibold">Sổ đầu bài gần đây</h2><Link href="?tab=diary" className="text-sm text-orange-700 hover:underline">Xem tất cả →</Link></div>
               <ul className="divide-y text-sm">
@@ -167,6 +167,8 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
           </div>
         );
       })()}
+
+      {tab === "personnel" && <ClassPersonnel classId={id} termId={termId} isAdmin={me.roles.includes("ADMIN")} canManage={me.roles.includes("ADMIN") || (me.roles.includes("HOMEROOM_TEACHER") && !!me.teacherId && c.homeroomTeacherId === me.teacherId)} />}
 
       {tab === "assignments" && await (async () => {
         const [curriculum, teachers] = await Promise.all([
