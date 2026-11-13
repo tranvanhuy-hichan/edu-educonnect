@@ -12,3 +12,16 @@ export const getSubjects = unstable_cache(
   ["catalog-subjects"],
   { tags: ["catalog"], revalidate: 3600 },
 );
+
+/**
+ * Số lượng năm học / khối / học kỳ hiện ở nhãn tab Cấu hình. Đệm ngắn (60 giây) vì CSDL dùng chung với Cổng Đoàn
+ * nên có thể đổi từ bên ngoài; thao tác sửa trong trang gọi `updateTag("config-counts")` để cập nhật ngay.
+ */
+export const getConfigCounts = unstable_cache(
+  async () => {
+    const [years, grades, terms] = await Promise.all([db.academicYear.count(), db.gradeLevel.count(), db.academicTerm.count()]);
+    return { years, grades, terms };
+  },
+  ["config-counts"],
+  { tags: ["config-counts"], revalidate: 60 },
+);

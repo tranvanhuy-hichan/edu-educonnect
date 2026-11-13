@@ -10,7 +10,7 @@ import { audit } from "@/lib/audit";
 import { deleteImage, isCloudinaryConfigured, uploadSchoolLogo } from "@/lib/cloudinary";
 import * as scoringService from "@/modules/scoring/scoring.service";
 
-const done = () => revalidatePath("/cau-hinh");
+const done = () => { updateTag("config-counts"); revalidatePath("/cau-hinh"); };
 const num = (fd: FormData, k: string) => Number(str(fd, k).replace(",", "."));
 
 function dates(fd: FormData) {

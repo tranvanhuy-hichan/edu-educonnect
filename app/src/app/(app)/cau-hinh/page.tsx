@@ -10,6 +10,7 @@ import { fmtDate, isoDate } from "@/lib/format";
 import { NewYearFields, TermDatesFields } from "@/components/term-period";
 import { PolicyForm } from "./policy-form";
 import { getPolicy } from "@/lib/policy";
+import { getConfigCounts } from "@/lib/catalog-cache";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { addAcademicTerm, addAcademicYear, addGradeLevel, deleteAcademicTerm, deleteAcademicYear, deleteGradeLevel, removeSchoolLogo, saveScoreWeights, updateAcademicTerm, updateAcademicYear, updateGradeLevel, updateSchoolBrand } from "./actions";
 
@@ -22,7 +23,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const tab = TABS.some(([k]) => k === requested) ? requested! : "years";
   const section = sp.tab === "weights" || sp.section === "weights" ? "weights" : "general";
 
-  const [yearCount, gradeCount, termCount] = await Promise.all([db.academicYear.count(), db.gradeLevel.count(), db.academicTerm.count()]);
+  const { years: yearCount, grades: gradeCount, terms: termCount } = await getConfigCounts();
   const counts: Record<string, number> = { years: yearCount, catalogs: gradeCount, weights: termCount, policy: 0, brand: 0 };
   const [years, grades, terms] = await Promise.all([
     tab === "years" ? db.academicYear.findMany({
