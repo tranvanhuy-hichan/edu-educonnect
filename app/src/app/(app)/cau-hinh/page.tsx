@@ -10,12 +10,13 @@ import { fmtDate, isoDate } from "@/lib/format";
 import { NewYearFields, TermDatesFields } from "@/components/term-period";
 import { FilePicker } from "@/components/file-picker";
 import { PolicyForm } from "./policy-form";
+import { DoanPolicyPanel } from "./doan-policy";
 import { getPolicy } from "@/lib/policy";
 import { getConfigCounts } from "@/lib/catalog-cache";
 import { getSchoolSetting } from "@/lib/school-setting";
 import { addAcademicTerm, addAcademicYear, addGradeLevel, deleteAcademicTerm, deleteAcademicYear, deleteGradeLevel, removeSchoolLogo, saveScoreWeights, updateAcademicTerm, updateAcademicYear, updateGradeLevel, updateSchoolBrand } from "./actions";
 
-const TABS = [["years", "Năm học"], ["catalogs", "Danh mục"], ["policy", "Quy chế"], ["brand", "Giao diện"], ["system", "Hệ thống"]] as const;
+const TABS = [["years", "Năm học"], ["catalogs", "Danh mục"], ["policy", "Quy chế"], ["brand", "Giao diện"], ["system", "Hệ thống"], ["doan", "Cổng Đoàn"]] as const;
 
 export default async function Settings({ searchParams }: { searchParams: Promise<{ tab?: string; section?: string }> }) {
   await requireRole(...ADMIN_ROLES);
@@ -25,7 +26,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
   const section = sp.tab === "weights" || sp.section === "weights" ? "weights" : "general";
 
   const { years: yearCount, grades: gradeCount, terms: termCount } = await getConfigCounts();
-  const counts: Record<string, number> = { years: yearCount, catalogs: gradeCount, weights: termCount, policy: 0, brand: 0 };
+  const counts: Record<string, number> = { years: yearCount, catalogs: gradeCount, weights: termCount, policy: 0, brand: 0, doan: 0 };
   const [years, grades, terms] = await Promise.all([
     tab === "years" ? db.academicYear.findMany({
       orderBy: { startDate: "desc" },
@@ -43,6 +44,8 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       {tab === "policy" && <AutoForm className="flex flex-wrap items-center gap-2"><input type="hidden" name="tab" value="policy" /><label className="flex w-full items-center gap-2 text-sm text-slate-500 sm:w-auto"><span className="shrink-0">Nội dung quy chế</span><select key={section} name="section" defaultValue={section} className={inputCls + " min-w-0 flex-1 sm:flex-none"}><option value="general">Quy chế chung</option><option value="weights">Hệ số điểm</option></select></label></AutoForm>}
       {tab === "policy" && section === "general" && <PolicyForm initial={await getPolicy()} />}
       {tab === "system" && <div className="grid gap-3 md:grid-cols-2">{[["/van-hanh", "Vận hành hệ thống", "Theo dõi tác vụ và tình trạng hoạt động."], ["/nhat-ky", "Nhật ký hoạt động", "Tra cứu lịch sử thao tác."], ["/thung-rac", "Thùng rác", "Xem và khôi phục dữ liệu đã xóa."], ["/ket-noi-api", "Kết nối API", "Quản lý quyền truy cập từ hệ thống khác."]].map(([href,title,hint]) => <Link key={href} href={href} className="rounded-lg border bg-white p-4 hover:bg-slate-50"><h2 className="font-semibold">{title}</h2><p className="mt-1 text-sm text-slate-500">{hint}</p></Link>)}</div>}
+
+      {tab === "doan" && <DoanPolicyPanel />}
 
       {tab === "years" && (
         <div className="space-y-4">

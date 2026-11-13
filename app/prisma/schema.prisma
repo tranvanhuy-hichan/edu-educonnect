@@ -1466,6 +1466,20 @@ model SyncIssue {
   @@schema("edu")
 }
 
+/// Quyền ghi dữ liệu dùng chung của Cổng Đoàn do admin EduConnect đặt (một dòng id=1). true = Cổng Đoàn được ghi; false = chỉ EduConnect ghi.
+/// Chỉ có hiệu lực khi đồng bộ bật (edu."SyncSetting".enabled). Mặc định mở hết để không đổi hành vi hiện có.
+model DoanWritePolicy {
+  id         Int      @id @default(1)
+  years      Boolean  @default(true) // năm học, học kỳ, lịch năm học
+  classes    Boolean  @default(true) // tạo / đổi tên / xóa lớp (chi đoàn)
+  placement  Boolean  @default(true) // xếp lớp, chuyển chi đoàn, chuyển năm học
+  profiles   Boolean  @default(true) // hồ sơ học sinh (họ tên, ngày sinh, giới tính), tạo / xóa học sinh
+  updatedAt  DateTime @default(now()) @updatedAt
+  updatedBy  String?
+
+  @@schema("edu")
+}
+
 // ───────────── Bản sao Cổng thông tin Đoàn (schema "public") ─────────────
 enum DoanRole {
   ADMIN

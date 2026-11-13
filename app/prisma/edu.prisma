@@ -271,6 +271,7 @@ model Student {
   note            String?
   enrollments     StudentClassEnrollment[]
   monitorOf       SchoolClass[]            @relation("ClassMonitor")
+  academicDeputyOf ClassAcademicDeputy[]
   lessonPostViews LessonPostView[]
   submissions     AssignmentSubmission[]
   scoreEntries    ScoreEntry[]
@@ -304,6 +305,7 @@ model SchoolClass {
   periodLogs        ClassPeriodLog[]
   timetableActivities TimetableActivity[]
   emulationScores   ClassEmulationScore[]
+  academicDeputies  ClassAcademicDeputy[]
 
   @@unique([className, academicYearId])
   @@unique([academicYearId, departmentId])
@@ -311,6 +313,20 @@ model SchoolClass {
 
   @@index([gradeLevelId])
   @@index([homeroomTeacherId])
+  @@schema("edu")
+}
+
+/// Lớp phó học tập: chỉ có ở EduConnect (không đồng bộ Cổng Đoàn), một lớp có thể có nhiều.
+model ClassAcademicDeputy {
+  id            String      @id @default(cuid())
+  schoolClassId String
+  schoolClass   SchoolClass @relation(fields: [schoolClassId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([schoolClassId, studentId])
+  @@index([studentId])
   @@schema("edu")
 }
 
@@ -1428,5 +1444,19 @@ model SyncIssue {
   source String
   detail String
   @@index([at])
+  @@schema("edu")
+}
+
+/// Quyền ghi dữ liệu dùng chung của Cổng Đoàn do admin EduConnect đặt (một dòng id=1). true = Cổng Đoàn được ghi; false = chỉ EduConnect ghi.
+/// Chỉ có hiệu lực khi đồng bộ bật (edu."SyncSetting".enabled). Mặc định mở hết để không đổi hành vi hiện có.
+model DoanWritePolicy {
+  id         Int      @id @default(1)
+  years      Boolean  @default(true) // năm học, học kỳ, lịch năm học
+  classes    Boolean  @default(true) // tạo / đổi tên / xóa lớp (chi đoàn)
+  placement  Boolean  @default(true) // xếp lớp, chuyển chi đoàn, chuyển năm học
+  profiles   Boolean  @default(true) // hồ sơ học sinh (họ tên, ngày sinh, giới tính), tạo / xóa học sinh
+  updatedAt  DateTime @default(now()) @updatedAt
+  updatedBy  String?
+
   @@schema("edu")
 }
