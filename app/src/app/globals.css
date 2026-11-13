@@ -283,7 +283,8 @@ tr[data-clickable] { cursor: pointer; }
     max-width: 100%;
     width: 100%;
   }
-  .filter-form > input[name="q"] { grid-column: 1 / -1; }
+  .filter-form > input[name="q"], .filter-form > .filter-row { grid-column: 1 / -1; }
+  .filter-form > .filter-row > select { flex: 1 1 0; width: 100%; min-width: 0; }
   .filter-form > input[type="hidden"] { display: none; }
   .filter-form > :is(label, button, a) { min-width: 0; }
   .list-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); }
