@@ -531,7 +531,8 @@ input.combo-input, input.combo-input:focus, input.combo-input:focus-visible {
   .flat-rows .rtable tbody tr:first-child { border-top: 0; }
   .flat-rows .rtable tbody td { font-size: 0.8125rem; line-height: 1.5; order: 2; }
   .flat-rows .rtable tbody td::before { display: inline; margin: 0 0.25rem 0 0; font-size: 0.6875rem; letter-spacing: 0; text-transform: none; font-weight: 400; }
-  .flat-rows .rtable tbody td:first-child { order: 0; flex: 1 1 0; font-size: 0.9375rem; }
+  .flat-rows .rtable tbody td:first-child { order: 0; flex: 1 1 auto; min-width: 4rem; font-size: 0.9375rem; }
+  .flat-rows .rtable tbody td:first-child::before, .flat-rows .rtable tbody td[data-label=""]::before { display: none; }
   .flat-rows .rtable tbody td[data-actions] { order: 1; grid-column: auto; flex: 0 0 auto; }
   .flat-rows .rtable tbody td[data-actions]:not(:first-child) { width: auto; }
   .flat-rows .rtable tbody td[data-actions] > div { flex-wrap: nowrap; }
