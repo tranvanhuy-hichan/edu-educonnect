@@ -14,6 +14,9 @@ export function wrap(fn: (fd: FormData) => Promise<string | { ok: string; data?:
     } catch (e) {
       const err = e as { digest?: string; message?: string; name?: string; constructor?: { name?: string } };
       if (err.digest?.startsWith("NEXT_REDIRECT")) throw e;
+      // Thông báo nghiệp vụ do trigger đồng bộ ném ra (xóa lớp khi chi đoàn còn đoàn viên): trả nguyên văn, không phải lỗi hạ tầng.
+      const linked = /Chi đoàn của lớp [^\n`"]*? còn \d+ đoàn viên[^\n`"]*/.exec(err.message ?? "");
+      if (linked) return { error: linked[0] };
       // Lỗi hạ tầng (Prisma/DB...) không phải thông báo nghiệp vụ: ghi lại đầy đủ, chỉ trả mã tham chiếu cho người dùng.
       if (/^PrismaClient/.test(err.constructor?.name ?? err.name ?? "")) {
         void reportError(e, { source: "action" });

@@ -182,29 +182,49 @@ test("xếp lớp muộn (sau khi năm mới đã hiện hành) vẫn giữ bí 
   });
 });
 
-test("xoá lan truyền: lớp trống bị xoá → chi đoàn được lưu trữ; chi đoàn có lớp có dữ liệu thì không xoá được", { skip: !run }, async () => {
+test("lớp = chi đoàn: xoá lớp → xoá mềm chi đoàn, khôi phục lớp → khôi phục chi đoàn; xoá chi đoàn gắn lớp bị chặn", { skip: !run }, async () => {
   await inTx(async (tx, cur) => {
     const f = await build(tx, cur);
     await rollover(tx);
-    // EduConnect xoá lớp trống → chi đoàn lưu trữ (không xoá cứng)
+    const state = (did: string) => one<{ del: Date | null; grad: Date | null; account: string | null }>(tx, `SELECT "deletedAt" AS del, "graduatedAt" AS grad, "accountId" AS account FROM public."Department" WHERE id = $1`, did);
+
+    // tạo lớp → tự tạo chi đoàn
     await x(tx, `INSERT INTO edu."SchoolClass"(id,"className","gradeLevelId","academicYearId") VALUES ($1,$2,$3,$4)`, f.id("z1"), f.name(11, "Y"), f.g11, f.now);
     const dz = (await deptOf(tx, f.id("z1")))!;
-    assert.ok(dz, "lớp mới có chi đoàn");
+    assert.ok(dz, "tạo lớp tự tạo chi đoàn");
+    assert.deepEqual(await state(dz.id), { del: null, grad: null, account: null });
+
+    // xoá lớp → chi đoàn bị xoá mềm (vẫn còn dòng dữ liệu, ẩn khỏi danh sách đang học)
+    const cls = (await one<{ departmentId: string }>(tx, `SELECT "departmentId" FROM edu."SchoolClass" WHERE id = $1`, f.id("z1")))!;
     await x(tx, `DELETE FROM edu."SchoolClass" WHERE id = $1`, f.id("z1"));
-    const arch = (await one<{ g: Date | null; n: bigint }>(tx, `SELECT "graduatedAt" AS g, 1 AS n FROM public."Department" WHERE id = $1`, dz.id))!;
-    assert.ok(arch.g, "chi đoàn còn tồn tại và đã được lưu trữ");
+    const gone = (await state(dz.id))!;
+    assert.ok(gone.del && gone.grad, "xoá mềm: có deletedAt và graduatedAt");
+    assert.equal(gone.del.getTime(), gone.grad.getTime(), "graduatedAt = deletedAt để biết khôi phục thì mở lại");
 
-    // Cổng Đoàn xoá chi đoàn → lớp trống bị xoá theo
-    await x(tx, `INSERT INTO edu."SchoolClass"(id,"className","gradeLevelId","academicYearId") VALUES ($1,$2,$3,$4)`, f.id("z2"), f.name(11, "X"), f.g11, f.now);
-    const d2 = (await deptOf(tx, f.id("z2")))!;
-    await x(tx, `DELETE FROM public."Department" WHERE id = $1`, d2.id);
-    assert.equal(Number((await one<{ n: bigint }>(tx, `SELECT count(*) AS n FROM edu."SchoolClass" WHERE id = $1`, f.id("z2")))!.n), 0, "lớp trống bị xoá theo chi đoàn");
+    // khôi phục lớp (thùng rác tạo lại đúng dòng cũ, kèm departmentId) → chi đoàn được khôi phục
+    await x(tx, `INSERT INTO edu."SchoolClass"(id,"className","gradeLevelId","academicYearId","departmentId") VALUES ($1,$2,$3,$4,$5)`, f.id("z1"), f.name(11, "Y"), f.g11, f.now, cls.departmentId);
+    assert.deepEqual(await state(dz.id), { del: null, grad: null, account: null }, "khôi phục lớp → khôi phục chi đoàn");
 
-    // chi đoàn có lớp đã có học sinh: bị chặn, báo rõ, không để lại gì dở dang
+    // tạo lớp trùng tên + khóa với chi đoàn đã xoá mềm → dùng lại chi đoàn đó (không đụng khoá duy nhất)
+    await x(tx, `DELETE FROM edu."SchoolClass" WHERE id = $1`, f.id("z1"));
+    await x(tx, `INSERT INTO edu."SchoolClass"(id,"className","gradeLevelId","academicYearId") VALUES ($1,$2,$3,$4)`, f.id("z1b"), f.name(11, "Y"), f.g11, f.now);
+    assert.equal((await deptOf(tx, f.id("z1b")))!.id, dz.id);
+    assert.equal((await state(dz.id))!.del, null);
+
+    // chi đoàn đang gắn với lớp: Cổng Đoàn xoá bị chặn, phải xoá lớp trước
+    const err = await attempt(tx, `DELETE FROM public."Department" WHERE id = '${dz.id}'`);
+    assert.match(err ?? "", /là lớp của EduConnect\. Hãy xóa lớp ở EduConnect trước/);
+    assert.equal(Number((await one<{ n: bigint }>(tx, `SELECT count(*) AS n FROM public."Department" WHERE id = $1`, dz.id))!.n), 1);
+
+    // xoá lớp khi chi đoàn còn đoàn viên đang sinh hoạt: chặn xoá lớp, báo rõ, chi đoàn không đổi
     const dA = (await deptOf(tx, f.id("nA")))!;
-    const err = await attempt(tx, `DELETE FROM public."Department" WHERE id = '${dA.id}'`);
-    assert.match(err ?? "", /gắn với lớp có dữ liệu ở EduConnect/);
-    assert.equal(Number((await one<{ n: bigint }>(tx, `SELECT count(*) AS n FROM edu."SchoolClass" WHERE id = $1`, f.id("nA")))!.n), 1);
+    const err2 = await attempt(tx, `DELETE FROM edu."SchoolClass" WHERE id = '${f.id("nA")}'`);
+    assert.match(err2 ?? "", /Chi đoàn của lớp .* còn 2 đoàn viên đang sinh hoạt/);
+    assert.equal((await state(dA.id))!.del, null);
+
+    // chi đoàn giáo viên (không gắn lớp) xoá như cũ
+    await x(tx, `INSERT INTO public."Department"(id,name,"isTeacher","updatedAt") VALUES ($1,$2,true,now())`, f.id("gv"), `GV${f.t}`);
+    assert.equal(await attempt(tx, `DELETE FROM public."Department" WHERE id = '${f.id("gv")}'`), null);
 
     // EduConnect xoá hồ sơ học sinh → đoàn viên được lưu trữ
     await x(tx, `DELETE FROM edu."StudentClassEnrollment" WHERE "studentId" = $1`, f.id("s5"));

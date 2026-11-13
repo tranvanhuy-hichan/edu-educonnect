@@ -1,4 +1,5 @@
--- (1) Xoá ở một bên không để lại bản ghi mồ côi ở bên kia: lan truyền dưới dạng "lưu trữ"/chặn có thông báo.
+-- (1) Lớp và chi đoàn là một: xoá lớp (EduConnect) → chi đoàn bị xoá mềm theo; xoá chi đoàn đang gắn với lớp bị chặn, phải xoá lớp trước;
+--     khôi phục lớp từ thùng rác → chi đoàn được khôi phục. Xoá mềm = Department."deletedAt" (kèm graduatedAt để mọi danh sách "đang học" tự ẩn).
 -- (2) Chặn cứng ở database quyền ghi dữ liệu dùng chung của Cổng Đoàn (edu."DoanWritePolicy"), theo vai trò kết nối.
 -- Idempotent; chạy lại an toàn.
 
@@ -82,54 +83,74 @@ BEGIN
   RETURN QUERY SELECT * FROM edu.sync_rollover_run();
 END $$ LANGUAGE plpgsql;
 
--- ───────────── (1) Xoá lan truyền dưới dạng lưu trữ ─────────────
--- Đóng (lưu trữ) một chi đoàn: gỡ ban cán sự, khóa tài khoản chung, đặt graduatedAt. Chi đoàn còn đoàn viên đang hoạt động thì giữ nguyên và ghi SyncIssue.
-CREATE OR REPLACE FUNCTION edu.archive_department(did text) RETURNS boolean AS $$
-DECLARE d public."Department"%ROWTYPE; k int;
+-- ───────────── (1) Lớp = chi đoàn: xoá mềm và khôi phục ─────────────
+-- Cột xoá mềm của chi đoàn do Cổng Đoàn sở hữu (prisma/schema.prisma của khkt, bản sao ở prisma/vendor). Phải có trước khi chạy migration này:
+--   ALTER TABLE public."Department" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Department' AND column_name = 'deletedAt') THEN
+    RAISE EXCEPTION 'Thiếu cột public."Department"."deletedAt" (thuộc Cổng Đoàn). Chạy: ALTER TABLE public."Department" ADD COLUMN "deletedAt" TIMESTAMP(3);';
+  END IF;
+END $$;
+
+-- Xoá mềm một chi đoàn: gỡ ban cán sự, khóa tài khoản chung, đặt deletedAt + graduatedAt (ẩn khỏi mọi danh sách). Còn đoàn viên đang hoạt động thì không xoá (trả false).
+CREATE OR REPLACE FUNCTION edu.soft_delete_department(did text) RETURNS boolean AS $$
+DECLARE d public."Department"%ROWTYPE; ts timestamp := now();
 BEGIN
   SELECT * INTO d FROM public."Department" WHERE id = did FOR UPDATE;
-  IF NOT FOUND OR d."graduatedAt" IS NOT NULL OR d."isTeacher" THEN RETURN false; END IF;
-  SELECT count(*) INTO k FROM public."Member" WHERE "departmentId" = did AND status::text = 'ACTIVE';
-  IF k > 0 THEN
-    PERFORM edu.sync_issue('archive.department', 'Lớp của chi đoàn ' || d.name || ' đã bị xóa nhưng chi đoàn còn ' || k || ' đoàn viên đang hoạt động; chi đoàn được giữ lại');
-    RETURN false;
-  END IF;
-  UPDATE public."User" SET role = 'MEMBER', "updatedAt" = now() WHERE role::text IN ('SECRETARY', 'MONITOR')
+  IF NOT FOUND OR d."deletedAt" IS NOT NULL OR d."isTeacher" THEN RETURN false; END IF;
+  IF EXISTS (SELECT 1 FROM public."Member" WHERE "departmentId" = did AND status::text = 'ACTIVE') THEN RETURN false; END IF;
+  UPDATE public."User" SET role = 'MEMBER', "updatedAt" = ts WHERE role::text IN ('SECRETARY', 'MONITOR')
      AND (id = d."secretaryId" OR id IN (SELECT "userId" FROM public."DepartmentMonitor" WHERE "departmentId" = did));
   DELETE FROM public."DepartmentMonitor" WHERE "departmentId" = did;
-  UPDATE public."Department" SET "graduatedAt" = now(), "secretaryId" = NULL, "presidentId" = NULL, "updatedAt" = now() WHERE id = did;
-  IF d."accountId" IS NOT NULL THEN UPDATE public."User" SET status = 'LOCKED', "updatedAt" = now() WHERE id = d."accountId"; END IF;
+  -- graduatedAt = deletedAt khi chi đoàn chưa ra trường: khi khôi phục biết có được mở lại hay không
+  UPDATE public."Department" SET "deletedAt" = ts, "graduatedAt" = coalesce("graduatedAt", ts), "secretaryId" = NULL, "presidentId" = NULL, "updatedAt" = ts WHERE id = did;
+  IF d."accountId" IS NOT NULL THEN UPDATE public."User" SET status = 'LOCKED', "updatedAt" = ts WHERE id = d."accountId"; END IF;
   RETURN true;
 END $$ LANGUAGE plpgsql;
 
--- EduConnect xóa lớp (chi đoàn không còn lớp nào) → lưu trữ chi đoàn.
+-- EduConnect xoá lớp (chi đoàn không còn lớp nào khác): chi đoàn còn đoàn viên đang sinh hoạt thì chặn xoá lớp, ngược lại xoá mềm chi đoàn.
 CREATE OR REPLACE FUNCTION edu.sync_class_deleted() RETURNS trigger AS $$
-DECLARE prev text;
+DECLARE prev text; k int; dn text;
 BEGIN
   IF NOT edu.sync_on() OR OLD."departmentId" IS NULL THEN RETURN OLD; END IF;
   IF EXISTS (SELECT 1 FROM edu."SchoolClass" WHERE "departmentId" = OLD."departmentId" AND id <> OLD.id) THEN RETURN OLD; END IF;
+  SELECT name INTO dn FROM public."Department" WHERE id = OLD."departmentId";
+  SELECT count(*) INTO k FROM public."Member" WHERE "departmentId" = OLD."departmentId" AND status::text = 'ACTIVE';
+  IF k > 0 THEN
+    RAISE EXCEPTION 'Chi đoàn của lớp % còn % đoàn viên đang sinh hoạt. Hãy chuyển học sinh sang lớp khác (hoặc cho thôi sinh hoạt) trước khi xóa lớp.', OLD."className", k USING ERRCODE = '23503';
+  END IF;
   prev := edu.syncing_begin();
-  BEGIN PERFORM edu.archive_department(OLD."departmentId");
-  EXCEPTION WHEN OTHERS THEN PERFORM edu.sync_issue('archive.class_deleted', SQLERRM || ' [' || SQLSTATE || ']'); END;
+  BEGIN PERFORM edu.soft_delete_department(OLD."departmentId");
+  EXCEPTION WHEN OTHERS THEN PERFORM edu.sync_issue('delete.class', coalesce(dn, '') || ': ' || SQLERRM || ' [' || SQLSTATE || ']'); END;
   PERFORM edu.syncing_end(prev);
   RETURN OLD;
 END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS sync_class_deleted ON edu."SchoolClass";
 CREATE TRIGGER sync_class_deleted BEFORE DELETE ON edu."SchoolClass" FOR EACH ROW EXECUTE FUNCTION edu.sync_class_deleted();
 
--- Cổng Đoàn xóa chi đoàn → xóa lớp EduConnect tương ứng nếu lớp trống; lớp có dữ liệu thì chặn và báo rõ (không để lớp mồ côi bị tạo lại chi đoàn).
-CREATE OR REPLACE FUNCTION edu.sync_department_deleting() RETURNS trigger AS $$
+-- Lớp được tạo lại (khôi phục từ thùng rác, hoặc tạo lớp trùng tên + khóa với chi đoàn đã xoá mềm) → chi đoàn được khôi phục.
+-- Chỉ mở lại chi đoàn khi nó bị đóng bởi việc xoá (graduatedAt = deletedAt); chi đoàn đã ra trường từ trước thì giữ nguyên trạng thái đó.
+CREATE OR REPLACE FUNCTION edu.sync_class_restored() RETURNS trigger AS $$
 DECLARE prev text;
 BEGIN
-  IF NOT edu.sync_on() THEN RETURN OLD; END IF;
+  IF NEW."departmentId" IS NULL OR NOT edu.sync_on() THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."Department" WHERE id = NEW."departmentId" AND "deletedAt" IS NOT NULL) THEN RETURN NEW; END IF;
   prev := edu.syncing_begin();
-  BEGIN
-    DELETE FROM edu."SchoolClass" WHERE "departmentId" = OLD.id;
-  EXCEPTION WHEN foreign_key_violation THEN
-    PERFORM edu.syncing_end(prev);
-    RAISE EXCEPTION 'Chi đoàn % gắn với lớp có dữ liệu ở EduConnect (học sinh, phân công, thời khóa biểu...). Hãy đóng (lưu trữ) chi đoàn thay vì xóa.', OLD.name USING ERRCODE = '23503';
-  END;
+  UPDATE public."Department" SET "graduatedAt" = CASE WHEN "graduatedAt" = "deletedAt" THEN NULL ELSE "graduatedAt" END, "deletedAt" = NULL, "updatedAt" = now()
+   WHERE id = NEW."departmentId" AND "deletedAt" IS NOT NULL;
   PERFORM edu.syncing_end(prev);
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS sync_class_restored ON edu."SchoolClass";
+CREATE TRIGGER sync_class_restored AFTER INSERT ON edu."SchoolClass" FOR EACH ROW EXECUTE FUNCTION edu.sync_class_restored();
+
+-- Cổng Đoàn xoá chi đoàn đang gắn với lớp: chặn, phải xoá lớp ở EduConnect (chi đoàn sẽ bị xoá mềm theo). Chi đoàn không gắn lớp (giáo viên, chưa liên kết) xoá như cũ.
+CREATE OR REPLACE FUNCTION edu.sync_department_deleting() RETURNS trigger AS $$
+BEGIN
+  IF NOT edu.sync_on() THEN RETURN OLD; END IF;
+  IF EXISTS (SELECT 1 FROM edu."SchoolClass" WHERE "departmentId" = OLD.id) THEN
+    RAISE EXCEPTION 'Chi đoàn % là lớp của EduConnect. Hãy xóa lớp ở EduConnect trước (chi đoàn sẽ bị xóa theo).', OLD.name USING ERRCODE = '23503';
+  END IF;
   RETURN OLD;
 END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS sync_department_deleting ON public."Department";

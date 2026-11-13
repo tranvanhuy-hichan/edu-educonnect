@@ -44,14 +44,19 @@ Tắt: `UPDATE edu."SyncSetting" SET "doanRole" = NULL WHERE id = 1;` (không c�
 
 Quyền từng nhóm vẫn đặt ở EduConnect → Cấu hình → Cổng Đoàn.
 
-## 3. Xóa lan truyền dưới dạng lưu trữ
+## 3. Lớp = chi đoàn: tạo, xóa mềm, khôi phục
 
-Khóa ngoại cũ chỉ chặn một vài trường hợp, các trường hợp khác để lại bản ghi mồ côi (lớp bị xóa nhưng chi đoàn vẫn mở, chi đoàn bị xóa nhưng lớp mồ côi khiến chi đoàn bị tạo lại ở lần chuyển năm sau). Các trigger mới:
+Chi đoàn gắn liền với lớp nên vòng đời của hai bên đi cùng nhau:
 
 | Thao tác | Kết quả |
 |---|---|
-| EduConnect xóa lớp, chi đoàn không còn lớp nào | Chi đoàn được **lưu trữ** (`graduatedAt`, gỡ bí thư/cờ đỏ, khóa tài khoản chung). Còn đoàn viên đang hoạt động thì giữ chi đoàn và ghi `SyncIssue` `archive.department` |
-| Cổng Đoàn xóa chi đoàn | Lớp EduConnect **trống** bị xóa theo. Lớp đã có học sinh / phân công / thời khóa biểu / sổ đầu bài thì **chặn**, báo "hãy đóng (lưu trữ) chi đoàn thay vì xóa" |
+| Tạo lớp (EduConnect) | Tự tạo chi đoàn (lớp của năm hiện hành). Lớp trùng tên + khóa với chi đoàn đã xóa mềm thì dùng lại chi đoàn đó |
+| Tạo chi đoàn (Cổng Đoàn) | Tự tạo lớp tương ứng |
+| Xóa lớp | Chi đoàn bị **xóa mềm** theo (`deletedAt` + `graduatedAt`, gỡ bí thư/cờ đỏ, khóa tài khoản chung). Nếu chi đoàn còn đoàn viên đang sinh hoạt thì **chặn xóa lớp** và báo "chuyển học sinh sang lớp khác trước" |
+| Khôi phục lớp (thùng rác) | Chi đoàn được khôi phục (mở lại nếu chỉ bị đóng vì việc xóa; chi đoàn đã ra trường từ trước giữ nguyên) |
+| Xóa chi đoàn đang gắn lớp (Cổng Đoàn) | **Chặn**: "Chi đoàn X là lớp của EduConnect. Hãy xóa lớp ở EduConnect trước". Chi đoàn giáo viên hoặc chưa liên kết xóa như cũ |
 | EduConnect xóa hồ sơ học sinh | Đoàn viên liên kết chuyển sang `TRANSFERRED` (đã chuyển sinh hoạt) |
 
-Giới hạn đã biết: đoàn viên đã lưu trữ nếu được sửa ở Cổng Đoàn thì `apply_member` có thể tạo lại hồ sơ học sinh; xóa đoàn viên có liên kết bị khóa ngoại chặn như trước.
+Cột xóa mềm `public."Department"."deletedAt"` thuộc Cổng Đoàn (schema khkt, bản sao ở `app/prisma/vendor/khkt.schema.prisma`). Migration `20261121000000` kiểm tra cột này có trước khi chạy. Triển khai theo thứ tự: thêm cột → deploy Cổng Đoàn → chạy migration EduConnect.
+
+Giới hạn đã biết: đoàn viên đã lưu trữ nếu được sửa ở Cổng Đoàn thì `apply_member` có thể tạo lại hồ sơ học sinh; chi đoàn đã xóa mềm vẫn chiếm khóa duy nhất (tên, khóa) cho tới khi lớp trùng tên được tạo lại.
