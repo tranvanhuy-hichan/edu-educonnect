@@ -18,6 +18,9 @@ const PRESET_LIST = [
 
 /** Tab "Cổng Đoàn": EduConnect có quyền cao hơn với dữ liệu dùng chung, admin đặt Cổng Đoàn được ghi nhóm nào. */
 export async function DoanPolicyPanel() {
+  // Chưa chạy migration tạo bảng chính sách: báo hướng dẫn thay vì làm sập trang.
+  const [ready] = await db.$queryRaw<{ ready: boolean }[]>`SELECT to_regclass('edu."DoanWritePolicy"') IS NOT NULL AS ready`;
+  if (!ready.ready) return <Card className="space-y-2"><h2 className="font-semibold">Chưa cài bảng quyền của Cổng Đoàn</h2><p className="text-sm text-slate-600">Cơ sở dữ liệu chưa có bảng <code>edu.DoanWritePolicy</code>. Chạy migration <code>20261120000000_doan_write_policy</code> rồi tải lại trang. Trong lúc chưa cài, Cổng Đoàn được ghi mọi dữ liệu dùng chung như trước.</p></Card>;
   const [policy, sync] = await Promise.all([db.doanWritePolicy.findUnique({ where: { id: 1 } }), db.syncSetting.findUnique({ where: { id: 1 } })]);
   const p = policy ?? { years: true, classes: true, placement: true, profiles: true, updatedBy: null, updatedAt: null };
   return <div className="space-y-4">
