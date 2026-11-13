@@ -8,6 +8,7 @@ import { ActionForm } from "@/components/action-form";
 import { Card, Field, inputCls, Table, Tabs, Title } from "@/components/ui";
 import { fmtDate, isoDate } from "@/lib/format";
 import { NewYearFields, TermDatesFields } from "@/components/term-period";
+import { FilePicker } from "@/components/file-picker";
 import { PolicyForm } from "./policy-form";
 import { getPolicy } from "@/lib/policy";
 import { getConfigCounts } from "@/lib/catalog-cache";
@@ -175,25 +176,32 @@ export default async function Settings({ searchParams }: { searchParams: Promise
       {tab === "brand" && await (async () => {
         const brand = await getSchoolSetting();
         return (
-          <Card mobile="flat" className="max-w-xl space-y-4">
+          <Card mobile="flat" className="space-y-6">
             <div>
               <h2 className="font-semibold">Tên trường & logo</h2>
               <p className="mt-1 text-sm text-slate-600">Hiện ở sidebar, trang đăng nhập và tiêu đề trình duyệt của toàn hệ thống.</p>
             </div>
-            <div className="flex items-center gap-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {brand.logoUrl ? <img src={brand.logoUrl} alt="" className="size-16 rounded-full border object-cover" /> : (
-                <div className="theme-sidebar grid size-16 place-items-center rounded-full text-xl font-bold" style={{ color: "var(--sb-fg)" }}>{brand.schoolName.slice(0, 1).toUpperCase()}</div>
-              )}
-              {brand.logoUrl && (
-                <ActionForm action={removeSchoolLogo} submit="Xoá logo" compact danger confirmText="Xoá logo hiện tại? Hệ thống sẽ hiện chữ cái đầu tên trường thay cho logo." className="inline-flex" />
-              )}
+            <div className="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
+              <div className="flex flex-col items-center gap-4 rounded-xl border bg-slate-50/60 p-6 text-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {brand.logoUrl ? <img src={brand.logoUrl} alt="" className="size-32 rounded-full border-2 border-white object-cover shadow-md" /> : (
+                  <div className="theme-sidebar grid size-32 place-items-center rounded-full text-5xl font-bold shadow-md" style={{ color: "var(--sb-fg)" }}>{brand.schoolName.slice(0, 1).toUpperCase()}</div>
+                )}
+                <div>
+                  <p className="font-semibold">{brand.schoolName}</p>
+                  <p className="text-xs text-slate-500">Logo hiện tại · hiển thị hình tròn</p>
+                </div>
+                {brand.logoUrl && (
+                  <ActionForm action={removeSchoolLogo} submit="Xoá logo" compact danger confirmText="Xoá logo hiện tại? Hệ thống sẽ hiện chữ cái đầu tên trường thay cho logo." className="inline-flex" />
+                )}
+              </div>
+              <ActionForm action={updateSchoolBrand} submit="Lưu giao diện" reset={false} className="flex flex-col gap-5 [&>button]:self-start">
+                <Field label="Tên trường"><input name="schoolName" defaultValue={brand.schoolName} className={inputCls + " w-full"} required /></Field>
+                <Field label="Logo mới (tuỳ chọn)">
+                  <FilePicker name="logo" accept="image/*" maxMB={5} round hint="Ảnh vuông, PNG hoặc JPG. Logo được cắt tròn khi hiển thị. Bỏ trống nếu chỉ đổi tên trường." />
+                </Field>
+              </ActionForm>
             </div>
-            <ActionForm action={updateSchoolBrand} submit="Lưu giao diện" reset={false} className="flex flex-col gap-4 [&>button]:self-start">
-              <Field label="Tên trường"><input name="schoolName" defaultValue={brand.schoolName} className={inputCls + " w-full"} required /></Field>
-              <Field label="Logo mới (tuỳ chọn, hiển thị hình tròn)"><input name="logo" type="file" accept="image/*" className={inputCls + " w-full file:mr-3 file:rounded file:border-0 file:bg-orange-50 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-orange-700"} /></Field>
-              <p className="text-xs text-slate-500">Logo được cắt tròn khi hiển thị, đường kính bằng chiều rộng khung ảnh. Ảnh được lưu trên Cloudinary, tối đa 5MB. Bỏ trống nếu chỉ muốn đổi tên trường.</p>
-            </ActionForm>
           </Card>
         );
       })()}

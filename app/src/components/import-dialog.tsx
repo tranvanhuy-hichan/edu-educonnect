@@ -1,4 +1,5 @@
 "use client";
+import { FilePicker } from "@/components/file-picker";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Sparkles } from "lucide-react";
@@ -62,7 +63,7 @@ function ImportForm({ subjectId, gradeLevelId, lessons, defaultLessonId, maxByte
         <label className={radio}><input type="radio" name="kind" checked={kind === "TEST"} onChange={() => setKind("TEST")} className="mt-1" /><span><b>Đề kiểm tra</b><br /><span className="text-xs font-normal text-slate-500">Thêm câu vào ngân hàng và tạo luôn bài tập mẫu theo đề</span></span></label>
       </div>
       <Field label="Tệp (Word .docx, PDF, ảnh, văn bản)">
-        <input type="file" name="file" accept={ACCEPT} disabled={busy} className="block w-full rounded-md border bg-white p-2 text-sm font-normal file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm" />
+        <FilePicker name="file" accept={ACCEPT} disabled={busy} hint="Word .docx, PDF, ảnh hoặc văn bản." />
       </Field>
       <Field label={kind === "TEST" ? "Bài học chứa đề (bỏ trống để tạo bài học mới)" : "Gắn vào bài học (tùy chọn)"}>
         <select name="libraryLessonId" defaultValue={defaultLessonId ?? ""} disabled={busy} className={inputCls + " w-full"}>
