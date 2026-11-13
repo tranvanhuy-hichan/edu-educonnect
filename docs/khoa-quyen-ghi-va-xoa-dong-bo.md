@@ -55,8 +55,11 @@ Chi đoàn gắn liền với lớp nên vòng đời của hai bên đi cùng n
 | Xóa lớp | Chi đoàn bị **xóa mềm** theo (`deletedAt` + `graduatedAt`, gỡ bí thư/cờ đỏ, khóa tài khoản chung). Nếu chi đoàn còn đoàn viên đang sinh hoạt thì **chặn xóa lớp** và báo "chuyển học sinh sang lớp khác trước" |
 | Khôi phục lớp (thùng rác) | Chi đoàn được khôi phục (mở lại nếu chỉ bị đóng vì việc xóa; chi đoàn đã ra trường từ trước giữ nguyên) |
 | Xóa chi đoàn đang gắn lớp (Cổng Đoàn) | **Chặn**: "Chi đoàn X là lớp của EduConnect. Hãy xóa lớp ở EduConnect trước". Chi đoàn giáo viên hoặc chưa liên kết xóa như cũ |
-| EduConnect xóa hồ sơ học sinh | Đoàn viên liên kết chuyển sang `TRANSFERRED` (đã chuyển sinh hoạt) |
+| Tạo học sinh (EduConnect) / đoàn viên (Cổng Đoàn) | Tự tạo bên kia (khi học sinh được xếp lớp năm hiện hành / khi đoàn viên được tạo) |
+| Xóa học sinh (EduConnect, qua thùng rác) | Đoàn viên bị **xóa mềm** theo: `deletedAt`, trạng thái cũ lưu ở `deletedFromStatus`, đang sinh hoạt thì chuyển `TRANSFERRED` (kéo theo gỡ ban cán sự), ẩn khỏi mọi danh sách, không đăng nhập được |
+| Khôi phục học sinh | Đoàn viên được khôi phục về đúng trạng thái trước khi xóa (đã ra trường giữ nguyên "đã ra trường") |
+| Xóa đoàn viên đang là học sinh (Cổng Đoàn) | **Chặn**: "Đoàn viên X là học sinh của EduConnect. Hãy xóa học sinh ở EduConnect trước". Đoàn viên chưa liên kết xóa như cũ |
 
-Cột xóa mềm `public."Department"."deletedAt"` thuộc Cổng Đoàn (schema khkt, bản sao ở `app/prisma/vendor/khkt.schema.prisma`). Migration `20261121000000` kiểm tra cột này có trước khi chạy. Triển khai theo thứ tự: thêm cột → deploy Cổng Đoàn → chạy migration EduConnect.
+Các cột xóa mềm thuộc Cổng Đoàn (schema khkt, bản sao ở `app/prisma/vendor/khkt.schema.prisma`): `public."Department"."deletedAt"`, `public."Member"."deletedAt"` và `"deletedFromStatus"`. Migration `20261121000000` kiểm tra các cột này có trước khi chạy. Triển khai theo thứ tự: thêm cột (ALTER TABLE, thêm cột rỗng, an toàn) → sinh lại Prisma client và deploy Cổng Đoàn → chạy migration EduConnect. Không sinh lại client Cổng Đoàn khi database chưa có cột, vì mọi truy vấn chi đoàn/đoàn viên sẽ lỗi.
 
 Giới hạn đã biết: đoàn viên đã lưu trữ nếu được sửa ở Cổng Đoàn thì `apply_member` có thể tạo lại hồ sơ học sinh; chi đoàn đã xóa mềm vẫn chiếm khóa duy nhất (tên, khóa) cho tới khi lớp trùng tên được tạo lại.

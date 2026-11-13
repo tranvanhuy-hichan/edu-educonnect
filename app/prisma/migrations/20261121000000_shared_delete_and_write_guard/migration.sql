@@ -1,5 +1,7 @@
 -- (1) Lớp và chi đoàn là một: xoá lớp (EduConnect) → chi đoàn bị xoá mềm theo; xoá chi đoàn đang gắn với lớp bị chặn, phải xoá lớp trước;
 --     khôi phục lớp từ thùng rác → chi đoàn được khôi phục. Xoá mềm = Department."deletedAt" (kèm graduatedAt để mọi danh sách "đang học" tự ẩn).
+-- (1b) Học sinh và đoàn viên cũng vậy: xoá học sinh (EduConnect) → đoàn viên bị xoá mềm theo (Member."deletedAt"); khôi phục học sinh → khôi phục đoàn viên;
+--      xoá đoàn viên đang là học sinh bị chặn, phải xoá học sinh trước.
 -- (2) Chặn cứng ở database quyền ghi dữ liệu dùng chung của Cổng Đoàn (edu."DoanWritePolicy"), theo vai trò kết nối.
 -- Idempotent; chạy lại an toàn.
 
@@ -92,6 +94,12 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+DO $$ BEGIN
+  IF (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'Member' AND column_name IN ('deletedAt', 'deletedFromStatus')) < 2 THEN
+    RAISE EXCEPTION 'Thiếu cột public."Member"."deletedAt"/"deletedFromStatus" (thuộc Cổng Đoàn). Chạy: ALTER TABLE public."Member" ADD COLUMN IF NOT EXISTS "deletedAt" TIMESTAMP(3), ADD COLUMN IF NOT EXISTS "deletedFromStatus" public."MemberStatus";';
+  END IF;
+END $$;
+
 -- Xoá mềm một chi đoàn: gỡ ban cán sự, khóa tài khoản chung, đặt deletedAt + graduatedAt (ẩn khỏi mọi danh sách). Còn đoàn viên đang hoạt động thì không xoá (trả false).
 CREATE OR REPLACE FUNCTION edu.soft_delete_department(did text) RETURNS boolean AS $$
 DECLARE d public."Department"%ROWTYPE; ts timestamp := now();
@@ -156,15 +164,51 @@ END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS sync_department_deleting ON public."Department";
 CREATE TRIGGER sync_department_deleting BEFORE DELETE ON public."Department" FOR EACH ROW EXECUTE FUNCTION edu.sync_department_deleting();
 
--- EduConnect xóa hồ sơ học sinh → đoàn viên liên kết được lưu trữ (đã chuyển sinh hoạt), không để đoàn viên mất liên kết mà vẫn "đang sinh hoạt".
+-- ───────────── Học sinh = đoàn viên: xoá mềm và khôi phục ─────────────
+-- Xoá mềm đoàn viên: ẩn khỏi mọi danh sách (deletedAt), đang sinh hoạt thì chuyển sang "đã chuyển sinh hoạt" (kéo theo việc gỡ ban cán sự), nhớ trạng thái cũ để khôi phục.
+CREATE OR REPLACE FUNCTION edu.soft_delete_member(mid text) RETURNS void AS $$
+BEGIN
+  UPDATE public."Member" SET "deletedFromStatus" = status, "deletedAt" = now(),
+         status = CASE WHEN status::text = 'ACTIVE' THEN 'TRANSFERRED'::public."MemberStatus" ELSE status END, "updatedAt" = now()
+   WHERE id = mid AND "deletedAt" IS NULL;
+END $$ LANGUAGE plpgsql;
+
+-- EduConnect xoá hồ sơ học sinh → đoàn viên liên kết bị xoá mềm.
 CREATE OR REPLACE FUNCTION edu.sync_student_deleting() RETURNS trigger AS $$
 DECLARE prev text;
 BEGIN
   IF NOT edu.sync_on() OR OLD."memberId" IS NULL THEN RETURN OLD; END IF;
   prev := edu.syncing_begin();
-  UPDATE public."Member" SET status = 'TRANSFERRED', "updatedAt" = now() WHERE id = OLD."memberId" AND status::text = 'ACTIVE';
+  PERFORM edu.soft_delete_member(OLD."memberId");
   PERFORM edu.syncing_end(prev);
   RETURN OLD;
 END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS sync_student_deleting ON edu."Student";
 CREATE TRIGGER sync_student_deleting BEFORE DELETE ON edu."Student" FOR EACH ROW EXECUTE FUNCTION edu.sync_student_deleting();
+
+-- Học sinh được tạo lại (khôi phục từ thùng rác, kèm memberId cũ) → đoàn viên được khôi phục về đúng trạng thái trước khi xoá.
+CREATE OR REPLACE FUNCTION edu.sync_student_restored() RETURNS trigger AS $$
+DECLARE prev text;
+BEGIN
+  IF NEW."memberId" IS NULL OR NOT edu.sync_on() THEN RETURN NEW; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public."Member" WHERE id = NEW."memberId" AND "deletedAt" IS NOT NULL) THEN RETURN NEW; END IF;
+  prev := edu.syncing_begin();
+  UPDATE public."Member" SET status = coalesce("deletedFromStatus", status), "deletedAt" = NULL, "deletedFromStatus" = NULL, "updatedAt" = now()
+   WHERE id = NEW."memberId" AND "deletedAt" IS NOT NULL;
+  PERFORM edu.syncing_end(prev);
+  RETURN NEW;
+END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS sync_student_restored ON edu."Student";
+CREATE TRIGGER sync_student_restored AFTER INSERT ON edu."Student" FOR EACH ROW EXECUTE FUNCTION edu.sync_student_restored();
+
+-- Cổng Đoàn xoá đoàn viên đang là học sinh: chặn, phải xoá học sinh ở EduConnect (đoàn viên sẽ bị xoá theo). Đoàn viên chưa liên kết xoá như cũ.
+CREATE OR REPLACE FUNCTION edu.sync_member_deleting() RETURNS trigger AS $$
+BEGIN
+  IF NOT edu.sync_on() THEN RETURN OLD; END IF;
+  IF EXISTS (SELECT 1 FROM edu."Student" WHERE "memberId" = OLD.id) THEN
+    RAISE EXCEPTION 'Đoàn viên % là học sinh của EduConnect. Hãy xóa học sinh ở EduConnect trước (đoàn viên sẽ bị xóa theo).', OLD."fullName" USING ERRCODE = '23503';
+  END IF;
+  RETURN OLD;
+END $$ LANGUAGE plpgsql;
+DROP TRIGGER IF EXISTS sync_member_deleting ON public."Member";
+CREATE TRIGGER sync_member_deleting BEFORE DELETE ON public."Member" FOR EACH ROW EXECUTE FUNCTION edu.sync_member_deleting();

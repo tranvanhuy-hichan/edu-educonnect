@@ -225,11 +225,53 @@ test("lớp = chi đoàn: xoá lớp → xoá mềm chi đoàn, khôi phục l�
     // chi đoàn giáo viên (không gắn lớp) xoá như cũ
     await x(tx, `INSERT INTO public."Department"(id,name,"isTeacher","updatedAt") VALUES ($1,$2,true,now())`, f.id("gv"), `GV${f.t}`);
     assert.equal(await attempt(tx, `DELETE FROM public."Department" WHERE id = '${f.id("gv")}'`), null);
+  });
+});
 
-    // EduConnect xoá hồ sơ học sinh → đoàn viên được lưu trữ
-    await x(tx, `DELETE FROM edu."StudentClassEnrollment" WHERE "studentId" = $1`, f.id("s5"));
-    await x(tx, `DELETE FROM edu."Student" WHERE id = $1`, f.id("s5"));
-    assert.equal((await one<{ s: string }>(tx, `SELECT status::text AS s FROM public."Member" WHERE id = $1`, f.id("m5")))!.s, "TRANSFERRED");
+test("học sinh = đoàn viên: xoá học sinh → xoá mềm đoàn viên, khôi phục học sinh → khôi phục; xoá đoàn viên đang là học sinh bị chặn", { skip: !run }, async () => {
+  await inTx(async (tx, cur) => {
+    const f = await build(tx, cur);
+    await rollover(tx);
+    const m = (mid: string) => one<{ status: string; del: Date | null; from: string | null; role: string }>(tx,
+      `SELECT m.status::text AS status, m."deletedAt" AS del, m."deletedFromStatus"::text AS from, u.role::text AS role FROM public."Member" m JOIN public."User" u ON u.id = m."userId" WHERE m.id = $1`, mid);
+    const student = (sid: string) => one<Record<string, unknown>>(tx, `SELECT * FROM edu."Student" WHERE id = $1`, sid);
+
+    // S1 là bí thư: EduConnect xoá học sinh (thùng rác xoá xếp lớp rồi mới xoá học sinh)
+    const dA = (await memberDept(tx, f.id("m1")))!;
+    const row = (await student(f.id("s1")))!;
+    await x(tx, `DELETE FROM edu."StudentClassEnrollment" WHERE "studentId" = $1`, f.id("s1"));
+    await x(tx, `DELETE FROM edu."Student" WHERE id = $1`, f.id("s1"));
+    const gone = (await m(f.id("m1")))!;
+    assert.ok(gone.del, "đoàn viên bị xoá mềm");
+    assert.equal(gone.status, "TRANSFERRED", "đang sinh hoạt → đã chuyển sinh hoạt (ẩn khỏi mọi danh sách đang sinh hoạt)");
+    assert.equal(gone.from, "ACTIVE");
+    assert.equal(gone.role, "MEMBER", "ban cán sự bị gỡ");
+    assert.equal(Number((await one<{ n: bigint }>(tx, `SELECT count(*) AS n FROM public."Department" WHERE id = $1 AND "secretaryId" IS NOT NULL`, dA.id))!.n), 0);
+
+    // khôi phục học sinh (thùng rác tạo lại đúng dòng cũ, kèm memberId) → đoàn viên về trạng thái trước khi xoá
+    await x(tx, `INSERT INTO edu."Student"(id,"userId","memberId",code,"fullName") VALUES ($1,$2,$3,$4,$5)`, row.id, row.userId, row.memberId, row.code, row.fullName);
+    const back = (await m(f.id("m1")))!;
+    assert.deepEqual([back.del, back.status, back.from], [null, "ACTIVE", null]);
+
+    // đoàn viên đã ra trường trước khi xoá: khôi phục giữ nguyên "đã ra trường"
+    const grad = (await student(f.id("s4")))!;
+    await x(tx, `DELETE FROM edu."StudentClassEnrollment" WHERE "studentId" = $1`, f.id("s4"));
+    await x(tx, `DELETE FROM edu."Student" WHERE id = $1`, f.id("s4"));
+    assert.equal((await m(f.id("m4")))!.status, "GRADUATED", "không đổi trạng thái khi không còn sinh hoạt");
+    assert.ok((await m(f.id("m4")))!.del);
+    await x(tx, `INSERT INTO edu."Student"(id,"userId","memberId",code,"fullName") VALUES ($1,$2,$3,$4,$5)`, grad.id, grad.userId, grad.memberId, grad.code, grad.fullName);
+    assert.deepEqual([(await m(f.id("m4")))!.status, (await m(f.id("m4")))!.del], ["GRADUATED", null]);
+
+    // Cổng Đoàn xoá đoàn viên đang là học sinh: chặn, phải xoá học sinh ở EduConnect trước
+    const err = await attempt(tx, `DELETE FROM public."Member" WHERE id = '${f.id("m2")}'`);
+    assert.match(err ?? "", /là học sinh của EduConnect\. Hãy xóa học sinh ở EduConnect trước/);
+    assert.ok(await m(f.id("m2")), "đoàn viên vẫn còn");
+
+    // đoàn viên chưa liên kết học sinh xoá như cũ
+    await syncOn(tx, false);
+    await x(tx, `UPDATE edu."Student" SET "memberId" = NULL WHERE id = $1`, f.id("s3"));
+    await syncOn(tx, true);
+    assert.equal(await attempt(tx, `DELETE FROM public."Member" WHERE id = '${f.id("m3")}'`), null);
   });
 });
 
