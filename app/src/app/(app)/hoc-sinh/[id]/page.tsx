@@ -9,6 +9,7 @@ import { MANAGER_ROLES, requireRole } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { DialogButton } from "@/components/dialog";
 import { Card, Field, inputCls, Table, Tabs } from "@/components/ui";
+import { ProfileFacts } from "@/components/profile-facts";
 import { fmtDate } from "@/lib/format";
 import { getPolicy } from "@/lib/policy";
 import { currentTerm, hueOfStr, initialOf, rankOf } from "@/lib/catalog";
@@ -93,7 +94,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
           const missing = rows.filter(([, v]) => v == null || v === "" || v === false).map(([k]) => k);
           return (
             <>
-              {filled.length > 0 && <dl className="space-y-2 text-sm">{filled.map(([k, v]) => <div key={k} className="flex justify-between gap-4"><dt className="shrink-0 text-slate-500">{k}</dt><dd className="text-right font-medium">{v}</dd></div>)}</dl>}
+              {filled.length > 0 && <ProfileFacts items={filled} />}
               {missing.length > 0 && <p className="text-xs text-slate-500">{filled.length === 0 ? "Chưa có thông tin." : `Chưa có: ${missing.join(", ")}.`}{isManager && <> <Link href="?tab=info" className="font-medium text-orange-700 hover:underline">Bổ sung</Link></>}</p>}
             </>
           );

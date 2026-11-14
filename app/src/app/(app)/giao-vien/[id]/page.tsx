@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { ADMIN_ROLES, MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
 import { ActionForm } from "@/components/action-form";
 import { Card, Table, Tabs } from "@/components/ui";
+import { ProfileFacts } from "@/components/profile-facts";
 import { DAYS, DAY_NAME, ROLE_TAG, currentTerm } from "@/lib/catalog";
 import { fmtDate } from "@/lib/format";
 import { ROLE_LABEL } from "@/lib/nav";
@@ -75,8 +76,8 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
             <Stat icon={CalendarDays} label="Tiết dạy / tuần" value={slots.length} tone="bg-green-100 text-green-700" />
             <Stat icon={Users} label="Học sinh chủ nhiệm" value={homeroom.reduce((n, c) => n + c._count.enrollments, 0)} tone="bg-yellow-100 text-yellow-700" />
           </div>
-          <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Thông tin cá nhân</h2>
-            {([["Mã giáo viên", t.code], ["Giới tính", GENDER[t.gender ?? ""]], ["Ngày sinh", t.dob ? fmtDate(t.dob) : null], ["Số CCCD / CMND", t.idNumber], ["Điện thoại", t.phone], ["Email đăng nhập", t.user.email], ["Email liên hệ", t.contactEmail], ["Địa chỉ", t.address], ["Trình độ", t.degree], ["Bắt đầu công tác", t.startDate ? fmtDate(t.startDate) : null], ["Ghi chú", t.note]] as [string, string | null | undefined][]).map(([k, v]) => <div key={k} className="flex justify-between gap-4"><span className="shrink-0 text-slate-500">{k}</span><b className="text-right font-semibold">{v || "-"}</b></div>)}
+          <Card className="space-y-4"><h2 className="font-semibold">Thông tin cá nhân</h2>
+            <ProfileFacts items={[["Mã giáo viên", t.code], ["Giới tính", GENDER[t.gender ?? ""]], ["Ngày sinh", t.dob ? fmtDate(t.dob) : null], ["Số CCCD / CMND", t.idNumber], ["Điện thoại", t.phone], ["Email đăng nhập", t.user.email], ["Email liên hệ", t.contactEmail], ["Địa chỉ", t.address], ["Trình độ", t.degree], ["Bắt đầu công tác", t.startDate ? fmtDate(t.startDate) : null], ["Ghi chú", t.note]]} />
           </Card>
           <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Môn phụ trách</h2><div className="flex flex-wrap gap-2">{t.subjects.map((x) => <span key={x.subjectId} className="rounded bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800">{x.subject.subjectName}</span>)}{!t.subjects.length && <span className="text-slate-500">Chưa chọn môn phụ trách — vào tab &ldquo;Thông tin cá nhân&rdquo; để chọn.</span>}</div></Card>
           <Card className="space-y-1.5 text-sm"><h2 className="font-semibold">Vai trò</h2><div className="flex flex-wrap gap-2">{t.user.roles.map((r) => <span key={r} className="rounded bg-slate-100 px-2 py-0.5 text-xs">{ROLE_LABEL[r]}</span>)}</div></Card>
