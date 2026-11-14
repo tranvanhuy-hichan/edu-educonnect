@@ -31,13 +31,12 @@ export default async function StudentDetail({ params, searchParams }: { params: 
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
   const isManager = me.roles.some((r) => MANAGER_ROLES.includes(r));
-  const [s] = await loadStudents({ id });
+  const [s] = await loadStudents({ id }, { history: tab === "classes" });
   if (!s) notFound();
   // Giáo viên chỉ xem học sinh thuộc lớp mình chủ nhiệm hoặc dạy
   if (!isManager) {
     const tid = me.teacherId;
-    const classIds = s.enrollments.map((e) => e.schoolClassId);
-    const ok = tid && (await db.schoolClass.count({ where: { id: { in: classIds }, OR: [{ homeroomTeacherId: tid }, { assignments: { some: { teacherId: tid } } }] } })) > 0;
+    const ok = tid && (await db.schoolClass.count({ where: { enrollments: { some: { studentId: id } }, OR: [{ homeroomTeacherId: tid }, { assignments: { some: { teacherId: tid } } }] } })) > 0;
     if (!ok) redirect("/");
   }
   const term = await currentTerm();
@@ -133,7 +132,7 @@ export default async function StudentDetail({ params, searchParams }: { params: 
           isManager ? db.schoolClass.findMany({ where: { academicYear: { endDate: { gte: new Date() } } }, orderBy: { className: "asc" }, select: { id: true, className: true } }) : Promise.resolve([]),
         ]);
         const transfers = await db.classTransfer.findMany({ where: { studentId: id }, orderBy: { effectiveAt: "desc" } });
-        const oldClasses = await db.schoolClass.findMany({ where: { id: { in: transfers.flatMap((transfer) => [transfer.fromClassId, transfer.toClassId]) } } });
+        const oldClasses = await db.schoolClass.findMany({ where: { id: { in: transfers.flatMap((transfer) => [transfer.fromClassId, transfer.toClassId]) } }, select: { id: true, className: true } });
         const className = new Map(oldClasses.map((cls) => [cls.id, cls.className]));
         return (
           <div className="space-y-4">

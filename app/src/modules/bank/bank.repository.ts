@@ -6,8 +6,8 @@ import { trashLibraryLesson } from "@/modules/trash/trash.repository";
 const lessonCounts = { _count: { select: { questions: { where: { archivedAt: null } }, exercises: { where: { archivedAt: null } } } } } as const;
 
 /** `teacherId` bỏ trống = tất cả giáo viên (quản lý xem). */
-export const listLessons = (teacherId: string | undefined, subjectId: string, gradeLevelId: string) =>
-  prisma.libraryLesson.findMany({ where: { ...(teacherId ? { teacherId } : {}), subjectId, gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], include: { ...lessonCounts, teacher: { select: { fullName: true } } } });
+export const listLessons = (teacherId: string | undefined, subjectId: string, gradeLevelId: string, page?: { q?: string; skip: number; take: number }) =>
+  prisma.libraryLesson.findMany({ where: { ...(teacherId ? { teacherId } : {}), subjectId, gradeLevelId, archivedAt: null, ...(page?.q ? { title: { contains: page.q, mode: "insensitive" } } : {}) }, skip: page?.skip, take: page?.take, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }, { id: "asc" }], select: { id: true, title: true, orderNo: true, teacherId: true, subjectId: true, gradeLevelId: true, ...lessonCounts, teacher: { select: { fullName: true } } } });
 export const lessonCountsByGrade = (teacherId?: string) =>
   prisma.libraryLesson.groupBy({ by: ["subjectId", "gradeLevelId"], where: { ...(teacherId ? { teacherId } : {}), archivedAt: null }, _count: { _all: true } });
 export const lessonsForPicker = (teacherId: string) =>

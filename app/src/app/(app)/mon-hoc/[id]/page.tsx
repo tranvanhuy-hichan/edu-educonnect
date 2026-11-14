@@ -21,13 +21,16 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
   const { id } = await params;
   const sp = await searchParams;
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
-  const s = await db.subject.findUnique({
-    where: { id },
-    include: { assignments: { orderBy: [{ academicTerm: { startDate: "desc" } }, { schoolClass: { className: "asc" } }], include: { schoolClass: { include: { gradeLevel: true } }, teacher: true, academicTerm: { include: { academicYear: true } }, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } },
-  });
+  const s = await db.subject.findUnique({ where: { id }, include: { _count: { select: { assignments: true } } } });
   if (!s) notFound();
-  const term = await currentTerm();
-  const now = s.assignments.filter((a) => a.academicTermId === term?.id);
+  const term = tab === "overview" ? await currentTerm() : null;
+  const [assignments, now] = await Promise.all([
+    tab === "classes" ? db.classSubjectAssignment.findMany({ where: { subjectId: id }, orderBy: [{ academicTerm: { startDate: "desc" } }, { schoolClass: { className: "asc" } }], select: {
+      id: true, schoolClassId: true, teacherId: true, schoolClass: { select: { className: true, gradeLevel: { select: { gradeName: true } } } },
+      teacher: { select: { fullName: true } }, academicTerm: { select: { termName: true, academicYear: { select: { yearName: true } } } }, _count: { select: { timetableSlots: { where: effectiveSlots() } } },
+    } }) : Promise.resolve([]),
+    tab === "overview" ? db.classSubjectAssignment.findMany({ where: { subjectId: id, academicTermId: term?.id ?? "-" }, distinct: ["schoolClassId", "teacherId"], select: { schoolClassId: true, teacherId: true } }) : Promise.resolve([]),
+  ]);
   const isAdmin = me.roles.some((r) => ADMIN_ROLES.includes(r));
 
   return (
@@ -53,7 +56,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
 
       {tab === "classes" && (
         <Table head={["Lớp", "Khối", "Giáo viên", "Học kỳ", "Số tiết/tuần"]}>
-          {s.assignments.map((a) => (
+          {assignments.map((a) => (
             <tr key={a.id} className="align-top">
               <td><Link data-row href={`/lop-hoc/${a.schoolClassId}`} className="font-medium text-orange-700 hover:underline">{a.schoolClass.className}</Link></td>
               <td>{a.schoolClass.gradeLevel.gradeName}</td>
@@ -62,7 +65,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
               <td>{a._count.timetableSlots}/{s.defaultPeriodsPerWeek}</td>
             </tr>
           ))}
-          {!s.assignments.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có lớp nào học môn này. Phân công giáo viên dạy ở mục Phân công giảng dạy.</td></tr>}
+          {!assignments.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Chưa có lớp nào học môn này. Phân công giáo viên dạy ở mục Phân công giảng dạy.</td></tr>}
         </Table>
       )}
 
@@ -82,7 +85,7 @@ export default async function SubjectDetail({ params, searchParams }: { params: 
           {isAdmin && (
             <Card mobile="flat" className="space-y-3 border-red-300">
               <h2 className="font-semibold text-red-600">Vùng nguy hiểm</h2>
-              <p className="text-sm text-slate-600">Xoá môn học không thể hoàn tác. Chỉ xoá được khi chưa phân công cho lớp nào ({s.assignments.length} phân công hiện tại).</p>
+              <p className="text-sm text-slate-600">Xoá môn học không thể hoàn tác. Chỉ xoá được khi chưa phân công cho lớp nào ({s._count.assignments} phân công hiện tại).</p>
               <ActionForm action={deleteSubject} submit="Xoá môn học" danger confirmText={`Xoá môn ${s.subjectName}?`} className="inline-flex"><input type="hidden" name="id" value={s.id} /></ActionForm>
             </Card>
           )}

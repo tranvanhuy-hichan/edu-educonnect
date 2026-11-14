@@ -16,7 +16,7 @@ import { ViewToggle } from "@/components/view-toggle";
 import { Pagination } from "@/components/pagination";
 import { BarList, ColumnChart, Donut } from "@/components/charts";
 import { getPaging } from "@/lib/paging";
-import { BANDS, bandOf, gradeStats, type AssignmentStat } from "@/server/grades-stats";
+import { BANDS, bandOf, gradeStats, gradeStatsWhere, type AssignmentStat } from "@/server/grades-stats";
 import { assignmentWhere, termOptions } from "@/server/learning-scope";
 import { toggleLockTerm } from "./actions";
 
@@ -33,10 +33,14 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
   // giáo viên chỉ thấy lớp và môn mình phụ trách
   const scope = assignmentWhere(me);
   const [terms, subjects] = await Promise.all([termOptions(), db.subject.findMany({ orderBy: { subjectName: "asc" } })]);
-  const stats = await gradeStats({
+  const statsOptions = {
     where: scope, termId: sp.termId || undefined, subjectId: sp.subjectId || undefined,
     q: tab === "classes" ? sp.q : undefined, includePast: !!sp.all || tab === "stats",
-  });
+  };
+  const [stats, assignmentTotal] = await Promise.all([
+    gradeStats({ ...statsOptions, ...(tab === "classes" ? { skip: pg.skip, take: pg.take } : {}) }),
+    tab === "classes" ? db.classSubjectAssignment.count({ where: gradeStatsWhere(statsOptions) }) : Promise.resolve(0),
+  ]);
 
   const isManager = me.roles.some((r) => (MANAGER_ROLES as readonly string[]).includes(r));
   const lockManageBtn = isManager ? (
@@ -111,8 +115,8 @@ export default async function GradeEntry({ searchParams }: { searchParams: Promi
 
       {/* ===================== DANH SÁCH LỚP ===================== */}
       {tab === "classes" && (() => {
-        const total = stats.length;
-        const page = stats.slice(pg.skip, pg.skip + pg.take);
+        const total = assignmentTotal;
+        const page = stats;
         return (
           <div className="space-y-3">
             <AutoForm className="flex flex-wrap items-center gap-2">

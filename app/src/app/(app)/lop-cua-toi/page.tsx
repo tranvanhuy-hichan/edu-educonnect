@@ -33,7 +33,7 @@ export default async function MyClasses({ searchParams }: { searchParams: Promis
     db.classSubjectAssignment.count({ where }),
     db.classSubjectAssignment.findMany({
       where, orderBy: [{ schoolClass: { className: "asc" } }, { subject: { subjectName: "asc" } }], skip: pg.skip, take: pg.take,
-      include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true, _count: { select: { enrollments: true } } } }, subject: true, teacher: true, academicTerm: { include: { academicYear: true } }, _count: { select: { lessonPosts: true } } },
+      include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: { select: { id: true, fullName: true } }, _count: { select: { enrollments: true } } } }, subject: true, teacher: { select: { id: true, fullName: true } }, academicTerm: { include: { academicYear: true } }, _count: { select: { lessonPosts: true } } },
     }),
   ]);
   return (

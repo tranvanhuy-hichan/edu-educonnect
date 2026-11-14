@@ -28,14 +28,14 @@ export default async function TeacherDetail({ params, searchParams }: { params: 
   const sp = await searchParams;
   const tabs = TABS.filter(([k]) => canEdit || (k !== "info" && k !== "account"));
   const tab = tabs.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
-  const [t, allSubjects] = await Promise.all([db.teacher.findUnique({ where: { id }, include: { user: true, subjects: { include: { subject: true } } } }), db.subject.findMany({ orderBy: { subjectName: "asc" } })]);
+  const [t, allSubjects] = await Promise.all([db.teacher.findUnique({ where: { id }, include: { user: { select: { email: true, roles: true, isActive: true } }, subjects: { include: { subject: true } } } }), tab === "info" && canEdit ? db.subject.findMany({ orderBy: { subjectName: "asc" } }) : Promise.resolve([])]);
   if (!t) notFound();
   const term = await currentTerm();
   const isAdmin = me.roles.some((r) => ADMIN_ROLES.includes(r));
   const created = sp.created?.split("|");
   const [homeroom, assigns] = await Promise.all([
-    db.schoolClass.findMany({ where: { homeroomTeacherId: id }, include: { gradeLevel: true, academicYear: true, _count: { select: { enrollments: true } } }, orderBy: { className: "asc" } }),
-    db.classSubjectAssignment.findMany({ where: { teacherId: id, academicTermId: term?.id ?? "-" }, include: { subject: true, schoolClass: true, academicTerm: true, timetableSlots: { where: effectiveSlots(), include: { room: true } } }, orderBy: [{ schoolClass: { className: "asc" } }] }),
+    (tab === "overview" || tab === "homeroom") ? db.schoolClass.findMany({ where: { homeroomTeacherId: id }, include: { gradeLevel: true, academicYear: true, _count: { select: { enrollments: true } } }, orderBy: { className: "asc" } }) : Promise.resolve([]),
+    (tab === "overview" || tab === "assign" || tab === "schedule") ? db.classSubjectAssignment.findMany({ where: { teacherId: id, academicTermId: term?.id ?? "-" }, include: { subject: true, schoolClass: true, academicTerm: true, timetableSlots: { where: effectiveSlots(), include: { room: true } } }, orderBy: [{ schoolClass: { className: "asc" } }] }) : Promise.resolve([]),
   ]);
   const slots = assigns.flatMap((a) => a.timetableSlots.map((s) => ({ ...s, a })));
 

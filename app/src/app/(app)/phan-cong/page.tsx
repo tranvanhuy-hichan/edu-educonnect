@@ -6,7 +6,7 @@ import { AutoForm } from "@/components/auto-form";
 import { AssignmentRow } from "@/components/assignment-row";
 import { db } from "@/lib/db";
 import { MANAGER_ROLES, TEACHING_ROLES, requireRole } from "@/lib/guard";
-import { Card, inputCls, Tabs, Title } from "@/components/ui";
+import { Card, Tabs, Title } from "@/components/ui";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
 import { fmtDate } from "@/lib/format";
@@ -18,16 +18,16 @@ export default async function Assignments({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const tab = canEdit && sp.tab === "history" ? "history" : "term";
   const pg = getPaging(sp, 12);
-  const [current, terms, teachers, subjects] = await Promise.all([currentTerm(), db.academicTerm.findMany({ include: { academicYear: true }, orderBy: { startDate: "desc" } }), db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" }, include: { subjects: { select: { subjectId: true } } } }), db.subject.findMany({ orderBy: { subjectName: "asc" } })]);
+  const [current, terms, teachers, subjects] = await Promise.all([currentTerm(), db.academicTerm.findMany({ include: { academicYear: true }, orderBy: { startDate: "desc" } }), db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, code: true, subjects: { select: { subjectId: true } } } }), db.subject.findMany({ orderBy: { subjectName: "asc" } })]);
   const term = terms.find((item) => item.id === sp.term) ?? current ?? terms[0];
   const termId = term?.id ?? "__none__";
   const scope = { academicYear: { terms: { some: { id: termId } } } };
   const curriculumWhere = { ...(sp.subject ? { subjectId: sp.subject } : {}), ...(sp.missing === "1" ? { assignments: { none: { academicTermId: termId } } } : sp.teacher ? { assignments: { some: { academicTermId: termId, teacherId: sp.teacher } } } : {}) };
   const classWhere = { ...scope, ...(sp.class ? { id: sp.class } : {}), ...((sp.subject || sp.teacher || sp.missing) ? { subjects: { some: curriculumWhere } } : {}) };
   const [classOptions, total, classes, expected, assigned, missing] = await Promise.all([
-    db.schoolClass.findMany({ where: scope, select: { id: true, className: true }, orderBy: { className: "asc" } }),
+    tab === "term" ? db.schoolClass.findMany({ where: scope, select: { id: true, className: true }, orderBy: { className: "asc" } }) : Promise.resolve([]),
     db.schoolClass.count({ where: classWhere }),
-    db.schoolClass.findMany({ where: classWhere, orderBy: { className: "asc" }, skip: pg.skip, take: pg.take, include: { subjects: { where: curriculumWhere, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: true, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } } } }),
+    tab === "term" ? db.schoolClass.findMany({ where: classWhere, orderBy: { className: "asc" }, skip: pg.skip, take: pg.take, include: { subjects: { where: curriculumWhere, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: { select: { id: true, fullName: true } }, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } } } }) : Promise.resolve([]),
     db.classSubject.count({ where: { schoolClass: scope } }),
     db.classSubjectAssignment.count({ where: { academicTermId: termId } }),
     db.classSubject.count({ where: { schoolClass: scope, assignments: { none: { academicTermId: termId } } } }),

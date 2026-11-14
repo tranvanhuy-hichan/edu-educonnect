@@ -10,7 +10,7 @@ import { ClassWeek } from "../so-dau-bai/class-week";
 import { requireRole, MANAGER_ROLES } from "@/lib/guard";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { AutoForm } from "@/components/auto-form";
-import { Card, inputCls, Table, Tabs } from "@/components/ui";
+import { Card, Table, Tabs } from "@/components/ui";
 import { ColumnChart } from "@/components/charts";
 import { fmtDate } from "@/lib/format";
 import { bandOf } from "@/server/grades-stats";
@@ -31,7 +31,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
   const classes = await db.schoolClass.findMany({
     where: isManager(me) ? {} : { homeroomTeacherId: me.teacherId ?? "-" },
     orderBy: [{ academicYear: { startDate: "desc" } }, { className: "asc" }],
-    include: { gradeLevel: true, academicYear: true, homeroomTeacher: true },
+    include: { gradeLevel: true, academicYear: true, homeroomTeacher: { select: { id: true, fullName: true } }, _count: { select: { enrollments: true } } },
   });
   if (!classes.length) {
     return <div className="space-y-4"><h1 className="text-base font-semibold sm:text-xl">Lớp chủ nhiệm</h1><Card className="py-10 text-center text-sm text-slate-500">Bạn chưa được phân công chủ nhiệm lớp nào. Liên hệ Hiệu trưởng/Hiệu phó để được phân công.</Card></div>;
@@ -40,14 +40,15 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
   const terms = await db.academicTerm.findMany({ where: { academicYearId: cls.academicYearId }, orderBy: { startDate: "desc" } });
   const term = terms.find((t) => t.id === sp.termId) ?? terms.find((t) => t.id === currentTermId(terms)) ?? null;
 
-  const enrollments = await db.studentClassEnrollment.findMany({ where: { schoolClassId: cls.id }, include: { student: true } });
+  const needsRoster = ["overview", "students", "scores"].includes(tab);
+  const enrollments = needsRoster ? await db.studentClassEnrollment.findMany({ where: { schoolClassId: cls.id }, select: { studentId: true, student: { select: { id: true, fullName: true, code: true, dob: true, guardianName: true, guardianPhone: true } } } }) : [];
   const seen = new Set<string>();
   const roster = enrollments.filter((e) => !seen.has(e.studentId) && seen.add(e.studentId)).map((e) => e.student).sort((x, y) => x.fullName.localeCompare(y.fullName, "vi"));
   const ids = roster.map((s) => s.id);
 
   const [assignments, averages] = await Promise.all([
-    term ? db.classSubjectAssignment.findMany({ where: { schoolClassId: cls.id, academicTermId: term.id }, include: { subject: true, teacher: true }, orderBy: { subject: { subjectName: "asc" } } }) : Promise.resolve([]),
-    term ? db.subjectTermAverage.findMany({ where: { academicTermId: term.id, studentId: { in: ids }, assignment: { schoolClassId: cls.id } } }) : Promise.resolve([]),
+    term && needsRoster ? db.classSubjectAssignment.findMany({ where: { schoolClassId: cls.id, academicTermId: term.id }, include: { subject: true, teacher: { select: { id: true, fullName: true } } }, orderBy: { subject: { subjectName: "asc" } } }) : Promise.resolve([]),
+    term && needsRoster ? db.subjectTermAverage.findMany({ where: { academicTermId: term.id, studentId: { in: ids }, assignment: { schoolClassId: cls.id } } }) : Promise.resolve([]),
   ]);
   const cell = new Map(averages.map((a) => [`${a.studentId}|${a.assignmentId}`, a.averageValue]));
   const studentAvg = (sid: string) => { const v = averages.filter((a) => a.studentId === sid).map((a) => a.averageValue); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; };
@@ -67,7 +68,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
           <h1 className="text-xl font-semibold">Lớp {cls.className}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-600 sm:gap-x-4 sm:text-sm">
             <span>{cls.gradeLevel.gradeName}</span><span>Năm học {cls.academicYear.yearName}</span>
-            <span>GVCN: {cls.homeroomTeacher?.fullName ?? "Chưa phân công"}</span><span>{roster.length} học sinh</span>
+            <span>GVCN: {cls.homeroomTeacher?.fullName ?? "Chưa phân công"}</span><span>{cls._count.enrollments} học sinh</span>
           </div>
         </div>
         <AutoForm className="flex flex-wrap gap-2">
@@ -78,7 +79,7 @@ export default async function Homeroom({ searchParams }: { searchParams: Promise
         </AutoForm>
       </Card>
       {tab === "overview" || tab === "students"
-        ? <Tabs current={q(tab, "")} items={TABS.map(([k, l]) => [q(k, ""), k === "students" ? `${l} (${roster.length})` : l] as [string, string])} />
+        ? <Tabs current={q(tab, "")} items={TABS.map(([k, l]) => [q(k, ""), k === "students" ? `${l} (${cls._count.enrollments})` : l] as [string, string])} />
         : <h2 className="text-lg font-semibold">{SECTION_TITLE[tab]}</h2>}
 
       {/* ===================== THỜI KHÓA BIỂU LỚP ===================== */}

@@ -4,7 +4,7 @@ import { AlertCircle, CalendarCheck, ClipboardList, School } from "lucide-react"
 import { db } from "@/lib/db";
 import { requireRole } from "@/lib/guard";
 import { AutoForm } from "@/components/auto-form";
-import { Card, inputCls, Table, Title } from "@/components/ui";
+import { Card, Table, Title } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { CATS, bandOf } from "@/server/grades-stats";
 import { currentTermId, termOptions } from "@/server/learning-scope";
@@ -35,7 +35,7 @@ export default async function MyGrades({ searchParams }: { searchParams: Promise
   const [assignments, entries, averages, subs] = await Promise.all([
     isYear ? Promise.resolve([]) : db.classSubjectAssignment.findMany({
       where: { schoolClass: { enrollments: { some: { studentId: sid } } }, ...tf },
-      include: { assessments: { where: { studentId: sid } }, subject: true, teacher: true, schoolClass: true, academicTerm: { include: { academicYear: true } } },
+      include: { assessments: { where: { studentId: sid } }, subject: true, teacher: { select: { id: true, fullName: true } }, schoolClass: true, academicTerm: { include: { academicYear: true } } },
       orderBy: [{ academicTerm: { startDate: "desc" } }, { subject: { subjectName: "asc" } }],
     }),
     isYear ? Promise.resolve([]) : db.scoreEntry.findMany({ where: { studentId: sid, ...tf }, orderBy: { createdAt: "asc" } }),

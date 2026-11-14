@@ -44,7 +44,7 @@ export default async function Operations() {
   const [stats, queue, jobs, errors] = await Promise.all([
     dbStats(),
     db.job.groupBy({ by: ["status"], _count: true }),
-    db.job.findMany({ orderBy: { createdAt: "desc" }, take: 15 }),
+    db.job.findMany({ orderBy: { createdAt: "desc" }, take: 15, select: { id: true, type: true, status: true, attempts: true, maxAttempts: true, createdAt: true, progress: true, lastError: true } }),
     db.errorLog.findMany({ where: { status: "OPEN" }, orderBy: { lastSeenAt: "desc" }, take: 30 }),
   ]);
   const count = (s: string) => queue.find((q) => q.status === s)?._count ?? 0;

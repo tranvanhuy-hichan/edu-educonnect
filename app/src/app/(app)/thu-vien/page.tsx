@@ -637,12 +637,12 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
                 bookTitle: true,
                 loanItems: {
                   where: { status: "BORROWED" },
-                  include: { loan: { include: { student: true } } },
+                  include: { loan: { include: { student: { select: { id: true, fullName: true, code: true, phone: true, guardianName: true, guardianPhone: true } } } } },
                   take: 1,
                 },
                 loans: {
                   where: { status: "BORROWED" },
-                  include: { student: true },
+                  include: { student: { select: { id: true, fullName: true, code: true, phone: true, guardianName: true, guardianPhone: true } } },
                   take: 1,
                 },
               },

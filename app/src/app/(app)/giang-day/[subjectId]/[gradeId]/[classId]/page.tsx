@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/pagination";
+import { getPaging } from "@/lib/paging";
 import Link from "next/link";
 import { PageCrumbs } from "@/components/page-crumbs";
 import { notFound } from "next/navigation";
@@ -14,9 +16,11 @@ import { loadGrade, loadSubject, teachingScope, requireTeachingViewer } from "@/
 import { PublishFromLibrary } from "@/components/publish-from-library";
 import { createPost } from "../../../../bai-hoc/actions";
 
-export default async function TeachingClass({ params }: { params: Promise<{ subjectId: string; gradeId: string; classId: string }> }) {
+export default async function TeachingClass({ params, searchParams }: { params: Promise<{ subjectId: string; gradeId: string; classId: string }>; searchParams: Promise<{ page?: string; size?: string }> }) {
   const me = await requireTeachingViewer();
   const { subjectId, gradeId, classId } = await params;
+  const sp = await searchParams;
+  const pg = getPaging(sp);
   const [subject, grade] = await Promise.all([loadSubject(me, subjectId), loadGrade(gradeId)]);
   const assignments = await db.classSubjectAssignment.findMany({
     where: { AND: [teachingScope(me), { subjectId, schoolClassId: classId, schoolClass: { gradeLevelId: gradeId } }] },
@@ -26,14 +30,13 @@ export default async function TeachingClass({ params }: { params: Promise<{ subj
   if (!assignments.length) notFound();
   const cls = assignments[0].schoolClass;
   const ids = assignments.map((a) => a.id);
-  const [posts, views, library, published] = await Promise.all([
-    db.lessonPost.findMany({ where: { assignmentId: { in: ids } }, orderBy: { createdAt: "desc" }, include: { _count: { select: { exercises: true } } } }),
-    db.lessonPostView.groupBy({ by: ["lessonPostId"], where: { lessonPost: { assignmentId: { in: ids } } }, _count: { _all: true } }),
+  const [posts, postTotal, library, published] = await Promise.all([
+    db.lessonPost.findMany({ where: { assignmentId: { in: ids } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: pg.skip, take: pg.take, select: { id: true, assignmentId: true, title: true, createdAt: true, _count: { select: { exercises: true, views: true } } } }),
+    db.lessonPost.count({ where: { assignmentId: { in: ids } } }),
     // Bài học trong kho của giáo viên (cùng môn, cùng khối) để đăng cho lớp này
-    me.teacherId ? db.libraryLesson.findMany({ where: { teacherId: me.teacherId, subjectId, gradeLevelId: gradeId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], include: { exercises: { where: { archivedAt: null }, orderBy: { orderNo: "asc" }, include: { _count: { select: { questions: true } } } } } }) : Promise.resolve([]),
+    me.teacherId ? db.libraryLesson.findMany({ where: { teacherId: me.teacherId, subjectId, gradeLevelId: gradeId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true, exercises: { where: { archivedAt: null }, orderBy: { orderNo: "asc" }, select: { id: true, title: true, kind: true, quizMode: true, _count: { select: { questions: true } } } } } }) : Promise.resolve([]),
     db.lessonPost.findMany({ where: { assignmentId: { in: ids }, sourceLessonId: { not: null } }, select: { assignmentId: true, sourceLessonId: true } }),
   ]);
-  const viewsOf = new Map(views.map((v) => [v.lessonPostId, v._count._all]));
   const roster = cls._count.enrollments;
   const termLabel = (a: (typeof assignments)[number]) => `${a.academicTerm.termName} · ${a.academicTerm.academicYear.yearName}`;
   const base = `/giang-day/${subjectId}/${gradeId}`;
@@ -58,16 +61,16 @@ export default async function TeachingClass({ params }: { params: Promise<{ subj
             </ActionForm>
           </DialogButton>
         </div>}>{subject.subjectName} · {cls.className}</Title>
-      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600"><span>{grade.gradeName}</span><span>{roster} học sinh</span><span>{posts.length} bài học đã đăng</span>{isManager(me) && <span>GV: {[...new Set(assignments.map((a) => a.teacher.fullName))].join(", ")}</span>}</div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-slate-600"><span>{grade.gradeName}</span><span>{roster} học sinh</span><span>{postTotal} bài học đã đăng</span>{isManager(me) && <span>GV: {[...new Set(assignments.map((a) => a.teacher.fullName))].join(", ")}</span>}</div>
 
-      {assignments.map((a) => {
+      {assignments.filter((a) => !postTotal || posts.some((p) => p.assignmentId === a.id)).map((a) => {
         const list = posts.filter((p) => p.assignmentId === a.id);
         return (
           <section key={a.id} className="space-y-2">
             {assignments.length > 1 && <h2 className="text-sm font-semibold text-slate-700">{termLabel(a)}</h2>}
             <MobileCards
               empty={`Chưa có bài học nào đăng cho lớp này${assignments.length > 1 ? " ở học kỳ này" : ""}.`}
-              items={list.map((p) => ({ key: p.id, href: `/bai-hoc/${p.id}`, title: p.title, chips: [`${p._count.exercises} bài tập`, `Đã xem ${viewsOf.get(p.id) ?? 0}/${roster}`, fmtDate(p.createdAt)] }))}
+              items={list.map((p) => ({ key: p.id, href: `/bai-hoc/${p.id}`, title: p.title, chips: [`${p._count.exercises} bài tập`, `Đã xem ${p._count.views}/${roster}`, fmtDate(p.createdAt)] }))}
             />
             <div className="hidden md:block">
             <Table head={["Bài học", "Bài tập", "Đã xem", "Ngày đăng"]}>
@@ -75,7 +78,7 @@ export default async function TeachingClass({ params }: { params: Promise<{ subj
                 <tr key={p.id} className="align-middle [&>td]:!py-3">
                   <td className="min-w-48"><Link data-row href={`/bai-hoc/${p.id}`} className="font-semibold text-orange-700 hover:underline">{p.title}</Link></td>
                   <td>{p._count.exercises}</td>
-                  <td><span className="inline-flex items-center gap-1"><Eye className="size-4 text-slate-400" />{viewsOf.get(p.id) ?? 0}/{roster}</span></td>
+                  <td><span className="inline-flex items-center gap-1"><Eye className="size-4 text-slate-400" />{p._count.views}/{roster}</span></td>
                   <td>{fmtDate(p.createdAt)}</td>
                 </tr>
               ))}
@@ -85,6 +88,7 @@ export default async function TeachingClass({ params }: { params: Promise<{ subj
           </section>
         );
       })}
+      <Pagination path={`/giang-day/${subjectId}/${gradeId}/${classId}`} total={postTotal} page={pg.page} size={pg.size} params={{ size: sp.size }} />
       {!assignments.length && <Card>Không có dữ liệu.</Card>}
     </div>
   );

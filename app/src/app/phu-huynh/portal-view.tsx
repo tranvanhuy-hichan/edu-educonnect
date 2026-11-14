@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import type { ChildSummary } from "./parent-header";
 import { CalendarX, Printer } from "lucide-react";
 import { Card, Table } from "@/components/ui";
 import { SearchableSelect } from "@/components/searchable-select";
@@ -9,6 +10,7 @@ import { buildYearRows, meanOf } from "@/modules/scoring/year-view";
 export type AbsenceItem = { id: string; isoDate: string; date: string; termId: string; periodNo: number; subjectName: string; excused: boolean; recent: boolean };
 
 export type ChildData = {
+  counts: { absences: number; exams: number; library: number };
   id: string;
   fullName: string;
   code: string | null;
@@ -102,14 +104,23 @@ const Badge = ({ tone, children }: { tone: "amber" | "red" | "green"; children: 
   <span className={`rounded px-2 py-0.5 text-xs font-medium ${tone === "amber" ? "bg-amber-100 text-amber-800" : tone === "red" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-800"}`}>{children}</span>
 );
 
-export function ParentPortalView({ childrenData, initialChildId, allTerms, defaultTermId, hiddenTermIds }: { childrenData: ChildData[]; initialChildId: string; allTerms: TermOption[]; defaultTermId: string; hiddenTermIds: string[] }) {
-  const [selectedChildId, setSelectedChildId] = useState(initialChildId);
-  const [selectedTermId, setSelectedTermId] = useState(defaultTermId);
-  const [tab, setTab] = useState<TabKey>("grades");
-  // Bảng điểm: chọn NĂM HỌC trước, rồi HK1 / HK2 / Cả năm
-  const curTerm = allTerms.find((t) => t.id === defaultTermId);
-  const [gradeYearId, setGradeYearId] = useState(curTerm?.yearId ?? allTerms[0]?.yearId ?? "");
-  const [gradePeriod, setGradePeriod] = useState<"HK1" | "HK2" | "YEAR">(curTerm?.termName === "HK1" || curTerm?.termName === "HK2" ? (curTerm.termName as "HK1" | "HK2") : "YEAR");
+export function ParentPortalView({ childrenData, childrenList, activeTab, initialChildId, allTerms, defaultTermId, hiddenTermIds, initialYearId, initialPeriod, initialTermId }: { childrenData: ChildData[]; childrenList: ChildSummary[]; activeTab: string; initialChildId: string; allTerms: TermOption[]; defaultTermId: string; hiddenTermIds: string[]; initialYearId: string; initialPeriod: string; initialTermId?: string }) {
+  const router = useRouter(), pathname = usePathname(), search = useSearchParams();
+  const navigate = (name: string, value: string) => {
+    const next = new URLSearchParams(search.toString());
+    next.set(name, value);
+    router.replace(`${pathname}?${next}`, { scroll: false });
+  };
+  const selectedChildId = initialChildId;
+  const selectedTermId = initialTermId ?? defaultTermId;
+  const tab = activeTab as TabKey;
+  const gradeYearId = initialYearId;
+  const gradePeriod = initialPeriod;
+  const setTab = (value: string) => navigate("tab", value);
+  const setSelectedChildId = (value: string) => navigate("child", value);
+  const setSelectedTermId = (value: string) => navigate("termId", value);
+  const setGradeYearId = (value: string) => navigate("yearId", value);
+  const setGradePeriod = (value: string) => navigate("period", value);
 
   const child = childrenData.find((c) => c.id === selectedChildId) ?? childrenData[0];
   if (!child) return null;
@@ -123,13 +134,12 @@ export function ParentPortalView({ childrenData, initialChildId, allTerms, defau
   const yearRows = gradePeriod === "YEAR" ? buildYearRows(child.subjectAverages.filter((a) => gradeYearTerms.some((t) => t.id === a.academicTermId)).map((a) => ({ subjectId: a.subjectId, subjectName: a.subjectName, termName: a.termName, value: a.averageValue }))) : [];
   const isAll = selectedTermId === "ALL";
   const inTerm = (termId: string) => isAll || termId === selectedTermId;
-  const averages = child.subjectAverages.filter((a) => inTerm(a.academicTermId));
   const slots = child.scheduleSlots.filter((s) => inTerm(s.academicTermId));
   const absences = child.absences.filter((a) => inTerm(a.termId));
   const excused = absences.filter((a) => a.excused).length;
   const recent = child.absences.filter((a) => a.recent);
   const recentDays = [...new Set(recent.map((a) => a.isoDate))].sort().reverse();
-  const count: Partial<Record<TabKey, number>> = { absences: absences.length, exams: child.examSeats.length, library: child.loans.length };
+  const count: Partial<Record<TabKey, number>> = { absences: tab === "absences" ? absences.length : child.counts.absences, exams: child.counts.exams, library: child.counts.library };
   const termOptions = [{ value: "ALL", label: "Tất cả học kỳ" }, ...allTerms.map((t) => ({ value: t.id, label: `${t.termName} · ${t.yearName}${t.isCurrent ? " (hiện tại)" : ""}` }))];
   const termPicker = (
     <div className="no-print w-full sm:w-72"><SearchableSelect name="term" options={termOptions} value={selectedTermId} onChange={setSelectedTermId} ariaLabel="Học kỳ" /></div>
@@ -140,12 +150,12 @@ export function ParentPortalView({ childrenData, initialChildId, allTerms, defau
 
   return (
     <div className="space-y-4">
-      {childrenData.length > 1 && (
+      {childrenList.length > 1 && (
         <div className="no-print flex flex-wrap items-center gap-2 text-sm">
           <span className="text-slate-500">Chọn con:</span>
-          {childrenData.map((c) => (
+          {childrenList.map((c) => (
             <button key={c.id} type="button" onClick={() => setSelectedChildId(c.id)} className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 ${c.id === selectedChildId ? "border-orange-600 bg-coral-600 text-white" : "bg-white hover:bg-slate-50"}`}>
-              {c.fullName}<span className={c.id === selectedChildId ? "text-orange-100" : "text-slate-500"}>{c.schoolClass?.className ?? "Chưa xếp lớp"}</span>
+              {c.fullName}<span className={c.id === selectedChildId ? "text-orange-100" : "text-slate-500"}>{c.className}</span>
             </button>
           ))}
         </div>

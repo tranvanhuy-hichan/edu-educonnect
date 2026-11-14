@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
 import { DialogButton } from "@/components/dialog";
@@ -34,7 +34,7 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
   const mineId = me.studentId ?? "-";
 
   // Lớp-môn trong phạm vi của người dùng → dùng để dựng các ô lọc (năm học, học kỳ, môn, lớp) và ô chọn khi đăng bài.
-  const assignments = await db.classSubjectAssignment.findMany({ where: scope, orderBy: [{ schoolClass: { className: "asc" } }, { subject: { subjectName: "asc" } }], include: { schoolClass: true, subject: true, teacher: true, academicTerm: { include: { academicYear: true } } } });
+  const assignments = await db.classSubjectAssignment.findMany({ where: scope, orderBy: [{ schoolClass: { className: "asc" } }, { subject: { subjectName: "asc" } }], include: { schoolClass: true, subject: true, teacher: { select: { id: true, fullName: true } }, academicTerm: { include: { academicYear: true } } } });
   const terms = [...new Map(assignments.map((a) => [a.academicTermId, a.academicTerm])).values()].sort((x, y) => y.startDate.getTime() - x.startDate.getTime());
   const years = [...new Map(terms.map((t) => [t.academicYearId, t.academicYear])).values()];
   const curTerm = terms.find((t) => t.id === currentTermId(terms));
@@ -67,16 +67,23 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
     db.lessonPost.count({ where }),
     overview ? Promise.resolve([]) : db.lessonPost.findMany({
       where, orderBy: [...(subjectSel ? [] : [{ assignment: { subject: { subjectName: "asc" as const } } }]), { createdAt: dir }], skip: pg.skip, take: pg.take,
-      include: {
+      select: {
+        id: true, title: true, createdAt: true,
         assignment: { include: { schoolClass: true, subject: true, academicTerm: { include: { academicYear: true } } } },
         _count: { select: { views: true, exercises: true } },
         exercises: { select: { id: true, dueDate: true, submissions: { where: { studentId: mineId }, select: { id: true } } } },
       },
     }),
-    overview ? db.lessonPost.findMany({ where: base, select: { assignmentId: true, exercises: { select: { submissions: { where: { studentId: mineId }, select: { id: true } } } } } }) : Promise.resolve([]),
+    overview && inPeriod.length ? db.$queryRaw<{ assignmentId: string; posts: number; exercises: number; todo: number }[]>(Prisma.sql`
+      SELECT p."assignmentId", count(DISTINCT p.id)::int AS posts, count(e.id)::int AS exercises,
+        (count(e.id) FILTER (WHERE NOT EXISTS (SELECT 1 FROM edu."AssignmentSubmission" s WHERE s."exerciseId" = e.id AND s."studentId" = ${mineId})))::int AS todo
+      FROM edu."LessonPost" p LEFT JOIN edu."Exercise" e ON e."lessonPostId" = p.id
+      WHERE p."assignmentId" IN (${Prisma.join(inPeriod.map((a) => a.id))}) GROUP BY p."assignmentId"
+    `) : Promise.resolve([]),
   ]);
-  const cnt = new Map<string, { posts: number; exercises: number; todo: number }>();
-  for (const c of counts) { const x = cnt.get(c.assignmentId) ?? { posts: 0, exercises: 0, todo: 0 }; x.posts++; x.exercises += c.exercises.length; x.todo += c.exercises.filter((e) => !e.submissions.length).length; cnt.set(c.assignmentId, x); }
+  const previews = posts.length ? await db.$queryRaw<{ id: string; content: string | null }[]>(Prisma.sql`SELECT id, left(content, 160) AS content FROM edu."LessonPost" WHERE id IN (${Prisma.join(posts.map((p) => p.id))})`) : [];
+  const previewOf = new Map(previews.map((p) => [p.id, p.content]));
+  const cnt = new Map(counts.map((c) => [c.assignmentId, { posts: c.posts, exercises: c.exercises, todo: c.todo }]));
   const subjectCards = [...inPeriod.reduce((m, a) => {
     const key = `${a.subjectId}|${a.academicTermId}`;
     const g = m.get(key) ?? { key, subjectId: a.subjectId, subject: a.subject.subjectName, termId: a.academicTermId, yearId: a.academicTerm.academicYearId, term: `${a.academicTerm.termName} · ${a.academicTerm.academicYear.yearName}`, classes: [] as string[], teacher: a.teacher.fullName, posts: 0, exercises: 0, todo: 0 };
@@ -201,7 +208,7 @@ export default async function LessonPosts({ searchParams }: { searchParams: Prom
                       <div className="text-xs text-slate-500">{p.assignment.schoolClass.className} · {p.assignment.subject.subjectName} · {periodOf(p)}</div>
                     </div>
                   </div>
-                  <p className="line-clamp-2 text-sm text-slate-600">{p.content}</p>
+                  <p className="line-clamp-2 text-sm text-slate-600">{previewOf.get(p.id)}</p>
                   <div className="lesson-footer mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-slate-500">
                     <ExBadge p={p} />
                     <span>{fmtDate(p.createdAt)}</span>

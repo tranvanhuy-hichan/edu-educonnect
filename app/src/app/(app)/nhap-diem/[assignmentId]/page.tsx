@@ -17,7 +17,7 @@ export default async function AssignmentGrades({ params }: { params: Promise<{ a
   const a = await db.classSubjectAssignment.findUnique({
     where: { id: assignmentId },
     include: {
-      teacher: true, subject: true, academicTerm: { include: { academicYear: true, scoreWeightConfig: true } },
+      teacher: { select: { id: true, fullName: true } }, subject: true, academicTerm: { include: { academicYear: true, scoreWeightConfig: true } },
       schoolClass: { include: { enrollments: { include: { student: true } } } },
     },
   });

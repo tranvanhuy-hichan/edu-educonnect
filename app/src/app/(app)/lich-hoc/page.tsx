@@ -105,7 +105,7 @@ export default async function Schedule({
     terms[0] ??
     null;
 
-  const versions = term ? await db.timetableVersion.findMany({ where: { academicTermId: term.id }, orderBy: { startsOn: "asc" } }) : [];
+  const versions = term ? await db.timetableVersion.findMany({ where: { academicTermId: term.id }, orderBy: { startsOn: "asc" }, select: { id: true, startsOn: true, endsOn: true } }) : [];
   const activeVersion = versions.find((version) => version.startsOn <= start && (!version.endsOn || start < version.endsOn));
 
   const versionBadge = activeVersion ? <span className="inline-flex shrink-0 items-center rounded-md border border-orange-200 bg-orange-50 px-2.5 py-1.5 align-middle text-xs font-semibold text-orange-800">Từ tuần {weekNumber(term!.academicYear.startDate, activeVersion.startsOn)} · {fmtDate(activeVersion.startsOn)}</span> : null;
@@ -132,7 +132,7 @@ export default async function Schedule({
         schoolClass: {
           include: {
             gradeLevel: true,
-            homeroomTeacher: true,
+            homeroomTeacher: { select: { id: true, fullName: true } },
             _count: { select: { enrollments: true } },
           },
         },
@@ -161,7 +161,7 @@ export default async function Schedule({
       },
       orderBy: { className: "asc" },
     }),
-    db.teacher.findMany({ orderBy: { fullName: "asc" } }),
+    db.teacher.findMany({ orderBy: { fullName: "asc" }, select: { id: true, fullName: true, code: true } }),
     db.room.findMany({ orderBy: { roomName: "asc" } }),
     db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
 

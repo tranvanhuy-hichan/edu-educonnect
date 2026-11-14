@@ -29,7 +29,7 @@ export default async function Classes({ searchParams }: { searchParams: Promise<
     db.schoolClass.count({ where }),
     db.schoolClass.findMany({
       where, orderBy: [{ academicYear: { startDate: "desc" } }, { className: "asc" }], skip: pg.skip, take: pg.take,
-      include: { gradeLevel: true, homeroomTeacher: true, academicYear: true, room: true, monitorStudent: { select: { fullName: true } }, _count: { select: { enrollments: true } } },
+      select: { id: true, className: true, shift: true, gradeLevel: { select: { gradeName: true } }, homeroomTeacher: { select: { id: true, fullName: true } }, academicYear: { select: { yearName: true, startDate: true, endDate: true } }, room: { select: { roomName: true } }, monitorStudent: { select: { fullName: true } }, _count: { select: { enrollments: true } } },
     }),
     db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
     db.academicYear.findMany({ orderBy: { startDate: "desc" } }),

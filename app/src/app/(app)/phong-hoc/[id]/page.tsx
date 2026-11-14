@@ -41,10 +41,11 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
   const term = await currentTerm();
   const dow = dowOf(todayUTC());
   const live = { ...effectiveSlots(), roomId: id, academicTermId: term?.id ?? "-" };
-  const slotInclude = { schoolClass: true, assignment: { include: { subject: true, teacher: true } } } as const;
-  const [slots, slotCount] = await Promise.all([
-    db.timetableSlot.findMany({ where: live, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }], include: slotInclude }),
+  const slotInclude = { schoolClass: true, assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } } } as const;
+  const [slots, slotCount, todayCount] = await Promise.all([
+    (tab === "overview" || tab === "classes") ? db.timetableSlot.findMany({ where: live, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }], include: slotInclude }) : Promise.resolve([]),
     db.timetableSlot.count({ where: { roomId: id } }),
+    db.timetableSlot.count({ where: { ...live, dayOfWeek: dow } }),
   ]);
   const todaySlots = slots.filter((s) => s.dayOfWeek === dow);
   const classes = [...new Map(slots.map((s) => [s.schoolClassId, s.schoolClass])).values()].sort((a, b) => a.className.localeCompare(b.className, "vi"));
@@ -58,7 +59,7 @@ export default async function RoomDetail({ params, searchParams }: { params: Pro
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold">{room.roomName}</h1>
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${todaySlots.length ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"}`}>{todaySlots.length ? `${todaySlots.length} tiết hôm nay` : "Trống hôm nay"}</span>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${todayCount ? "bg-orange-100 text-orange-800" : "bg-green-100 text-green-800"}`}>{todayCount ? `${todayCount} tiết hôm nay` : "Trống hôm nay"}</span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600"><span className="font-medium text-orange-700">{labelOf(roomTypes, room.roomType)}</span><span className="flex items-center gap-1"><Users className="size-4" /> Sức chứa {room.capacity} chỗ</span></div>
         </div>

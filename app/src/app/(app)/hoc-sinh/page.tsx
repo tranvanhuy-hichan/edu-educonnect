@@ -1,3 +1,4 @@
+import { loadStudentList } from "@/server/student-list";
 import { ActionMenu } from "@/components/action-menu";
 import { SearchableSelect } from "@/components/searchable-select";
 import Link from "next/link";
@@ -9,7 +10,7 @@ import { inputCls, Table, Tabs, Title } from "@/components/ui";
 import { MobileCollapse } from "@/components/mobile-collapse";
 import { Pagination } from "@/components/pagination";
 import { getPaging } from "@/lib/paging";
-import { loadStudents, STATUS_COLOR, STATUS_LABEL, type StudentStatus } from "@/server/students";
+import { STATUS_COLOR, STATUS_LABEL, type StudentStatus } from "@/server/students";
 import { hueOfStr, initialOf } from "@/lib/catalog";
 
 const DOT: Record<StudentStatus, string> = { learning: "bg-green-500", waiting: "bg-sky-500", attention: "bg-red-500", locked: "bg-slate-400" };
@@ -22,18 +23,11 @@ export default async function Students({ searchParams }: { searchParams: Promise
   const { q = "", tab = "all", sort = "az", grade = "", classId = "" } = sp;
   const view = pickView(sp.v, "table");
   const pg = getPaging(sp);
-  const [all, grades, classes] = await Promise.all([
-    loadStudents(), db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }),
+  const [{ rows: shown, counts, total }, grades, classes] = await Promise.all([
+    loadStudentList({ q, tab, sort, grade, classId, skip: pg.skip, take: pg.take }),
+    db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, gradeName: true } }),
     db.schoolClass.findMany({ where: { academicYear: { endDate: { gte: new Date() } } }, orderBy: { className: "asc" }, select: { id: true, className: true, gradeLevelId: true } }),
   ]);
-  const kw = q.toLowerCase();
-  const base = all.filter((s) => (!classId || s.current?.schoolClassId === classId) && (!grade || s.current?.schoolClass.gradeLevelId === grade) && (!kw || `${s.fullName} ${s.code ?? ""} ${s.user.email}`.toLowerCase().includes(kw)));
-  const counts: Record<string, number> = { all: base.length };
-  for (const s of base) counts[s.status] = (counts[s.status] ?? 0) + 1;
-  let list = base.filter((s) => tab === "all" || s.status === tab);
-  if (sort === "za") list = [...list].reverse();
-  if (sort === "new") list = [...list].sort((a, b) => b.user.createdAt.getTime() - a.user.createdAt.getTime());
-  const shown = list.slice(pg.skip, pg.skip + pg.take);
   const params = { q, tab, sort, grade, classId, size: sp.size, v: sp.v };
   const link = (t: string) => `/hoc-sinh?tab=${t}&q=${encodeURIComponent(q)}&sort=${sort}&grade=${grade}&classId=${classId}`;
 
@@ -88,7 +82,7 @@ export default async function Students({ searchParams }: { searchParams: Promise
       ) : (
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-3 2xl:grid-cols-4">{shown.map((s) => <Card key={s.id} s={s} />)}{!shown.length && <p className="text-sm text-slate-500">Không có học sinh phù hợp.</p>}</div>
       )}
-      <Pagination total={list.length} page={pg.page} size={pg.size} path="/hoc-sinh" params={params} />
+      <Pagination total={total} page={pg.page} size={pg.size} path="/hoc-sinh" params={params} />
     </div>
   );
 }

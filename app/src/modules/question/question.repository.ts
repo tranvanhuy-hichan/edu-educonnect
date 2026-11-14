@@ -32,7 +32,7 @@ export const questionInclude = {
 
 export const listQuestions = (f: QuestionFilter, skip: number, take: number) =>
   prisma.$transaction([
-    prisma.question.findMany({ where: where(f), include: questionInclude, orderBy: { createdAt: "desc" }, skip, take }),
+    prisma.question.findMany({ where: where(f), select: { id: true, content: true, topic: true, type: true, difficulty: true, reviewStatus: true, reviewNote: true, subject: questionInclude.subject, gradeLevel: questionInclude.gradeLevel, libraryLesson: questionInclude.libraryLesson, teacher: questionInclude.teacher, _count: questionInclude._count }, orderBy: { createdAt: "desc" }, skip, take }),
     prisma.question.count({ where: where(f) }),
   ]);
 

@@ -30,7 +30,7 @@ export default async function Teachers({ searchParams }: { searchParams: Promise
   const where = { ...search, ...filt[tab] };
   const [total, list, ...cnt] = await Promise.all([
     db.teacher.count({ where }),
-    db.teacher.findMany({ where, orderBy: { fullName: "asc" }, skip: pg.skip, take: pg.take, include: { user: true, subjects: { include: { subject: true } }, assignments: { select: { schoolClassId: true } }, _count: { select: { homeroomClasses: true, assignments: true } } } }),
+    db.teacher.findMany({ where, orderBy: { fullName: "asc" }, skip: pg.skip, take: pg.take, select: { id: true, fullName: true, code: true, phone: true, user: { select: { email: true, isActive: true, roles: true } }, subjects: { select: { subject: { select: { subjectName: true } } } }, assignments: { distinct: ["schoolClassId"], select: { schoolClassId: true } }, _count: { select: { homeroomClasses: true, assignments: true } } } }),
     ...TABS.map(([k]) => db.teacher.count({ where: { ...search, ...filt[k] } })),
   ]);
   const link = (t: string) => `/giao-vien?tab=${t}&q=${encodeURIComponent(q)}`;

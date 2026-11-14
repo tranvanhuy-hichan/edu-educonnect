@@ -1,3 +1,5 @@
+import { Pagination } from "@/components/pagination";
+import { getPaging } from "@/lib/paging";
 import Link from "next/link";
 import { getGradeLevels, getSubjects } from "@/lib/catalog-cache";
 import { PageCrumbs } from "@/components/page-crumbs";
@@ -13,7 +15,7 @@ import { SubjectGradeGrid } from "@/components/drill-cards";
 import * as bankRepo from "@/modules/bank/bank.repository";
 import { createLessonAction } from "./actions";
 
-type SP = { subjectId?: string; gradeLevelId?: string; teacherId?: string; q?: string };
+type SP = { subjectId?: string; gradeLevelId?: string; teacherId?: string; q?: string; page?: string; size?: string };
 const href = (p: SP) => `/ngan-hang-bai-hoc?${new URLSearchParams(Object.entries(p).filter(([, v]) => v) as [string, string][])}`;
 
 export default async function LessonBank({ searchParams }: { searchParams: Promise<SP> }) {
@@ -49,12 +51,18 @@ export default async function LessonBank({ searchParams }: { searchParams: Promi
     );
   }
 
-  const allLessons = await bankRepo.listLessons(me.teacherId ?? undefined, subject.id, grade.id);
-  // quản lý: lọc theo giáo viên và tìm theo tên bài học
-  const lessonTeachers = own ? [] : [...new Map(allLessons.map((l) => [l.teacherId, l.teacher.fullName])).entries()].sort((x, y) => x[1].localeCompare(y[1], "vi"));
-  const needle = (sp.q ?? "").trim().toLowerCase();
-  const lessons = own ? allLessons : allLessons.filter((l) => (!sp.teacherId || l.teacherId === sp.teacherId) && (!needle || l.title.toLowerCase().includes(needle)));
-  const nextNo = (lessons.at(-1)?.orderNo ?? 0) + 1;
+  const pg = getPaging(sp);
+  const teacherId = own ? me.teacherId! : sp.teacherId;
+  const needle = own ? "" : (sp.q ?? "").trim();
+  const where = { subjectId: subject.id, gradeLevelId: grade.id, archivedAt: null, ...(teacherId ? { teacherId } : {}), ...(needle ? { title: { contains: needle, mode: "insensitive" as const } } : {}) };
+  const [lessons, total, lessonTeachersRaw, maxOrder] = await Promise.all([
+    bankRepo.listLessons(teacherId, subject.id, grade.id, { q: needle, skip: pg.skip, take: pg.take }),
+    db.libraryLesson.count({ where }),
+    own ? Promise.resolve([]) : db.teacher.findMany({ where: { libraryLessons: { some: { subjectId: subject.id, gradeLevelId: grade.id, archivedAt: null } } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
+    own ? bankRepo.maxLessonOrder(me.teacherId!, subject.id, grade.id) : Promise.resolve(0),
+  ]);
+  const lessonTeachers = lessonTeachersRaw.map((t) => [t.id, t.fullName] as const);
+  const nextNo = maxOrder + 1;
   return (
     <div className="space-y-4">
       {crumbs}
@@ -112,6 +120,7 @@ export default async function LessonBank({ searchParams }: { searchParams: Promi
         {!lessons.length && <tr><td colSpan={own ? 5 : 6} className="py-8 text-center text-slate-500">{own ? "Chưa có bài học nào. Bấm \"+ Thêm bài học\" để tạo bài đầu tiên." : "Chưa có bài học nào."}</td></tr>}
       </Table>
       </div>
+      <Pagination path="/ngan-hang-bai-hoc" total={total} page={pg.page} size={pg.size} params={{ subjectId, gradeLevelId: gradeId, teacherId: sp.teacherId, q: sp.q, size: sp.size }} />
     </div>
   );
 }

@@ -28,7 +28,7 @@ export async function generateMetadata() {
 export default async function ParentPortalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ child?: string }>;
+  searchParams: Promise<{ child?: string; tab?: string; yearId?: string; period?: string; termId?: string }>;
 }) {
   const [parent, brand, curTerm, allTerms] = await Promise.all([
     requireParentSession(),
@@ -41,6 +41,11 @@ export default async function ParentPortalPage({
   ]);
 
   const sp = await searchParams;
+  const tab = ["grades", "schedule", "absences", "exams", "library"].includes(sp.tab ?? "") ? sp.tab! : "grades";
+  const gradeYearId = allTerms.some((t) => t.academicYearId === sp.yearId) ? sp.yearId! : curTerm?.academicYearId ?? allTerms[0]?.academicYearId ?? "-";
+  const gradePeriod = ["HK1", "HK2", "YEAR"].includes(sp.period ?? "") ? sp.period! : (curTerm?.termName === "HK1" || curTerm?.termName === "HK2" ? curTerm.termName : "YEAR");
+  const selectedTermId = sp.termId === "ALL" || allTerms.some((t) => t.id === sp.termId) ? sp.termId! : curTerm?.id ?? allTerms[0]?.id ?? "-";
+  const gradeTermIds = allTerms.filter((t) => t.academicYearId === gradeYearId && (gradePeriod === "YEAR" || t.termName === gradePeriod) && !t.gradesHidden).map((t) => t.id);
   // Học kỳ khóa xem điểm: server không đưa điểm của kỳ đó sang trình duyệt phụ huynh
   const hiddenTerms = await hiddenTermIds();
   const hiddenYearIds = new Set(allTerms.filter((t) => hiddenTerms.includes(t.id)).map((t) => t.academicYearId));
@@ -48,8 +53,7 @@ export default async function ParentPortalPage({
 
   // Lấy toàn bộ học sinh liên kết với SĐT của phụ huynh
   const cleanedDigits = parent.phone.replace(/\D/g, "");
-  const rawStudents = await db.student.findMany({
-    where: {
+  const childWhere = {
       OR: [
         { guardianPhone: parent.phone },
         { guardianPhone: { startsWith: parent.phone } },
@@ -57,42 +61,55 @@ export default async function ParentPortalPage({
           ? [{ guardianPhone: { contains: cleanedDigits.slice(-9) } }]
           : []),
       ],
-    },
-    include: {
+    };
+  const childrenSummary = await db.student.findMany({ where: childWhere, orderBy: { id: "asc" }, select: {
+    id: true, fullName: true, code: true,
+    enrollments: { orderBy: { academicYear: { startDate: "desc" } }, take: 1, select: { schoolClass: { select: { className: true } } } },
+  } });
+  const selectedChildId = childrenSummary.find((c) => c.id === sp.child)?.id ?? childrenSummary[0]?.id ?? "-";
+  const rawStudents = await db.student.findMany({
+    where: { ...childWhere, id: selectedChildId },
+    select: {
+      id: true, fullName: true, code: true, dob: true, guardianName: true, guardianPhone: true,
+      _count: { select: { periodAbsences: { where: selectedTermId === "ALL" ? {} : { log: { timetableSlot: { academicTermId: selectedTermId } } } }, examSeats: { where: { paper: { event: { status: "PUBLISHED" } } } }, loans: { where: { status: { in: ["BORROWED", "PARTIALLY_RETURNED", "OVERDUE"] } } } } },
       enrollments: {
         include: {
           academicYear: true,
           schoolClass: {
             include: {
-              homeroomTeacher: true,
+              homeroomTeacher: { select: { fullName: true, phone: true } },
               gradeLevel: true,
               room: true,
             },
           },
         },
         orderBy: { academicYear: { startDate: "desc" } },
+        take: 1,
       },
       yearEndResults: {
         where: { reviewStatus: "APPROVED" },
         include: { academicYear: true },
         orderBy: { academicYear: { startDate: "desc" } },
+        take: 1,
       },
-      assessments: { include: { assignment: { include: { subject: true, academicTerm: true } } } },
+      assessments: { where: { assignment: { academicTermId: { in: tab === "grades" ? gradeTermIds : [] } } }, include: { assignment: { include: { subject: true, academicTerm: true } } } },
       subjectAverages: {
+        where: { academicTermId: { in: tab === "grades" ? gradeTermIds : [] } },
         include: {
           academicTerm: { include: { academicYear: true } },
-          assignment: { include: { subject: true, teacher: true } },
+          assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } },
         },
       },
       scoreEntries: {
+        where: { academicTermId: { in: tab === "grades" && gradePeriod !== "YEAR" ? gradeTermIds : [] } },
         include: {
           academicTerm: true,
-          assignment: { include: { subject: true, teacher: true } },
+          assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } },
         },
         orderBy: { createdAt: "asc" },
       },
       loans: {
-        where: { status: { in: ["BORROWED", "PARTIALLY_RETURNED", "OVERDUE"] } },
+        where: { ...(tab === "library" ? {} : { id: "-" }), status: { in: ["BORROWED", "PARTIALLY_RETURNED", "OVERDUE"] } },
         include: {
           items: {
             include: { bookCopy: { include: { bookTitle: true } } },
@@ -101,7 +118,7 @@ export default async function ParentPortalPage({
         orderBy: { dueDate: "asc" },
       },
       examSeats: {
-        where: { paper: { event: { status: "PUBLISHED" } } },
+        where: { ...(tab === "exams" ? {} : { id: "-" }), paper: { event: { status: "PUBLISHED" } } },
         include: {
           paper: {
             include: {
@@ -155,14 +172,14 @@ export default async function ParentPortalPage({
     ),
   ];
 
-  const allSchedules = await Promise.all(classIds.map((cid) =>
-    loadScheduleSlots({ ...effectiveSlots(), schoolClassId: cid })
+  const allSchedules = await Promise.all((tab === "schedule" ? classIds : []).map((cid) =>
+    loadScheduleSlots({ ...effectiveSlots(), schoolClassId: cid, ...(selectedTermId === "ALL" ? {} : { academicTermId: selectedTermId }) })
   ));
   const scheduleMap = new Map(classIds.map((cid, i) => [cid, allSchedules[i]]));
 
   // Chỉ các tiết CHÍNH CON MÌNH vắng (do giáo viên điểm danh trong sổ đầu bài); không đưa dữ liệu của lớp hay bạn khác.
   const absenceRows = await db.classPeriodAbsence.findMany({
-    where: { studentId: { in: rawStudents.map((s) => s.id) } },
+    where: { studentId: selectedChildId, ...((tab === "absences" && selectedTermId === "ALL") ? {} : { OR: [ ...(tab === "absences" ? [{ log: { timetableSlot: { academicTermId: selectedTermId } } }] : []), { log: { logDate: { gte: new Date(new Date().getTime() - 7 * 86400_000) } } } ] }) },
     include: { log: { include: { timetableSlot: { include: { assignment: { include: { subject: true } } } } } } },
     orderBy: { log: { logDate: "desc" } },
   });
@@ -185,6 +202,7 @@ export default async function ParentPortalPage({
     const slots = cls ? scheduleMap.get(cls.id) ?? [] : [];
 
     return {
+      counts: { absences: s._count.periodAbsences, exams: s._count.examSeats, library: s._count.loans },
       id: s.id,
       fullName: s.fullName,
       code: s.code,
@@ -273,11 +291,8 @@ export default async function ParentPortalPage({
     childrenData.find((c) => c.id === sp.child)?.id ?? childrenData[0].id;
   const defaultTermId = curTerm?.id ?? allTerms[0]?.id ?? "";
 
-  const childrenListSummary: ChildSummary[] = childrenData.map((c) => ({
-    id: c.id,
-    fullName: c.fullName,
-    code: c.code,
-    className: c.schoolClass?.className ?? "Chưa xếp lớp",
+  const childrenListSummary: ChildSummary[] = childrenSummary.map((c) => ({
+    id: c.id, fullName: c.fullName, code: c.code, className: c.enrollments[0]?.schoolClass.className ?? "Chưa xếp lớp",
   }));
 
   return (
@@ -293,6 +308,12 @@ export default async function ParentPortalPage({
 
       <main className="w-full px-3 py-4 md:px-6">
         <ParentPortalView
+          key={`${initialChildId}:${tab}:${sp.yearId ?? ""}:${sp.period ?? ""}:${sp.termId ?? ""}`}
+          childrenList={childrenListSummary}
+          activeTab={tab}
+          initialYearId={gradeYearId}
+          initialPeriod={gradePeriod}
+          initialTermId={selectedTermId}
           childrenData={childrenData}
           initialChildId={initialChildId}
           allTerms={termOptions}

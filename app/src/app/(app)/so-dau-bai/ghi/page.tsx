@@ -1,5 +1,4 @@
 import { isVersionEffective } from "@/modules/scheduling/effective";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireRole, MANAGER_ROLES, TEACHING_ROLES } from "@/lib/guard";
@@ -20,7 +19,7 @@ export default async function DiaryEntry({ searchParams }: { searchParams: Promi
   const day = parseDate(d);
   const slot = await db.timetableSlot.findUnique({
     where: { id: slotId },
-    include: { version: true, schoolClass: { include: { academicYear: true, _count: { select: { enrollments: true } } } }, assignment: { include: { subject: true, teacher: true } }, room: true },
+    include: { version: true, schoolClass: { include: { academicYear: true, _count: { select: { enrollments: true } } } }, assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } }, room: true },
   });
   if (!slot || !isVersionEffective(slot.version, day)) notFound();
   const dow = day.getUTCDay() === 0 ? 8 : day.getUTCDay() + 1;
@@ -37,7 +36,7 @@ export default async function DiaryEntry({ searchParams }: { searchParams: Promi
     db.classPeriodLog.findUnique({ where: { timetableSlotId_logDate: { timetableSlotId: slot.id, logDate: day } }, include: { absences: true } }),
     // các tiết gần đây của cùng lớp và môn: để giáo viên nối tiếp nội dung bài dạy
     db.classPeriodLog.findMany({ where: { timetableSlot: { assignmentId: slot.assignmentId }, logDate: { lt: day } }, orderBy: { logDate: "desc" }, take: 5 }),
-    db.studentClassEnrollment.findMany({ where: { schoolClassId: slot.schoolClassId }, include: { student: true } }),
+    db.studentClassEnrollment.findMany({ where: { schoolClassId: slot.schoolClassId }, select: { studentId: true, student: { select: { id: true, fullName: true, code: true } } } }),
   ]);
   const today = todayUTC();
   const future = day.getTime() > today.getTime();

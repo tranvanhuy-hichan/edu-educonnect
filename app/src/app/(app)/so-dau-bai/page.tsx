@@ -37,8 +37,8 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
   // Giáo viên chỉ thấy lớp mình dạy hoặc chủ nhiệm; quản lý thấy tất cả.
   const classWhere = staff ? {} : { OR: [{ homeroomTeacherId: me.teacherId ?? "-" }, { assignments: { some: { teacherId: me.teacherId ?? "-" } } }] };
   const [classes, teachers] = await Promise.all([
-    db.schoolClass.findMany({ where: classWhere, orderBy: [{ academicYear: { startDate: "desc" } }, { className: "asc" }], include: { academicYear: true, homeroomTeacher: { select: { fullName: true } }, _count: { select: { enrollments: true } } } }),
-    staff ? db.teacher.findMany({ orderBy: { fullName: "asc" } }) : Promise.resolve([]),
+    db.schoolClass.findMany({ where: classWhere, orderBy: [{ academicYear: { startDate: "desc" } }, { className: "asc" }], select: { id: true, className: true, academicYear: { select: { id: true, yearName: true, startDate: true, endDate: true } } } }),
+    staff ? db.teacher.findMany({ orderBy: { fullName: "asc" }, select: { id: true, fullName: true, code: true } }) : Promise.resolve([]),
   ]);
   const visibleClassIds = classes.map((c) => c.id);
   const fClass = visibleClassIds.includes(sp.class ?? "") ? sp.class! : "";
@@ -61,8 +61,13 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
       {/* ===================== DANH SÁCH LỚP ===================== */}
       {tab === "lop" && !fClass && await (async () => {
         const q = (sp.q ?? "").trim().toLowerCase();
-        const visible = classes.filter((c) => (sp.all || (c.academicYear.startDate <= today && c.academicYear.endDate >= today)) && (!q || c.className.toLowerCase().includes(q)));
-        const rows = visible.slice(pg.skip, pg.skip + pg.take);
+        const where = { AND: [classWhere, ...(sp.all ? [] : [{ academicYear: { startDate: { lte: today }, endDate: { gte: today } } }]), ...(q ? [{ className: { contains: q, mode: "insensitive" as const } }] : [])] };
+        const [total, rows] = await Promise.all([
+          db.schoolClass.count({ where }),
+          db.schoolClass.findMany({ where, orderBy: [{ academicYear: { startDate: "desc" } }, { className: "asc" }, { id: "asc" }], skip: pg.skip, take: pg.take, select: {
+            id: true, className: true, academicYear: { select: { yearName: true } }, homeroomTeacher: { select: { fullName: true } }, _count: { select: { enrollments: true } },
+          } }),
+        ]);
         const monday = mondayOf(today);
         const weekDays = Array.from({ length: 6 }, (_, i) => addDays(monday, i));
         const ids = rows.map((c) => c.id);
@@ -123,7 +128,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
               })}
               {!rows.length && <tr><td colSpan={4} className="py-8 text-center text-slate-500">Không có lớp nào.</td></tr>}
             </Table>}
-            <Pagination total={visible.length} page={pg.page} size={pg.size} path="/so-dau-bai" params={{ tab: "lop", v: sp.v, q: sp.q, all: sp.all, size: sp.size }} />
+            <Pagination total={total} page={pg.page} size={pg.size} path="/so-dau-bai" params={{ tab: "lop", v: sp.v, q: sp.q, all: sp.all, size: sp.size }} />
           </div>
         );
       })()}
@@ -137,7 +142,7 @@ export default async function Diary({ searchParams }: { searchParams: Promise<SP
           db.classPeriodLog.count({ where: logWhere }),
           db.classPeriodLog.findMany({
             where: logWhere, orderBy: [{ logDate: "desc" }, { timetableSlot: { periodNo: "asc" } }], skip: pg.skip, take: pg.take,
-            include: { schoolClass: { include: { academicYear: true } }, timetableSlot: { include: { assignment: { include: { subject: true, teacher: true } }, room: true } } },
+            include: { schoolClass: { include: { academicYear: true } }, timetableSlot: { include: { assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } }, room: true } } },
           }),
         ]);
         return (

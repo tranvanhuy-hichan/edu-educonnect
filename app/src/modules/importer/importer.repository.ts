@@ -12,7 +12,7 @@ export const createJob = (data: Prisma.ImportJobUncheckedCreateInput) => prisma.
 export const updateJob = (id: string, data: Prisma.ImportJobUncheckedUpdateInput) => prisma.importJob.update({ where: { id }, data });
 export const findJob = (id: string) => prisma.importJob.findUnique({ where: { id }, include: { subject: true, gradeLevel: true, libraryLesson: true } });
 export const listJobs = (teacherId: string, take = 50) =>
-  prisma.importJob.findMany({ where: { teacherId }, orderBy: { createdAt: "desc" }, take, include: { subject: true, gradeLevel: true, libraryLesson: { select: { title: true } } } });
+  prisma.importJob.findMany({ where: { teacherId }, orderBy: { createdAt: "desc" }, take, select: { id: true, fileName: true, kind: true, status: true, questionCount: true, flaggedCount: true, createdAt: true, subject: { select: { subjectName: true } }, gradeLevel: { select: { gradeName: true } }, libraryLesson: { select: { title: true } } } });
 
 export const jobQuestions = (jobId: string) =>
   prisma.question.findMany({ where: { importJobId: jobId, archivedAt: null }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], include: { options: { orderBy: { order: "asc" } } } });

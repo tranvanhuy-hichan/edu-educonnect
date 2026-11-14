@@ -37,7 +37,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
   const tabs = TABS.filter(([k]) => canEdit || ["overview", "personnel", "assignments", "timetable", "diary"].includes(k));
   const tab = tabs.some(([k]) => k === sp.tab) ? sp.tab! : "overview";
   const pg = getPaging(sp, 15);
-  const c = await db.schoolClass.findUnique({ where: { id }, include: { subjects: { include: { subject: true } }, room: true, gradeLevel: true, academicYear: true, homeroomTeacher: true } });
+  const c = await db.schoolClass.findUnique({ where: { id }, include: { subjects: { where: tab === "settings" ? {} : { subjectId: "-" }, include: { subject: true } }, room: true, gradeLevel: true, academicYear: true, homeroomTeacher: { select: { id: true, fullName: true } } } });
   if (!c) notFound();
   const term = await currentTerm();
   const termId = term?.id ?? "-";
@@ -103,7 +103,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
       {tab === "overview" && await (async () => {
         const [avgs, logs] = await Promise.all([
           db.subjectTermAverage.aggregate({ where: { academicTermId: termId, student: { enrollments: { some: { schoolClassId: id } } } }, _avg: { averageValue: true } }),
-          db.classPeriodLog.findMany({ where: { schoolClassId: id }, orderBy: { logDate: "desc" }, take: 5, include: { timetableSlot: { include: { assignment: { include: { subject: true, teacher: true } } } } } }),
+          db.classPeriodLog.findMany({ where: { schoolClassId: id }, orderBy: { logDate: "desc" }, take: 5, include: { timetableSlot: { include: { assignment: { include: { subject: true, teacher: { select: { id: true, fullName: true } } } } } } } }),
         ]);
         const avg = avgs._avg.averageValue;
         return (
@@ -128,7 +128,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
 
       {tab === "students" && await (async () => {
         const [list, others] = await Promise.all([
-          db.studentClassEnrollment.findMany({ where: { schoolClassId: id }, include: { student: { include: { user: { select: { isActive: true } } } } }, orderBy: { student: { fullName: "asc" } }, skip: pg.skip, take: pg.take }),
+          db.studentClassEnrollment.findMany({ where: { schoolClassId: id }, include: { student: { select: { id: true, fullName: true, code: true, dob: true, guardianName: true, guardianPhone: true, user: { select: { isActive: true } } } } }, orderBy: { student: { fullName: "asc" } }, skip: pg.skip, take: pg.take }),
           db.schoolClass.findMany({ where: { academicYearId: c.academicYearId, id: { not: id } }, orderBy: { className: "asc" }, select: { id: true, className: true } }),
         ]);
         const Transfer = ({ e }: { e: (typeof list)[number] }) => (
@@ -172,8 +172,8 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
 
       {tab === "assignments" && await (async () => {
         const [curriculum, teachers] = await Promise.all([
-          db.classSubject.findMany({ where: { schoolClassId: id }, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: true, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } }),
-          db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" }, include: { subjects: { select: { subjectId: true } } } }),
+          db.classSubject.findMany({ where: { schoolClassId: id }, orderBy: { subject: { subjectName: "asc" } }, include: { subject: true, assignments: { where: { academicTermId: termId }, include: { teacher: { select: { id: true, fullName: true } }, _count: { select: { timetableSlots: { where: effectiveSlots() } } } } } } }),
+          db.teacher.findMany({ where: { user: { isActive: true } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, code: true, subjects: { select: { subjectId: true } } } }),
         ]);
         return <div className="content-panel overflow-hidden rounded-lg border bg-white"><p className="border-b p-4 text-sm text-slate-500">Môn đã chọn cho lớp · {term?.termName ?? "Chưa có học kỳ"}</p><ul className="divide-y">{curriculum.map((row) => <AssignmentRow key={row.subjectId} classId={id} className={c.className} termId={termId} subject={row.subject} assignment={row.assignments[0] ?? null} teachers={teachers} canEdit={canEdit && !!term} isAdmin={me.roles.includes("ADMIN")} />)}</ul>{!curriculum.length && <p className="p-4 text-sm text-slate-500">Chưa chọn môn học cho lớp. Vào tab Thông tin để chọn.</p>}</div>;
       })()}
@@ -202,10 +202,8 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
       {tab === "diary" && <ClassWeek me={me} cls={c} w={sp.w} base={{ tab: "diary" }} />}
 
       {tab === "grades" && await (async () => {
-        const [list, avgs] = await Promise.all([
-          db.studentClassEnrollment.findMany({ where: { schoolClassId: id }, include: { student: true }, orderBy: { student: { fullName: "asc" } }, skip: pg.skip, take: pg.take }),
-          db.subjectTermAverage.findMany({ where: { academicTermId: termId, student: { enrollments: { some: { schoolClassId: id } } } } }),
-        ]);
+        const list = await db.studentClassEnrollment.findMany({ where: { schoolClassId: id }, select: { id: true, studentId: true, student: { select: { fullName: true } } }, orderBy: { student: { fullName: "asc" } }, skip: pg.skip, take: pg.take });
+        const avgs = await db.subjectTermAverage.findMany({ where: { academicTermId: termId, studentId: { in: list.map((e) => e.studentId) } }, select: { studentId: true, averageValue: true } });
         return (
           <div className="space-y-3">
             <div className="flex justify-end"><Link href={`/nhap-diem?class=${id}`} className="inline-flex h-9 items-center rounded-md bg-coral-600 px-4 text-sm font-medium text-white hover:bg-coral-700">Nhập / sửa điểm</Link></div>
@@ -224,7 +222,7 @@ export default async function ClassDetail({ params, searchParams }: { params: Pr
 
       {tab === "settings" && await (async () => {
         const [grades, years, teachers, rooms, subjects] = await Promise.all([
-          db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }), db.academicYear.findMany({ orderBy: { startDate: "desc" } }), db.teacher.findMany({ orderBy: { fullName: "asc" } }), db.room.findMany({ orderBy: { roomName: "asc" } }), db.subject.findMany({ orderBy: { subjectName: "asc" } }),
+          db.gradeLevel.findMany({ orderBy: { sortOrder: "asc" } }), db.academicYear.findMany({ orderBy: { startDate: "desc" } }), db.teacher.findMany({ orderBy: { fullName: "asc" }, select: { id: true, fullName: true, code: true } }), db.room.findMany({ orderBy: { roomName: "asc" } }), db.subject.findMany({ orderBy: { subjectName: "asc" } }),
         ]);
         return (
           <Card mobile="flat">

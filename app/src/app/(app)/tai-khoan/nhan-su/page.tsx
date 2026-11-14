@@ -31,7 +31,7 @@ export default async function PersonnelPage({ searchParams }: { searchParams: Pr
   const [staff, standalone] = await Promise.all([
     db.user.findMany({
       where: { NOT: { roles: { has: "STUDENT" } }, ...(q ? { OR: [{ email: { contains: q, mode: "insensitive" } }, { teacher: { fullName: { contains: q, mode: "insensitive" } } }, { account: { username: { contains: q, mode: "insensitive" } } }] } : {}) },
-      include: { teacher: true, account: { select: { id: true, username: true, fullName: true, role: true, position: true, superAdmin: true, status: true } } }, orderBy: { account: { fullName: "asc" } },
+      select: { id: true, accountId: true, email: true, roles: true, isActive: true, teacher: { select: { id: true, fullName: true } }, account: { select: { id: true, username: true, fullName: true, role: true, position: true, superAdmin: true, status: true } } }, orderBy: { account: { fullName: "asc" } },
     }),
     db.doanUser.findMany({ where: { role: "ADMIN", superAdmin: false, eduUser: { is: null }, ...(q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { username: { contains: q, mode: "insensitive" } }] } : {}) }, select: { id: true, username: true, fullName: true, position: true, status: true }, orderBy: { fullName: "asc" } }),
   ]);

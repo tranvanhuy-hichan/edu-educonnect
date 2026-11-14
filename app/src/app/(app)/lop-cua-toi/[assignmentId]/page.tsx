@@ -28,8 +28,8 @@ export default async function MyClass({ params, searchParams }: { params: Promis
   const when = <T,>(on: boolean, q: () => Promise<T>, empty: T) => (on ? q() : Promise.resolve(empty));
   const [allowed, a, posts, postCount, exerciseCount, entries, averages, views, submissions, logs] = await Promise.all([
     canManageClassSubjectAssignment(me, assignmentId),
-    db.classSubjectAssignment.findUnique({ where: { id: assignmentId }, include: { subject: true, teacher: true, academicTerm: { include: { academicYear: true } }, schoolClass: { include: { gradeLevel: true, enrollments: { include: { student: true } } } } }, }),
-    when(tab === "posts", () => db.lessonPost.findMany({ where: { assignmentId }, orderBy: { createdAt: "desc" }, include: { _count: { select: { views: true, exercises: true } }, exercises: { select: { _count: { select: { submissions: true } } } } } }), []),
+    db.classSubjectAssignment.findUnique({ where: { id: assignmentId }, include: { subject: true, teacher: { select: { id: true, fullName: true } }, academicTerm: { include: { academicYear: true } }, schoolClass: { include: { gradeLevel: true, enrollments: { where: tab === "students" || tab === "scores" ? {} : { id: "-" }, select: { studentId: true, student: { select: { id: true, fullName: true, code: true, guardianName: true, guardianPhone: true } } } }, _count: { select: { enrollments: true } } } } }, }),
+    when(tab === "posts", () => db.lessonPost.findMany({ where: { assignmentId }, orderBy: { createdAt: "desc" }, select: { id: true, title: true, createdAt: true, sourceLessonId: true, _count: { select: { views: true, exercises: true } }, exercises: { select: { _count: { select: { submissions: true } } } } } }), []),
     when(tab !== "posts", () => db.lessonPost.count({ where: { assignmentId } }), 0),
     when(tab === "students", () => db.exercise.count({ where: { lessonPost: { assignmentId } } }), 0),
     when(tab === "scores", () => db.scoreEntry.findMany({ where: { assignmentId }, orderBy: { createdAt: "asc" } }), []),
@@ -42,7 +42,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
 
   const seen = new Set<string>();
   const roster = a.schoolClass.enrollments.filter((e) => !seen.has(e.studentId) && seen.add(e.studentId)).map((e) => e.student).sort((x, y) => x.fullName.localeCompare(y.fullName, "vi"));
-  const library = tab === "posts" && me.teacherId ? await db.libraryLesson.findMany({ where: { teacherId: me.teacherId, subjectId: a.subjectId, gradeLevelId: a.schoolClass.gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], include: { exercises: { where: { archivedAt: null }, orderBy: { orderNo: "asc" }, include: { _count: { select: { questions: true } } } } } }) : [];
+  const library = tab === "posts" && me.teacherId ? await db.libraryLesson.findMany({ where: { teacherId: me.teacherId, subjectId: a.subjectId, gradeLevelId: a.schoolClass.gradeLevelId, archivedAt: null }, orderBy: [{ orderNo: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, orderNo: true, exercises: { where: { archivedAt: null }, orderBy: { orderNo: "asc" }, select: { id: true, title: true, kind: true, quizMode: true, _count: { select: { questions: true } } } } } }) : [];
   const avgOf = new Map(averages.map((x) => [x.studentId, x.averageValue]));
   const viewed = new Map(views.map((v) => [v.studentId, v._count._all]));
   const submitted = new Map(submissions.map((v) => [v.studentId, v._count._all]));
@@ -74,7 +74,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
             <span>{a.schoolClass.gradeLevel.gradeName}</span>
             <span>{a.academicTerm.termName} · {a.academicTerm.academicYear.yearName}</span>
             <span>GV: {a.teacher.fullName}</span>
-            <span>{roster.length} học sinh</span>
+            <span>{a.schoolClass._count.enrollments} học sinh</span>
           </div>
         </div>
         <div className="btn-row flex flex-wrap gap-2">
@@ -82,7 +82,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
           <Link href={`/so-dau-bai?classId=${a.schoolClassId}`} className="inline-flex h-9 items-center gap-1.5 rounded-md border bg-white px-3 text-sm hover:bg-slate-50"><ScrollText className="size-4" />Sổ đầu bài</Link>
         </div>
       </Card>
-      <Tabs right={tabsRight} current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "students" ? `${l} (${roster.length})` : k === "posts" ? `${l} (${tab === "posts" ? posts.length : postCount})` : l] as [string, string])} />
+      <Tabs right={tabsRight} current={`?tab=${tab}`} items={TABS.map(([k, l]) => [`?tab=${k}`, k === "students" ? `${l} (${a.schoolClass._count.enrollments})` : k === "posts" ? `${l} (${tab === "posts" ? posts.length : postCount})` : l] as [string, string])} />
 
       {tab === "students" && (
         <Table head={["Học sinh", "Phụ huynh", "Đã xem bài", "Bài tập đã nộp", "Điểm TB môn"]}>
@@ -107,7 +107,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
         <div className="space-y-3">
           <MobileCards
             empty="Chưa có bài học nào cho lớp và môn này."
-            items={posts.map((p) => ({ key: p.id, href: `/bai-hoc/${p.id}`, title: p.title, chips: [`${p._count.exercises} bài tập`, `Đã xem ${p._count.views}/${roster.length}`, ...(p._count.exercises ? [`${p.exercises.reduce((n, e) => n + e._count.submissions, 0)} bài nộp`] : []), fmtDate(p.createdAt)] }))}
+            items={posts.map((p) => ({ key: p.id, href: `/bai-hoc/${p.id}`, title: p.title, chips: [`${p._count.exercises} bài tập`, `Đã xem ${p._count.views}/${a.schoolClass._count.enrollments}`, ...(p._count.exercises ? [`${p.exercises.reduce((n, e) => n + e._count.submissions, 0)} bài nộp`] : []), fmtDate(p.createdAt)] }))}
           />
           <div className="hidden md:block">
           <Table head={["Bài học", "Bài tập", "Đã xem", "Bài nộp", "Ngày đăng"]}>
@@ -115,7 +115,7 @@ export default async function MyClass({ params, searchParams }: { params: Promis
               <tr key={p.id} className="align-middle [&>td]:!py-3">
                 <td><Link data-row href={`/bai-hoc/${p.id}`} className="font-semibold text-orange-700 hover:underline">{p.title}</Link></td>
                 <td>{p._count.exercises ? `${p._count.exercises} bài tập` : <span className="text-slate-400">—</span>}</td>
-                <td>{p._count.views}/{roster.length}</td>
+                <td>{p._count.views}/{a.schoolClass._count.enrollments}</td>
                 <td>{p._count.exercises ? p.exercises.reduce((n, e) => n + e._count.submissions, 0) : <span className="text-slate-400">—</span>}</td>
                 <td>{fmtDate(p.createdAt)}</td>
               </tr>

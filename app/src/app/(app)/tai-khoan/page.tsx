@@ -38,7 +38,8 @@ export default async function Accounts({ searchParams }: { searchParams: Promise
   const [users, ...countList] = await Promise.all([
     db.user.findMany({
       where: { ...base, ...tabWhere }, orderBy, skip: pg.skip, take: pg.take,
-      include: {
+      select: {
+        id: true, email: true, isActive: true, roles: true, createdAt: true, lastLoginAt: true, lockedUntil: true,
         account: { select: { mustChangePassword: true } },
         teacher: { select: { fullName: true, code: true } },
         student: { select: { fullName: true, code: true, enrollments: { take: 1, orderBy: { academicYear: { startDate: "desc" } }, select: { schoolClass: { select: { className: true } } } } } },

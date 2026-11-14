@@ -53,7 +53,7 @@ export default async function Emulation({ searchParams }: { searchParams: Promis
         const rows = period ? await db.classEmulationScore.findMany({
           where: { academicTermId: term.id, periodLabel: period, ...(sp.grade ? { schoolClass: { gradeLevelId: sp.grade } } : {}) },
           orderBy: [{ rank: "asc" }, { totalScore: "desc" }],
-          include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true } } },
+          include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: { select: { id: true, fullName: true } } } } },
         }) : [];
         // Thành phần điểm tính lại bằng đúng công thức + đúng khoảng ngày ghi trong nhãn kỳ.
         const range = parsePeriodRange(period);

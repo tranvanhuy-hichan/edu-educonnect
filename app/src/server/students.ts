@@ -1,4 +1,4 @@
-import { createSharedAccount, setSharedPassword, credentialOfUser } from "@/modules/account/account.repository";
+import { createSharedAccount } from "@/modules/account/account.repository";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { genPassword, genStudentCode } from "@/lib/password";
@@ -91,12 +91,12 @@ export const STATUS_COLOR: Record<StudentStatus, string> = { learning: "text-gre
 export type StudentRow = Awaited<ReturnType<typeof loadStudents>>[number];
 
 /** Học sinh kèm trạng thái suy ra: có lớp ở năm học hiện tại → Đang học (điểm TB < 5 → Cần quan tâm); chưa có → Chờ xếp lớp; tài khoản bị khóa → Đã khóa. */
-export async function loadStudents(where: object = {}) {
+export async function loadStudents(where: object = {}, options: { history?: boolean } = {}) {
   const [year, term, policy] = await Promise.all([currentYear(), currentTerm(), getPolicy()]);
   const attentionBelow = policy.promotion.attentionBelow;
   const list = await db.student.findMany({
     where, orderBy: { fullName: "asc" },
-    include: { user: { select: { email: true, isActive: true, createdAt: true, account: { select: { mustChangePassword: true, status: true } } } }, enrollments: { include: { schoolClass: { include: { gradeLevel: true, homeroomTeacher: true } }, academicYear: true } } },
+    include: { user: { select: { email: true, isActive: true, createdAt: true, account: { select: { mustChangePassword: true, status: true } } } }, enrollments: { where: options.history ? {} : { academicYearId: year?.id ?? "-" }, include: { schoolClass: { select: { id: true, className: true, gradeLevelId: true, gradeLevel: { select: { gradeName: true } }, homeroomTeacher: { select: { fullName: true } } } }, academicYear: { select: { yearName: true } } } } },
   });
   const avgs = term ? await db.subjectTermAverage.groupBy({ by: ["studentId"], where: { academicTermId: term.id, studentId: { in: list.map((s) => s.id) } }, _avg: { averageValue: true } }) : [];
   const avg = new Map(avgs.map((a) => [a.studentId, a._avg.averageValue]));

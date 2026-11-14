@@ -34,12 +34,12 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const student = isStudentOnly(me);
 
   // Học sinh: số lượt đã dùng/còn lại, lượt đang dở, lịch sử điểm. Chạy trước khi tải bài (có thể đóng lượt đã quá giờ).
-  const attemptState = student && sp.ex ? await quizAttemptState(me, sp.ex).catch(() => null) : null;
+  const attemptState = student && sp.tab === "bai-tap" && sp.ex ? await quizAttemptState(me, sp.ex).catch(() => null) : null;
   const post = await db.lessonPost.findFirst({
     where: { id, assignment: assignmentWhere(me) },
     include: {
-      assignment: { include: { schoolClass: { include: { enrollments: { include: { student: true } } } }, subject: true, academicTerm: true, teacher: true } },
-      exercises: { orderBy: { createdAt: "asc" }, include: { submissions: true, _count: { select: { questions: true } } } },
+      assignment: { include: { schoolClass: { include: { enrollments: { where: !student && (sp.tab === "views" || (sp.tab === "bai-tap" && !!sp.ex)) ? {} : { id: "-" }, select: { studentId: true, student: { select: { id: true, fullName: true, code: true } } } }, _count: { select: { enrollments: true } } } }, subject: true, academicTerm: true, teacher: { select: { id: true, fullName: true } } } },
+      exercises: { orderBy: { createdAt: "asc" }, include: { submissions: { where: student ? { studentId: sp.tab === "bai-tap" ? me.studentId ?? "-" : "-" } : { exerciseId: sp.tab === "bai-tap" ? sp.ex ?? "-" : "-" } }, _count: { select: { questions: true, submissions: true } } } },
     },
   });
   if (!post) notFound();
@@ -52,7 +52,12 @@ export default async function LessonPostDetail({ params, searchParams }: { param
 
   const seen = new Set<string>();
   const roster = a.schoolClass.enrollments.filter((e) => !seen.has(e.studentId) && seen.add(e.studentId)).map((e) => e.student).sort((x, y) => x.fullName.localeCompare(y.fullName, "vi"));
-  const views = await db.lessonPostView.findMany({ where: { lessonPostId: id } });
+  const [views, viewCount, gradedCounts] = await Promise.all([
+    sp.tab === "views" && !student ? db.lessonPostView.findMany({ where: { lessonPostId: id }, select: { id: true, studentId: true, viewedAt: true } }) : Promise.resolve([]),
+    db.lessonPostView.count({ where: { lessonPostId: id } }),
+    sp.tab === "bai-tap" && !post.exercises.some((e) => e.id === sp.ex) && !student ? db.assignmentSubmission.groupBy({ by: ["exerciseId"], where: { exercise: { lessonPostId: id }, grade: { not: null } }, _count: { _all: true } }) : Promise.resolve([]),
+  ]);
+  const gradedOf = new Map(gradedCounts.map((row) => [row.exerciseId, row._count._all]));
   const viewOf = new Map(views.map((v) => [v.studentId, v]));
   const links = linksOf(post.attachments);
   const today = todayUTC();
@@ -60,7 +65,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
   const TABS: [string, string][] = [
     ["content", "Nội dung"],
     ["bai-tap", `Bài tập (${post.exercises.length})`],
-    ...(student ? [] : [["views", `Ai đã xem (${views.length}/${roster.length})`] as [string, string]]),
+    ...(student ? [] : [["views", `Ai đã xem (${viewCount}/${a.schoolClass._count.enrollments})`] as [string, string]]),
   ];
   const tab = TABS.some(([k]) => k === sp.tab) ? sp.tab! : "content";
   const exercise = post.exercises.find((e) => e.id === sp.ex);
@@ -136,7 +141,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
             <span>{a.schoolClass.className} · {a.subject.subjectName} · {a.academicTerm.termName}</span>
             <span>GV: {a.teacher.fullName}</span>
             <span>{post.exercises.length} bài tập</span>
-            <span className="flex items-center gap-1"><Eye className="size-4 text-slate-400" />{views.length} lượt học sinh xem</span>
+            <span className="flex items-center gap-1"><Eye className="size-4 text-slate-400" />{viewCount} lượt học sinh xem</span>
           </div>
         </div>
         <div className="btn-row flex flex-wrap gap-2">
@@ -207,8 +212,8 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                     <td>{mine ? <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">{mine.grade != null ? `Đã chấm · ${mine.grade}` : "Đã nộp"}</span> : <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">Chưa nộp</span>}</td>
                   ) : (
                     <>
-                      <td><b>{e.submissions.length}</b>/{roster.length}</td>
-                      <td><b>{e.submissions.filter((s) => s.grade != null).length}</b>/{e.submissions.length}</td>
+                      <td><b>{e._count.submissions}</b>/{a.schoolClass._count.enrollments}</td>
+                      <td><b>{gradedOf.get(e.id) ?? 0}</b>/{e._count.submissions}</td>
                     </>
                   )}
                 </tr>
@@ -328,7 +333,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                   {!student && (
                     <>
                       <Card className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-                        <span><b>{subs.length}</b>/{roster.length} học sinh đã nộp</span>
+                        <span><b>{subs.length}</b>/{a.schoolClass._count.enrollments} học sinh đã nộp</span>
                         {subs.length > 0 && <span>Điểm trung bình: <b>{fmtPts(subs.reduce((t, x) => t + (x.grade ?? 0), 0) / subs.length)}</b></span>}
                       </Card>
                       <Table head={["Học sinh", "Trạng thái", "Nộp lúc", "Điểm", ...((attemptState?.max ?? exercise.maxAttempts) > 1 ? ["Số lần"] : []), ...(exercise.secureMode ? ["Vi phạm"] : []), ""]}>
@@ -365,7 +370,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                             </tr>
                           );
                         })}
-                        {!roster.length && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
+                        {!a.schoolClass._count.enrollments && <tr><td colSpan={5} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
                       </Table>
                     </>
                   )}
@@ -449,7 +454,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                       </tr>
                     );
                   })}
-                  {!roster.length && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
+                  {!a.schoolClass._count.enrollments && <tr><td colSpan={6} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
                 </Table>
               </div>
             )}
@@ -460,8 +465,8 @@ export default async function LessonPostDetail({ params, searchParams }: { param
       {tab === "views" && !student && (
         <div className="space-y-3">
           <Card className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <span><b>{views.length}</b>/{roster.length} học sinh đã xem</span>
-            <div className="h-1.5 w-48 overflow-hidden rounded-full bg-slate-100"><div className="h-1.5 rounded-full" style={{ width: `${roster.length ? (views.length / roster.length) * 100 : 0}%`, background: "var(--color-orange-500)" }} /></div>
+            <span><b>{viewCount}</b>/{a.schoolClass._count.enrollments} học sinh đã xem</span>
+            <div className="h-1.5 w-48 overflow-hidden rounded-full bg-slate-100"><div className="h-1.5 rounded-full" style={{ width: `${a.schoolClass._count.enrollments ? (viewCount / a.schoolClass._count.enrollments) * 100 : 0}%`, background: "var(--color-orange-500)" }} /></div>
           </Card>
           <Table head={["Học sinh", "Trạng thái", "Xem lúc"]}>
             {roster.map((s) => {
@@ -474,7 +479,7 @@ export default async function LessonPostDetail({ params, searchParams }: { param
                 </tr>
               );
             })}
-            {!roster.length && <tr><td colSpan={3} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
+            {!a.schoolClass._count.enrollments && <tr><td colSpan={3} className="py-8 text-center text-slate-500">Lớp chưa có học sinh.</td></tr>}
           </Table>
         </div>
       )}

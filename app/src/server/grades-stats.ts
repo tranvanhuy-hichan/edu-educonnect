@@ -28,8 +28,9 @@ export type AssignmentStat = {
 };
 
 /** Thống kê điểm theo lớp và môn (điểm TB môn đã ở thang 10 nên so sánh trực tiếp giữa các môn). */
-export async function gradeStats(opts: { where?: Prisma.ClassSubjectAssignmentWhereInput; termId?: string; subjectId?: string; schoolClassId?: string; q?: string; includePast?: boolean } = {}): Promise<AssignmentStat[]> {
-  const where: Prisma.ClassSubjectAssignmentWhereInput = {
+export type GradeStatsOptions = { where?: Prisma.ClassSubjectAssignmentWhereInput; termId?: string; subjectId?: string; schoolClassId?: string; q?: string; includePast?: boolean; skip?: number; take?: number };
+export function gradeStatsWhere(opts: GradeStatsOptions): Prisma.ClassSubjectAssignmentWhereInput {
+  return {
     AND: [
       opts.where ?? {},
       opts.termId ? { academicTermId: opts.termId } : {},
@@ -39,19 +40,23 @@ export async function gradeStats(opts: { where?: Prisma.ClassSubjectAssignmentWh
       opts.includePast ? {} : { academicTerm: { endDate: { gte: todayUTC() } } },
     ],
   };
+}
+export async function gradeStats(opts: GradeStatsOptions = {}): Promise<AssignmentStat[]> {
+  const where = gradeStatsWhere(opts);
   const assignments = await db.classSubjectAssignment.findMany({
-    where,
+    where, skip: opts.skip, take: opts.take,
     orderBy: [{ schoolClass: { className: "asc" } }, { subject: { subjectName: "asc" } }],
-    include: {
-      teacher: true, subject: true, academicTerm: true,
-      schoolClass: { include: { enrollments: { include: { student: { select: { id: true, fullName: true, code: true } } } } } },
+    select: {
+      id: true, schoolClassId: true, subjectId: true, academicTermId: true,
+      teacher: { select: { fullName: true } }, subject: { select: { subjectName: true, assessmentType: true } }, academicTerm: { select: { termName: true, endDate: true } },
+      schoolClass: { select: { className: true, enrollments: { select: { student: { select: { id: true, fullName: true, code: true } } } } } },
     },
   });
   const ids = assignments.map((a) => a.id);
   const [entries, averages, reviews] = await Promise.all([
-    db.scoreEntry.findMany({ where: { assignmentId: { in: ids } } }),
-    db.subjectTermAverage.findMany({ where: { assignmentId: { in: ids } } }),
-    db.studentAssessment.findMany({ where: { assignmentId: { in: ids } } }),
+    db.scoreEntry.findMany({ where: { assignmentId: { in: ids } }, select: { assignmentId: true, studentId: true, scoreType: true, value: true } }),
+    db.subjectTermAverage.findMany({ where: { assignmentId: { in: ids } }, select: { assignmentId: true, studentId: true, averageValue: true } }),
+    db.studentAssessment.findMany({ where: { assignmentId: { in: ids } }, select: { assignmentId: true, studentId: true, isExempt: true, outcome: true } }),
   ]);
   const today = todayUTC();
 
